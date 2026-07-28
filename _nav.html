@@ -1,0 +1,60 @@
+<!-- UNIFIED site navigation — same items on every page -->
+<nav class="fixed top-0 z-[10000] border-b border-[var(--color-border)] bg-white hd-nav" role="navigation" aria-label="Main">
+    <div class="max-w-screen-2xl mx-auto">
+        <div class="px-4 sm:px-6 lg:px-8 py-3 lg:py-4 flex items-center justify-between gap-3">
+            <a href="index.html" class="flex items-center gap-x-3 flex-shrink-0 no-underline" aria-label="SBHD Home">
+                <div class="w-9 h-9 bg-[var(--color-navy)] rounded-full flex items-center justify-center">
+                    <span class="text-white font-bold text-xl tracking-tighter">SB</span>
+                </div>
+                <div>
+                    <div class="font-semibold text-xl lg:text-2xl tracking-tight text-[var(--color-navy)]">SBHD</div>
+                    <div class="text-[10px] text-[var(--color-text-muted)] -mt-1 tracking-[1.5px] hidden sm:block">STUDY GROUP</div>
+                </div>
+            </a>
+            <div class="desktop-nav-links hidden lg:flex items-center gap-x-4 xl:gap-x-6 text-sm font-medium flex-wrap justify-end">
+                <a href="index.html" class="nav-link text-[#4A4A4A] hover:text-[var(--color-navy)]">Home</a>
+                <a href="index.html#discover" class="nav-link text-[#4A4A4A] hover:text-[var(--color-navy)]">Discover</a>
+                <a href="index.html#five-types" class="nav-link text-[#4A4A4A] hover:text-[var(--color-navy)]">The Types</a>
+                <a href="index.html#community" class="nav-link text-[#4A4A4A] hover:text-[var(--color-navy)]">Community</a>
+                <a href="index.html#guides" class="nav-link text-[#4A4A4A] hover:text-[var(--color-navy)]">Guides</a>
+                <a href="about.html" class="nav-link text-[#4A4A4A] hover:text-[var(--color-navy)]">About</a>
+                <a href="index.html#testimonials" class="nav-link text-[#4A4A4A] hover:text-[var(--color-navy)]">Testimonials</a>
+                <a href="transit-reports.html" class="nav-link text-[#4A4A4A] hover:text-[var(--color-navy)]">Transit</a>
+                <a href="reports.html" class="nav-link text-[#4A4A4A] hover:text-[var(--color-navy)]">Custom Reports</a>
+                <a href="index.html#gatherings" class="nav-link text-[#4A4A4A] hover:text-[var(--color-navy)]">Gather</a>
+                <a href="index.html#resources" class="nav-link text-[#4A4A4A] hover:text-[var(--color-navy)]">Resources</a>
+            </div>
+            <div class="flex items-center gap-x-2 sm:gap-x-3 flex-shrink-0">
+                <button type="button" onclick="showJoinModal()" class="hidden sm:inline-flex px-4 lg:px-6 py-2.5 text-sm font-semibold bg-red-600 text-white rounded-full hover:bg-red-700 hover:shadow-md transition-all items-center gap-x-2">
+                    <i class="fa-solid fa-users text-xs" aria-hidden="true"></i>
+                    <span class="hidden md:inline">Get Your Introductory Reading</span>
+                    <span class="md:hidden">Intro Reading</span>
+                </button>
+                <button type="button" id="mobile-menu-btn" data-mobile-menu-btn
+                        class="mobile-menu-toggle lg:hidden text-[#4A4A4A] p-2 rounded-lg hover:bg-stone-100"
+                        onclick="toggleMobileNav(); return false;"
+                        aria-label="Open menu" aria-expanded="false" aria-controls="mobile-nav">
+                    <i class="fa-solid fa-bars text-xl" aria-hidden="true"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+    <div id="mobile-nav" class="hidden border-t border-[var(--color-border)] bg-white px-2 sm:px-4 py-1 shadow-lg" aria-hidden="true">
+        <a href="index.html">Home</a>
+        <a href="index.html#discover">Discover</a>
+        <a href="index.html#five-types">The Types</a>
+        <a href="index.html#community">Community</a>
+        <a href="index.html#guides">Guides</a>
+        <a href="about.html">About</a>
+        <a href="index.html#testimonials">Testimonials</a>
+        <a href="transit-reports.html">Transit</a>
+        <a href="reports.html">Custom Reports</a>
+        <a href="index.html#gatherings">Gather</a>
+        <a href="index.html#resources">Resources</a>
+        <a href="privacy-policy.html">Privacy Policy</a>
+        <button type="button" onclick="showJoinModal(); if(typeof toggleMobileNav==='function')toggleMobileNav();"
+                class="mt-2 mb-3 mx-2 w-[calc(100%-1rem)] py-3.5 text-sm font-semibold bg-red-600 text-white rounded-full hover:bg-red-700">
+            Get Your Introductory Reading
+        </button>
+    </div>
+</nav>

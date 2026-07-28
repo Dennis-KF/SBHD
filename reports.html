@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Custom Human Design Reports | Santa Barbara Human Design Study Group</title>
+    <meta name="description" content="Fully customized Human Design reports tailored to your level of understanding.">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://sbhd.net/reports.html">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="css/site-nav.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --color-navy: #0F2942;
+            --color-navy-dark: #0C2135;
+            --color-gold: #D8B77E;
+            --color-gold-light: #EFD9A3;
+            --color-cream: #F7EDE0;
+            --color-border: #E2D5C0;
+            --color-warm-bg: #F3E4D0;
+            --color-text-muted: #665B48;
+        }
+        html { overflow-x: hidden; overflow-y: auto; height: auto; scroll-behavior: smooth; scroll-padding-top: 96px; }
+        body {
+            margin: 0;
+            min-height: 100%;
+            height: auto;
+            overflow-x: hidden;
+            overflow-y: auto;
+            background: var(--color-cream);
+            color: #2C2C2C;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+            line-height: 1.65;
+        }
+        h1, h2, h3, .heading-serif {
+            font-family: 'EB Garamond', Georgia, serif;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+        }
+        nav.hd-nav {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100% !important;
+            z-index: 10000;
+            background: #ffffff !important;
+            border-bottom: 1px solid var(--color-border);
+        }
+        #mobile-nav a {
+            display: block !important;
+            padding: 14px 12px !important;
+            min-height: 48px !important;
+            font-size: 17px !important;
+            color: #2C2C2C !important;
+            text-decoration: none !important;
+            border-bottom: 1px solid #F0E6D6;
+        }
+        #mobile-nav {
+            background: #fff;
+            max-height: 70vh;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        #mobile-menu-btn {
+            min-width: 48px;
+            min-height: 48px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: transparent;
+            border: 0;
+        }
+        #mobile-nav a {
+            position: relative;
+            z-index: 2;
+            pointer-events: auto !important;
+        }
+        @media (max-width: 1023px) {
+            .desktop-nav-links {
+                display: none !important;
+                visibility: hidden !important;
+                pointer-events: none !important;
+                position: absolute !important;
+                width: 0 !important;
+                height: 0 !important;
+                overflow: hidden !important;
+            }
+            .mobile-menu-toggle { display: inline-flex !important; }
+            nav.hd-nav a[aria-label="SBHD Home"] {
+                flex: 0 0 auto !important;
+                max-width: 70% !important;
+            }
+            #mobile-nav:not(.hidden) { display: block !important; pointer-events: auto !important; }
+        }
+        @media (min-width: 1024px) {
+            .desktop-nav-links {
+                display: flex !important;
+                visibility: visible !important;
+                pointer-events: auto !important;
+                position: static !important;
+                width: auto !important;
+                height: auto !important;
+            }
+            .mobile-menu-toggle { display: none !important; }
+            #mobile-nav { display: none !important; }
+        }
+        .report-card { transition: 0.3s; }
+        .report-card:hover {
+            border-color: var(--color-gold);
+            transform: translateY(-2px);
+            box-shadow: 0 12px 28px rgba(15, 41, 66, 0.08);
+        }
+        .mandala-frame {
+            width: clamp(260px, 48vw, 320px);
+            height: clamp(260px, 48vw, 320px);
+            border-radius: 0.55rem;
+            overflow: hidden;
+            background: #fff;
+            border: 3px solid var(--color-gold);
+            padding: 10px;
+            box-sizing: border-box;
+        }
+        .mandala-frame img { width: 100%; height: 100%; object-fit: contain; display: block; }
+        #join-modal.hidden { display: none !important; pointer-events: none !important; }
+        #join-modal.flex { display: flex !important; }
+    
+/* ALWAYS show main menu on desktop widths */
+@media (min-width: 1024px) {
+  .desktop-nav-links {
+    display: flex !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+    position: static !important;
+    width: auto !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+  .mobile-menu-toggle {
+    display: none !important;
+  }
+  #mobile-nav, #mobile-nav.hidden {
+    display: none !important;
+  }
+}
+
+    
+/* Free page scrolling */
+html, body {
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  height: auto !important;
+  max-height: none !important;
+  min-height: 100% !important;
+}
+
+    </style>
+</head>
+<body>
+    <!-- UNIFIED site navigation — same items on every page -->
+<nav class="fixed top-0 z-[10000] border-b border-[var(--color-border)] bg-white hd-nav" role="navigation" aria-label="Main">
+    <div class="max-w-screen-2xl mx-auto">
+        <div class="px-4 sm:px-6 lg:px-8 py-3 lg:py-4 flex items-center justify-between gap-3">
+            <a href="index.html" class="flex items-center gap-x-3 flex-shrink-0 no-underline" aria-label="SBHD Home">
+                <div class="w-9 h-9 bg-[var(--color-navy)] rounded-full flex items-center justify-center">
+                    <span class="text-white font-bold text-xl tracking-tighter">SB</span>
+                </div>
+                <div>
+                    <div class="font-semibold text-xl lg:text-2xl tracking-tight text-[var(--color-navy)]">SBHD</div>
+                    <div class="text-[10px] text-[var(--color-text-muted)] -mt-1 tracking-[1.5px] hidden sm:block">STUDY GROUP</div>
+                </div>
+            </a>
+            <div class="desktop-nav-links hidden lg:flex items-center gap-x-4 xl:gap-x-6 text-sm font-medium flex-wrap justify-end">
+                <a href="index.html" class="nav-link text-[#4A4A4A] hover:text-[var(--color-navy)]">Home</a>
+                <a href="index.html#discover" class="nav-link text-[#4A4A4A] hover:text-[var(--color-navy)]">Discover</a>
+                <a href="index.html#five-types" class="nav-link text-[#4A4A4A] hover:text-[var(--color-navy)]">The Types</a>
+                <a href="index.html#community" class="nav-link text-[#4A4A4A] hover:text-[var(--color-navy)]">Community</a>
+                <a href="index.html#guides" class="nav-link text-[#4A4A4A] hover:text-[var(--color-navy)]">Guides</a>
+                <a href="about.html" class="nav-link text-[#4A4A4A] hover:text-[var(--color-navy)]">About</a>
+                <a href="index.html#testimonials" class="nav-link text-[#4A4A4A] hover:text-[var(--color-navy)]">Testimonials</a>
+                <a href="transit-reports.html" class="nav-link text-[#4A4A4A] hover:text-[var(--color-navy)]">Transit</a>
+                <a href="reports.html" class="nav-link text-[#4A4A4A] hover:text-[var(--color-navy)]">Custom Reports</a>
+                <a href="index.html#gatherings" class="nav-link text-[#4A4A4A] hover:text-[var(--color-navy)]">Gather</a>
+                <a href="index.html#resources" class="nav-link text-[#4A4A4A] hover:text-[var(--color-navy)]">Resources</a>
+            </div>
+            <div class="flex items-center gap-x-2 sm:gap-x-3 flex-shrink-0">
+                <button type="button" onclick="showJoinModal()" class="hidden sm:inline-flex px-4 lg:px-6 py-2.5 text-sm font-semibold bg-red-600 text-white rounded-full hover:bg-red-700 hover:shadow-md transition-all items-center gap-x-2">
+                    <i class="fa-solid fa-users text-xs" aria-hidden="true"></i>
+                    <span class="hidden md:inline">Get Your Introductory Reading</span>
+                    <span class="md:hidden">Intro Reading</span>
+                </button>
+                <button type="button" id="mobile-menu-btn" data-mobile-menu-btn
+                        class="mobile-menu-toggle lg:hidden text-[#4A4A4A] p-2 rounded-lg hover:bg-stone-100"
+                        onclick="toggleMobileNav(); return false;"
+                        aria-label="Open menu" aria-expanded="false" aria-controls="mobile-nav">
+                    <i class="fa-solid fa-bars text-xl" aria-hidden="true"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+    <div id="mobile-nav" class="hidden border-t border-[var(--color-border)] bg-white px-2 sm:px-4 py-1 shadow-lg" aria-hidden="true">
+        <a href="index.html">Home</a>
+        <a href="index.html#discover">Discover</a>
+        <a href="index.html#five-types">The Types</a>
+        <a href="index.html#community">Community</a>
+        <a href="index.html#guides">Guides</a>
+        <a href="about.html">About</a>
+        <a href="index.html#testimonials">Testimonials</a>
+        <a href="transit-reports.html">Transit</a>
+        <a href="reports.html">Custom Reports</a>
+        <a href="index.html#gatherings">Gather</a>
+        <a href="index.html#resources">Resources</a>
+        <a href="privacy-policy.html">Privacy Policy</a>
+        <button type="button" onclick="showJoinModal(); if(typeof toggleMobileNav==='function')toggleMobileNav();"
+                class="mt-2 mb-3 mx-2 w-[calc(100%-1rem)] py-3.5 text-sm font-semibold bg-red-600 text-white rounded-full hover:bg-red-700">
+            Get Your Introductory Reading
+        </button>
+    </div>
+</nav>
+
+
+    <main>
+        <section class="bg-[var(--color-navy)] text-white">
+            <div class="max-w-5xl mx-auto px-8 pt-14 pb-16">
+                <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-10">
+                    <div class="flex-1 text-center md:text-left">
+                        <div class="text-xs uppercase tracking-[2px] text-[var(--color-gold)] mb-4">Dennis Fried &amp; Eike Oertel · Santa Barbara</div>
+                        <h1 class="heading-serif text-4xl sm:text-5xl lg:text-6xl tracking-tight mb-4">Custom Human Design Reports</h1>
+                        <p class="text-xl md:text-2xl text-[var(--color-gold-light)] font-medium mb-5">Fully customized. Matched to your level of understanding.</p>
+                        <p class="text-white/85 max-w-xl mx-auto md:mx-0 mb-8 text-base md:text-lg">Every report is created specifically for you — not from a template. The language, depth, and practical focus are calibrated to where you are in your experiment.</p>
+                        <a href="#request" class="inline-flex items-center bg-[var(--color-gold)] hover:bg-[var(--color-gold-light)] text-[var(--color-navy)] font-semibold px-8 py-3.5 rounded-full text-sm">Request a Report Conversation</a>
+                    </div>
+                    <div class="flex justify-center md:justify-end">
+                        <div class="mandala-frame">
+                            <img src="images/Dennis-Eike-mandala.png" alt="Human Design mandala" width="320" height="320">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="max-w-screen-2xl mx-auto px-8 py-12 md:py-16">
+            <div class="grid md:grid-cols-2 gap-6 max-w-5xl mx-auto">
+                <div class="report-card bg-white border border-[var(--color-border)] rounded-3xl p-6 md:p-8">
+                    <div class="w-10 h-10 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center mb-4"><i class="fa-solid fa-user"></i></div>
+                    <h2 class="text-2xl mb-4">Personal Foundation Reports</h2>
+                    <ul class="space-y-3 text-[#555] text-sm md:text-base">
+                        <li class="flex gap-2"><span class="text-[var(--color-gold)]"><i class="fa-solid fa-check"></i></span><span>Your unique Strategy &amp; Authority made practical</span></li>
+                        <li class="flex gap-2"><span class="text-[var(--color-gold)]"><i class="fa-solid fa-check"></i></span><span>Profile, Definition, Variables &amp; Cross explained in language that fits you</span></li>
+                        <li class="flex gap-2"><span class="text-[var(--color-gold)]"><i class="fa-solid fa-check"></i></span><span>Clear daily decision guidance you can actually use</span></li>
+                    </ul>
+                </div>
+                <div class="report-card bg-white border border-[var(--color-border)] rounded-3xl p-6 md:p-8">
+                    <div class="w-10 h-10 rounded-full bg-violet-100 text-violet-700 flex items-center justify-center mb-4"><i class="fa-solid fa-heart"></i></div>
+                    <h2 class="text-2xl mb-4">Relationship &amp; Compatibility Reports</h2>
+                    <ul class="space-y-3 text-[#555] text-sm md:text-base">
+                        <li class="flex gap-2"><span class="text-[var(--color-gold)]"><i class="fa-solid fa-check"></i></span><span>Partnership, family, or multi-person dynamics</span></li>
+                        <li class="flex gap-2"><span class="text-[var(--color-gold)]"><i class="fa-solid fa-check"></i></span><span>Electromagnetic channels and conditioning patterns</span></li>
+                        <li class="flex gap-2"><span class="text-[var(--color-gold)]"><i class="fa-solid fa-check"></i></span><span>How to navigate connection without force or compromise</span></li>
+                    </ul>
+                </div>
+                <div class="report-card bg-white border border-[var(--color-border)] rounded-3xl p-6 md:p-8">
+                    <div class="w-10 h-10 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center mb-4"><i class="fa-solid fa-clock"></i></div>
+                    <h2 class="text-2xl mb-4">Transit &amp; Timing Reports</h2>
+                    <ul class="space-y-3 text-[#555] text-sm md:text-base">
+                        <li class="flex gap-2"><span class="text-[var(--color-gold)]"><i class="fa-solid fa-check"></i></span><span>Personalized daily, weekly, or monthly guidance</span></li>
+                        <li class="flex gap-2"><span class="text-[var(--color-gold)]"><i class="fa-solid fa-check"></i></span><span>Key activation windows and decision checkpoints</span></li>
+                        <li class="flex gap-2"><span class="text-[var(--color-gold)]"><i class="fa-solid fa-check"></i></span><span>Written for real-life application, not just information</span></li>
+                    </ul>
+                </div>
+                <div class="report-card bg-white border border-[var(--color-border)] rounded-3xl p-6 md:p-8">
+                    <div class="w-10 h-10 rounded-full bg-sky-100 text-sky-700 flex items-center justify-center mb-4"><i class="fa-solid fa-compass"></i></div>
+                    <h2 class="text-2xl mb-4">Specialized &amp; Applied Reports</h2>
+                    <ul class="space-y-3 text-[#555] text-sm md:text-base">
+                        <li class="flex gap-2"><span class="text-[var(--color-gold)]"><i class="fa-solid fa-check"></i></span><span>Decision trees and real-time strategy tools</span></li>
+                        <li class="flex gap-2"><span class="text-[var(--color-gold)]"><i class="fa-solid fa-check"></i></span><span>Family systems, life transitions, or group dynamics</span></li>
+                        <li class="flex gap-2"><span class="text-[var(--color-gold)]"><i class="fa-solid fa-check"></i></span><span>Custom depth for your specific question or situation</span></li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <section class="bg-[var(--color-warm-bg)] border-y border-[var(--color-border)] py-12 md:py-16">
+            <div class="max-w-5xl mx-auto px-8">
+                <h2 class="heading-serif text-4xl md:text-5xl tracking-tight text-center mb-10">How It Works</h2>
+                <div class="grid md:grid-cols-3 gap-8">
+                    <div>
+                        <div class="inline-flex w-12 h-12 items-center justify-center rounded-full bg-[var(--color-navy)] text-[var(--color-gold)] font-semibold text-lg mb-4">1</div>
+                        <h3 class="text-xl mb-2">Conversation</h3>
+                        <p class="text-[#555] text-sm md:text-base">We talk about what you need and your current familiarity with Human Design.</p>
+                    </div>
+                    <div>
+                        <div class="inline-flex w-12 h-12 items-center justify-center rounded-full bg-[var(--color-navy)] text-[var(--color-gold)] font-semibold text-lg mb-4">2</div>
+                        <h3 class="text-xl mb-2">Clear Quote</h3>
+                        <p class="text-[#555] text-sm md:text-base">You receive a straightforward quote based on complexity and depth.</p>
+                    </div>
+                    <div>
+                        <div class="inline-flex w-12 h-12 items-center justify-center rounded-full bg-[var(--color-navy)] text-[var(--color-gold)] font-semibold text-lg mb-4">3</div>
+                        <h3 class="text-xl mb-2">Delivery</h3>
+                        <p class="text-[#555] text-sm md:text-base">A carefully written, fully customized report tailored to you, with accompanying audio file.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="request" class="max-w-screen-2xl mx-auto px-8 py-12 md:py-16">
+            <div class="bg-[var(--color-navy)] text-white rounded-3xl px-8 md:px-14 py-14">
+                <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-10 text-center md:text-left">
+                    <div class="flex-1 max-w-xl">
+                        <h2 class="heading-serif text-4xl md:text-5xl tracking-tight mb-4">Ready to begin?</h2>
+                        <p class="text-white/85 mb-8">Tell us a little about what you're looking for and we'll reply within a few days.</p>
+                        <a href="mailto:dkf@cox.net?subject=Human%20Design%20Report%20Conversation"
+                           class="inline-flex items-center bg-[var(--color-gold)] hover:bg-[var(--color-gold-light)] text-[var(--color-navy)] font-semibold px-10 py-4 rounded-full text-sm">Request a Report Conversation</a>
+                        <p class="mt-4 text-sm text-white/60">Or email <a href="mailto:dkf@cox.net" class="text-[var(--color-gold)] underline">dkf@cox.net</a></p>
+                    </div>
+                    <div class="flex flex-col items-center gap-3">
+                        <img src="images/SBHD Donation QR.png" alt="SBHD contact QR code" class="w-28 h-28 object-contain rounded-xl border border-[var(--color-gold)]/50 bg-white p-1.5">
+                        <span class="text-[10px] uppercase tracking-[1.5px] text-white/50">Scan to connect</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="bg-[var(--color-navy)] text-[var(--color-cream)] py-8">
+        <div class="max-w-6xl mx-auto px-6 text-center text-sm">
+            <p class="text-[var(--color-gold)]">&copy; 2026 Santa Barbara Human Design Study Group</p>
+            <p class="mt-4 space-x-3">
+                <a href="index.html" class="hover:text-[var(--color-gold)]">Home</a>
+                <a href="transit-reports.html" class="hover:text-[var(--color-gold)]">Transit</a>
+                <a href="reports.html" class="hover:text-[var(--color-gold)]">Custom Reports</a>
+                <a href="about.html" class="hover:text-[var(--color-gold)]">About</a>
+                <a href="privacy-policy.html" class="hover:text-[var(--color-gold)]">Privacy Policy</a>
+            </p>
+        </div>
+    </footer>
+
+    <div id="join-modal" onclick="if(event.target.id==='join-modal')hideJoinModal()" class="hidden fixed inset-0 bg-black/60 z-[10050] items-center justify-center p-4">
+        <div onclick="event.stopPropagation()" class="bg-white w-full max-w-md rounded-3xl p-7 max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-start mb-4">
+                <div class="font-semibold text-2xl">Get Your Introductory Reading</div>
+                <button type="button" onclick="hideJoinModal()" class="text-2xl leading-none">&times;</button>
+            </div>
+            <form onsubmit="handleJoinSubmit(event)" class="space-y-3">
+                <input type="text" name="name" required placeholder="Full name" class="w-full border rounded-xl px-4 py-3 text-sm">
+                <input type="email" name="email" required placeholder="Email" class="w-full border rounded-xl px-4 py-3 text-sm">
+                <button type="submit" class="w-full py-3 rounded-2xl bg-[var(--color-navy)] text-white font-semibold">Submit</button>
+            </form>
+        </div>
+    </div>
+
+    <script src="js/mobile-nav.js"></script>
+    <script>
+        function showJoinModal() {
+            var m = document.getElementById('join-modal');
+            if (!m) return;
+            m.classList.remove('hidden');
+            m.classList.add('flex');
+        }
+        function hideJoinModal() {
+            var m = document.getElementById('join-modal');
+            if (!m) return;
+            m.classList.remove('flex');
+            m.classList.add('hidden');
+        }
+        function handleJoinSubmit(e) {
+            e.preventDefault();
+            var f = e.target;
+            var name = (f.querySelector('[name=name]') || {}).value || '';
+            var email = (f.querySelector('[name=email]') || {}).value || '';
+            window.location.href = 'mailto:sbfun@cox.net?subject=' + encodeURIComponent('Introductory Reading Request') +
+                '&body=' + encodeURIComponent('Name: ' + name + '\nEmail: ' + email);
+            setTimeout(function () { hideJoinModal(); f.reset(); }, 400);
+        }
+    </script>
+</body>
+</html>
