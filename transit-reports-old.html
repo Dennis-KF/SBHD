@@ -197,24 +197,13 @@
 }
 
     
+/* Free page scrolling */
 html, body {
-  overflow: hidden !important;
-  height: 100% !important;
-  max-height: 100% !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  height: auto !important;
+  max-height: none !important;
   min-height: 100% !important;
-}
-#transit-app {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  width: 100%;
-  border: 0;
-  margin: 0;
-  padding: 0;
-  display: block;
-  background: #fff;
-  z-index: 1;
 }
 
     </style>
@@ -282,7 +271,83 @@ html, body {
 </nav>
 
 
-    <iframe id="transit-app" src="https://new-experiment-one.vercel.app" title="Transit reports"></iframe>
+    <main>
+        <section class="bg-white border-b border-[var(--color-border)]">
+            <div class="max-w-6xl mx-auto px-6 md:px-8 pt-12 md:pt-16 pb-8 text-center">
+                <div class="mb-5">
+                    <span class="transit-hero-badge"><i class="fa-solid fa-moon text-[10px]"></i> Updated weekly</span>
+                </div>
+                <h1 class="heading-serif text-5xl md:text-6xl tracking-tight text-[var(--color-navy)] mb-3">Weekly Transit Reports</h1>
+                <p class="text-[#555] text-lg md:text-xl mt-5 max-w-3xl mx-auto">
+                    Looking for a fully customized report?
+                    <a href="reports.html" class="text-emerald-600 font-semibold underline underline-offset-2">Custom Human Design Reports</a>
+                </p>
+            </div>
+        </section>
+
+        <section class="max-w-screen-2xl mx-auto px-6 md:px-8 py-10 md:py-14">
+            <div class="max-w-6xl mx-auto">
+                <div id="transit-report-buttons" class="flex flex-wrap gap-2 pb-3 mb-6">
+                    <button type="button" id="rpt-dennis-f" class="person-btn btn-red-type flex items-center gap-1.5" onclick="showReport('dennis-f')"><span class="w-2 h-2 rounded-full bg-[#b91c1c]"></span>Dennis F</button>
+                    <button type="button" id="rpt-eike-o" class="person-btn btn-orange-type flex items-center gap-1.5" onclick="showReport('eike-o')"><span class="w-2 h-2 rounded-full bg-[#c2410f]"></span>Eike O</button>
+                    <button type="button" id="rpt-judy-b" class="person-btn btn-red-type flex items-center gap-1.5" onclick="showReport('judy-b')"><span class="w-2 h-2 rounded-full bg-[#b91c1c]"></span>Judy B</button>
+                    <button type="button" id="rpt-teresa-s" class="person-btn btn-green-type flex items-center gap-1.5" onclick="showReport('teresa-s')"><span class="w-2 h-2 rounded-full bg-[#166534]"></span>Teresa S</button>
+                    <button type="button" id="rpt-milena-b" class="person-btn btn-brown-type flex items-center gap-1.5" onclick="showReport('milena-b')"><span class="w-2 h-2 rounded-full bg-[#854d0e]"></span>Milena B</button>
+                    <button type="button" id="rpt-carolyn-a" class="person-btn btn-green-type flex items-center gap-1.5" onclick="showReport('carolyn-a')"><span class="w-2 h-2 rounded-full bg-[#166534]"></span>Carolyn A</button>
+                    <button type="button" id="rpt-leah-d" class="person-btn btn-brown-type flex items-center gap-1.5" onclick="showReport('leah-d')"><span class="w-2 h-2 rounded-full bg-[#854d0e]"></span>Leah D</button>
+                </div>
+
+                <div id="report-viewer">
+                    <div class="bg-white border border-[var(--color-border)] rounded-3xl p-4 md:p-6 shadow-md">
+                        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4 pr-0 sm:pr-44">
+                            <div>
+                                <span class="text-xs uppercase tracking-[2px] text-[#8B7A5E]">Current Report for</span>
+                                <div id="report-name" class="text-2xl md:text-3xl font-semibold text-[var(--color-navy)]">Dennis F</div>
+                            </div>
+                            <a id="report-download" href="pdfs/transits/DennisF.pdf" target="_blank" rel="noopener" download="dennis-f-transit-report.pdf"
+                               class="inline-flex items-center gap-x-2 px-5 py-2 text-sm font-semibold bg-[var(--color-gold)] text-[var(--color-navy)] rounded-full">
+                                <i class="fa-solid fa-download"></i> Download PDF
+                            </a>
+                        </div>
+                        <img id="report-img" class="report-img" src="images/DennisF.png" alt="Dennis F BodyGraph">
+                        <div id="pdf-viewer" class="pdf-embed-frame">
+                            <div class="pdf-toolbar">
+                                <span id="pdf-toolbar-label" style="font-size:14px;font-weight:600;color:#4A4A4A;">Showing report for Dennis F</span>
+                            </div>
+                            <div id="pdf-embed-host" class="pdf-embed-host">
+                                <object data="pdfs/transits/DennisF.pdf#view=FitH" type="application/pdf" width="100%" height="800" title="Weekly transit report for Dennis F">
+                                    <embed src="pdfs/transits/DennisF.pdf#view=FitH" type="application/pdf" width="100%" height="800">
+                                    <iframe src="pdfs/transits/DennisF.pdf#view=FitH" title="Weekly transit report for Dennis F" width="100%" height="800"></iframe>
+                                </object>
+                            </div>
+                        </div>
+                        <p class="text-center text-sm text-[#888] mt-4">Reports are typically 3–4 pages. Scroll inside the window above to read, or use Download PDF.</p>
+                    </div>
+                </div>
+
+                <div class="mt-10">
+                    <h2 class="heading-serif text-2xl md:text-3xl text-[var(--color-navy)] mb-4">About these reports</h2>
+                    <div class="space-y-4 text-base md:text-lg text-[#555]">
+                        <p>These reports are Exclusively for members of the Santa Barbara Human Design Group. If you are interested start by requesting your <a href="javascript:void(0)" onclick="showJoinModal(); return false;" class="font-semibold text-emerald-600 underline">Introductory Reading</a>.</p>
+                        <p class="about-custom-line">For a deeper, one-of-a-kind analysis of your chart, explore our <a href="reports.html" class="font-semibold text-emerald-600 underline">Custom Human Design Reports</a>.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="bg-[var(--color-navy)] text-[var(--color-cream)] py-8">
+        <div class="max-w-6xl mx-auto px-6 text-center text-sm">
+            <p class="text-[var(--color-gold)]">&copy; <span id="year"></span> Santa Barbara Human Design Study Group</p>
+            <p class="mt-4 space-x-3">
+                <a href="index.html" class="hover:text-[var(--color-gold)]">Home</a>
+                <a href="transit-reports.html" class="hover:text-[var(--color-gold)]">Transit</a>
+                <a href="reports.html" class="hover:text-[var(--color-gold)]">Custom Reports</a>
+                <a href="about.html" class="hover:text-[var(--color-gold)]">About</a>
+                <a href="privacy-policy.html" class="hover:text-[var(--color-gold)]">Privacy Policy</a>
+            </p>
+        </div>
+    </footer>
 
     <div id="join-modal" onclick="if(event.target.id==='join-modal')hideJoinModal()" class="hidden fixed inset-0 bg-black/60 z-[10050] items-center justify-center p-4">
         <div onclick="event.stopPropagation()" class="bg-white w-full max-w-md rounded-3xl p-7 max-h-[90vh] overflow-y-auto">
@@ -300,16 +365,7 @@ html, body {
 
     <script src="js/mobile-nav.js"></script>
     <script>
-        function fitTransitFrame() {
-            var bar = document.querySelector('nav.hd-nav > div');
-            var frame = document.getElementById('transit-app');
-            if (!bar || !frame) return;
-            var top = bar.offsetHeight;
-            frame.style.top = top + 'px';
-            frame.style.height = Math.max(0, window.innerHeight - top) + 'px';
-        }
-        fitTransitFrame();
-        window.addEventListener('resize', fitTransitFrame);
+        document.getElementById('year').textContent = new Date().getFullYear();
         function showJoinModal() {
             var m = document.getElementById('join-modal');
             if (!m) return;
@@ -331,6 +387,38 @@ html, body {
                 '&body=' + encodeURIComponent('Name: ' + name + '\nEmail: ' + email);
             setTimeout(function () { hideJoinModal(); f.reset(); }, 400);
         }
+        var transitReports = {
+            'dennis-f': { name: 'Dennis F', pdf: 'pdfs/transits/DennisF.pdf', image: 'images/DennisF.png' },
+            'eike-o': { name: 'Eike O', pdf: 'pdfs/transits/EikeO.pdf', image: 'images/EikeO.png' },
+            'judy-b': { name: 'Judy B', pdf: 'pdfs/transits/JudyB.pdf', image: 'images/JudyB.png' },
+            'teresa-s': { name: 'Teresa S', pdf: 'pdfs/transits/TeresaS.pdf', image: 'images/TeresaS.png' },
+            'milena-b': { name: 'Milena B', pdf: 'pdfs/transits/MilenaB.pdf', image: 'images/MilenaB.png' },
+            'carolyn-a': { name: 'Carolyn A', pdf: 'pdfs/transits/CarolynA.pdf', image: 'images/CarolynA.png' },
+            'leah-d': { name: 'Leah D', pdf: 'pdfs/transits/LeahD.pdf', image: 'images/LeahD.png' }
+        };
+        function showReport(key) {
+            var data = transitReports[key];
+            if (!data) return;
+            var absPdf = new URL(data.pdf, window.location.href).href;
+            var pdfWithView = absPdf + (absPdf.indexOf('#') === -1 ? '#view=FitH' : '');
+            document.getElementById('report-name').textContent = data.name;
+            var dl = document.getElementById('report-download');
+            dl.href = absPdf;
+            dl.setAttribute('download', key + '-transit-report.pdf');
+            document.getElementById('pdf-toolbar-label').textContent = 'Showing report for ' + data.name;
+            var img = document.getElementById('report-img');
+            img.src = data.image;
+            img.alt = data.name + ' BodyGraph';
+            var safe = data.name.replace(/</g, '&lt;');
+            document.getElementById('pdf-embed-host').innerHTML =
+                '<object data="' + pdfWithView + '" type="application/pdf" width="100%" height="800" title="' + safe + '">' +
+                '<embed src="' + pdfWithView + '" type="application/pdf" width="100%" height="800">' +
+                '<iframe src="' + pdfWithView + '" width="100%" height="800" title="' + safe + '"></iframe></object>';
+            document.querySelectorAll('.person-btn').forEach(function (b) { b.classList.remove('active'); });
+            var btn = document.getElementById('rpt-' + key);
+            if (btn) btn.classList.add('active');
+        }
+        showReport('dennis-f');
     </script>
 </body>
 </html>
