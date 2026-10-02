@@ -2525,6 +2525,7 @@
 
             forceCloseAllModals();
             if (!window.location.hash) window.scrollTo(0, 0);
+            if (window.location.hash === '#reading') showJoinModal();
 
             console.log('%c[SBHD] Website ready. Press "h" three times to jump to the Types section.', 'color:#8B7A5E');
         }
