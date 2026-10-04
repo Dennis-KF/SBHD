@@ -374,6 +374,14 @@
             display: block;
             border-radius: 0.2rem;
         }
+        #reports #transit-app {
+            display: block;
+            width: 100%;
+            height: 100vh;
+            min-height: 800px;
+            border: 0;
+            background: #fff;
+        }
         @media (max-width: 900px) {
             #pdf-embed-host,
             .pdf-embed-host,
@@ -1254,43 +1262,7 @@
             </div>
 
             <div id="report-viewer" class="mt-2">
-                <div class="report-card-inner bg-white border border-[var(--color-border)] rounded-3xl p-4 md:p-6 shadow-md">
-                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4 pr-0 sm:pr-44">
-                        <div>
-                            <span class="text-xs uppercase tracking-[2px] text-[#8B7A5E]">Current Report for</span>
-                            <div id="report-name" class="text-2xl md:text-3xl font-semibold tracking-tight text-[var(--color-navy)]">Dennis F</div>
-                        </div>
-                        <div class="flex flex-wrap items-center gap-2">
-                            <a id="report-download"
-                               href="pdfs/transits/DennisF.pdf"
-                               target="_blank"
-                               rel="noopener"
-                               download="dennis-f-transit-report.pdf"
-                               class="inline-flex items-center gap-x-2 px-5 py-2 text-sm font-semibold bg-[var(--color-gold)] text-[var(--color-navy)] rounded-full hover:bg-[var(--color-gold-light)] transition-all">
-                                <i class="fa-solid fa-download"></i>
-                                <span>Download PDF</span>
-                            </a>
-                        </div>
-                    </div>
-
-                    <img id="report-img" class="report-img" src="images/DennisF.png" alt="Dennis F BodyGraph">
-
-                    <div id="pdf-viewer" class="pdf-embed-frame">
-                        <div class="pdf-toolbar">
-                            <span id="pdf-toolbar-label" style="font-size:14px;color:#4A4A4A;font-weight:600;">Showing report for Dennis F</span>
-                        </div>
-                        <div id="pdf-embed-host" class="pdf-embed-host">
-                            <object data="pdfs/transits/DennisF.pdf#view=FitH" type="application/pdf" width="100%" height="800" title="Weekly transit report for Dennis F">
-                                <embed src="pdfs/transits/DennisF.pdf#view=FitH" type="application/pdf" width="100%" height="800">
-                                <iframe src="pdfs/transits/DennisF.pdf#view=FitH" title="Weekly transit report for Dennis F" width="100%" height="800"></iframe>
-                            </object>
-                        </div>
-                    </div>
-
-                    <p class="text-center text-sm text-[#888] mt-4">
-                        Reports are typically 3–4 pages. Scroll inside the window above to read, or use Download PDF.
-                    </p>
-                </div>
+                <iframe id="transit-app" src="https://new-experiment-one.vercel.app" title="Transit reports" allow="autoplay"></iframe>
             </div>
 
             <div class="mt-10 max-w-6xl mx-auto">
