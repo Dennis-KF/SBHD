@@ -198,21 +198,19 @@
 
     
 html, body {
-  overflow: hidden !important;
-  height: 100% !important;
-  max-height: 100% !important;
-  min-height: 100% !important;
+  overflow-x: hidden;
+  overflow-y: auto;
+  height: auto;
+  min-height: 100%;
 }
 #transit-app {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  position: relative;
+  display: block;
   width: 100%;
+  min-height: 70vh;
   border: 0;
   margin: 0;
   padding: 0;
-  display: block;
   background: #fff;
   z-index: 1;
 }
@@ -354,12 +352,21 @@ html, body {
             var bar = document.querySelector('nav.hd-nav > div');
             var frame = document.getElementById('transit-app');
             if (!bar || !frame) return;
-            var top = bar.offsetHeight;
-            frame.style.top = top + 'px';
-            frame.style.height = Math.max(0, window.innerHeight - top) + 'px';
+            frame.style.marginTop = bar.offsetHeight + 'px';
+        }
+        function sizeTransitFrame(event) {
+            if (event.origin !== "https://new-experiment-one.vercel.app") return;
+            var frame = document.getElementById("transit-app");
+            if (!frame || event.source !== frame.contentWindow) return;
+            var data = event.data || {};
+            if (data.type !== "transit-frame-height") return;
+            var height = Number(data.height);
+            if (!height || height < 480 || height > 20000) return;
+            frame.style.height = Math.ceil(height) + "px";
         }
         fitTransitFrame();
-        window.addEventListener('resize', fitTransitFrame);
+        window.addEventListener("resize", fitTransitFrame);
+        window.addEventListener("message", sizeTransitFrame);
         function showJoinModal() {
             var m = document.getElementById('join-modal');
             if (!m) return;

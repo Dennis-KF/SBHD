@@ -1251,18 +1251,20 @@
                 </p>
             </div>
 
-            <div id="transit-report-buttons" class="flex flex-wrap gap-2 pb-3 mb-6" role="group" aria-label="Choose transit report by name">
-                <button type="button" id="rpt-dennis-f" class="person-btn btn-red-type flex items-center gap-1.5" onclick="showReport('dennis-f')"><span class="w-2 h-2 rounded-full bg-[#b91c1c] flex-shrink-0"></span>Dennis F</button>
-                <button type="button" id="rpt-eike-o" class="person-btn btn-orange-type flex items-center gap-1.5" onclick="showReport('eike-o')"><span class="w-2 h-2 rounded-full bg-[#c2410f] flex-shrink-0"></span>Eike O</button>
-                <button type="button" id="rpt-judy-b" class="person-btn btn-red-type flex items-center gap-1.5" onclick="showReport('judy-b')"><span class="w-2 h-2 rounded-full bg-[#b91c1c] flex-shrink-0"></span>Judy B</button>
-                <button type="button" id="rpt-teresa-s" class="person-btn btn-green-type flex items-center gap-1.5" onclick="showReport('teresa-s')"><span class="w-2 h-2 rounded-full bg-[#166534] flex-shrink-0"></span>Teresa S</button>
-                <button type="button" id="rpt-milena-b" class="person-btn btn-brown-type flex items-center gap-1.5" onclick="showReport('milena-b')"><span class="w-2 h-2 rounded-full bg-[#854d0e] flex-shrink-0"></span>Milena B</button>
-                <button type="button" id="rpt-carolyn-a" class="person-btn btn-green-type flex items-center gap-1.5" onclick="showReport('carolyn-a')"><span class="w-2 h-2 rounded-full bg-[#166534] flex-shrink-0"></span>Carolyn A</button>
-                <button type="button" id="rpt-leah-d" class="person-btn btn-brown-type flex items-center gap-1.5" onclick="showReport('leah-d')"><span class="w-2 h-2 rounded-full bg-[#854d0e] flex-shrink-0"></span>Leah D</button>
-            </div>
-
             <div id="report-viewer" class="mt-2">
                 <iframe id="transit-app" src="https://new-experiment-one.vercel.app" title="Transit reports" allow="autoplay"></iframe>
+                <script>
+                    window.addEventListener("message", function (event) {
+                        if (event.origin !== "https://new-experiment-one.vercel.app") return;
+                        var frame = document.getElementById("transit-app");
+                        if (!frame || event.source !== frame.contentWindow) return;
+                        var data = event.data || {};
+                        if (data.type !== "transit-frame-height") return;
+                        var height = Number(data.height);
+                        if (!height || height < 480 || height > 20000) return;
+                        frame.style.height = Math.ceil(height) + "px";
+                    });
+                </script>
             </div>
 
             <div class="mt-10 max-w-6xl mx-auto">
