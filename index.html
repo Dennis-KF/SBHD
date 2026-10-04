@@ -381,6 +381,10 @@
             min-height: 800px;
             border: 0;
             background: #fff;
+            pointer-events: none;
+        }
+        #reports #transit-app.transit-live {
+            pointer-events: auto;
         }
         @media (max-width: 900px) {
             #pdf-embed-host,
@@ -1254,16 +1258,27 @@
             <div id="report-viewer" class="mt-2">
                 <iframe id="transit-app" src="https://new-experiment-one.vercel.app" title="Transit reports" allow="autoplay"></iframe>
                 <script>
-                    window.addEventListener("message", function (event) {
-                        if (event.origin !== "https://new-experiment-one.vercel.app") return;
+                    (function () {
                         var frame = document.getElementById("transit-app");
-                        if (!frame || event.source !== frame.contentWindow) return;
-                        var data = event.data || {};
-                        if (data.type !== "transit-frame-height") return;
-                        var height = Number(data.height);
-                        if (!height || height < 480 || height > 20000) return;
-                        frame.style.height = Math.ceil(height) + "px";
-                    });
+                        var viewer = document.getElementById("report-viewer");
+                        if (!frame || !viewer) return;
+                        function releaseFrame() {
+                            frame.classList.remove("transit-live");
+                        }
+                        viewer.addEventListener("click", function () {
+                            frame.classList.add("transit-live");
+                        });
+                        window.addEventListener("scroll", releaseFrame, { passive: true });
+                        window.addEventListener("message", function (event) {
+                            if (event.origin !== "https://new-experiment-one.vercel.app") return;
+                            if (event.source !== frame.contentWindow) return;
+                            var data = event.data || {};
+                            if (data.type !== "transit-frame-height") return;
+                            var height = Number(data.height);
+                            if (!height || height < 480 || height > 20000) return;
+                            frame.style.height = Math.ceil(height) + "px";
+                        });
+                    })();
                 </script>
             </div>
 
@@ -1611,7 +1626,7 @@
                 <a href="mailto:sbfun@cox.net" class="hover:text-[var(--color-gold)]">sbfun@cox.net</a>
             </p>
             <p class="mt-4 space-x-3">
-                <a href="transit-reports.html" class="hover:text-[var(--color-gold)]">Transit Reports</a>
+                <a href="index.html#reports" class="hover:text-[var(--color-gold)]">Transit Reports</a>
                 <a href="reports.html" class="hover:text-[var(--color-gold)]">Custom Reports</a>
                 <a href="about.html" class="hover:text-[var(--color-gold)]">About</a>
                 <a href="privacy-policy.html" class="hover:text-[var(--color-gold)]">Privacy Policy</a>
