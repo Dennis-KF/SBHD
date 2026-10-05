@@ -1490,7 +1490,7 @@
                             Dennis Fried: <a href="mailto:sbfun@cox.net" onclick="event.stopPropagation()" class="hover:text-[var(--color-gold)]">sbfun@cox.net</a>
                         </div>
                         <div class="mt-5 pt-4 border-t border-[var(--color-border)]" onclick="event.stopPropagation()">
-                            <a href="index.html#custom-reports" class="text-emerald-600 font-semibold text-base hover:text-emerald-500 hover:underline underline-offset-2">Custom Reports</a>
+                            <a href="#custom-reports" data-home-custom-reports class="text-emerald-600 font-semibold text-base hover:text-emerald-500 hover:underline underline-offset-2">Custom Reports</a>
                         </div>
                     </div>
                 </div>
@@ -1511,7 +1511,7 @@
                             Contact Dennis: <a href="mailto:sbfun@cox.net" onclick="event.stopPropagation()" class="hover:text-[var(--color-gold)]">sbfun@cox.net</a>
                         </div>
                         <div class="mt-5 pt-4 border-t border-[var(--color-border)]" onclick="event.stopPropagation()">
-                            <a href="index.html#custom-reports" class="text-emerald-600 font-semibold text-base hover:text-emerald-500 hover:underline underline-offset-2">Custom Reports</a>
+                            <a href="#custom-reports" data-home-custom-reports class="text-emerald-600 font-semibold text-base hover:text-emerald-500 hover:underline underline-offset-2">Custom Reports</a>
                         </div>
                     </div>
                 </div>
@@ -1627,7 +1627,7 @@
             </p>
             <p class="mt-4 space-x-3">
                 <a href="index.html#reports" class="hover:text-[var(--color-gold)]">Transit Reports</a>
-                <a href="index.html#custom-reports" class="hover:text-[var(--color-gold)]">Custom Reports</a>
+                <a href="#custom-reports" data-home-custom-reports class="hover:text-[var(--color-gold)]">Custom Reports</a>
                 <a href="index.html#partners" class="hover:text-[var(--color-gold)]">About</a>
                 <a href="privacy-policy.html" class="hover:text-[var(--color-gold)]">Privacy Policy</a>
             </p>
@@ -2060,15 +2060,34 @@
             document.body.style.overflow = 'visible';
         }
 
+        function setupHomeCustomReportLinks() {
+            document.querySelectorAll('a[data-home-custom-reports]').forEach(function (link) {
+                link.addEventListener('click', function (e) {
+                    if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (window.SBHD_closeMobileNav) window.SBHD_closeMobileNav();
+                    var hash = '#custom-reports';
+                    if (window.location.hash !== hash) window.location.hash = hash;
+                    if (window.SBHD_scrollToHash) window.SBHD_scrollToHash(hash, 'auto');
+                    else {
+                        var section = document.getElementById('custom-reports');
+                        if (section) section.scrollIntoView();
+                    }
+                });
+            });
+        }
+
         function setupEventCards() {
             document.querySelectorAll('.event-card[data-event-modal]').forEach(function (card) {
                 card.addEventListener('click', function (e) {
-                    if (e.target.closest('a[href^="mailto:"]')) return;
+                    if (e.target.closest('a[href]')) return;
                     const key = card.getAttribute('data-event-modal');
                     if (key) showEventModal(key);
                 });
                 card.addEventListener('keydown', function (e) {
                     if (e.key !== 'Enter' && e.key !== ' ') return;
+                    if (e.target.closest('a[href]')) return;
                     e.preventDefault();
                     const key = card.getAttribute('data-event-modal');
                     if (key) showEventModal(key);
@@ -2500,6 +2519,7 @@
             if (window.SBHD_ensurePageScrollable) SBHD_ensurePageScrollable();
             initTailwind();
             setupEventCards();
+            setupHomeCustomReportLinks();
             setupKeyboard();
             setupActiveNav();
             setupSmoothScroll();
