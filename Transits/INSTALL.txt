@@ -1,0 +1,102 @@
+Human Design Transit Analyzer — installation (iPhone / iPad Firefox + Windows)
+==============================================================================
+
+What you have
+-------------
+This folder is a small static website:
+
+  index.html               — the app shell (open this)
+  data.js                  — gate / line / center / channel meanings + samples
+  analyzer.js              — chart + transit engine
+  app.js                   — buttons, uploads, report UI
+  astronomy.browser.min.js — offline ephemeris library (no internet needed once hosted or opened locally)
+  manifest.webmanifest     — optional “Add to Home Screen” metadata
+  netlify.toml             — optional hint for Netlify
+  INSTALL.txt              — this file
+
+Why not only a single HTML file on the iPhone?
+----------------------------------------------
+Firefox on iPhone and iPad uses WebKit. Opening a lone .html from the Files app
+via file:// is unreliable, and fetch() of a sibling .json from file:// usually
+fails. This package keeps the database in data.js and loads it with a normal
+<script src="data.js"> tag, which works:
+
+  • on Windows when you double-click index.html (file://), and
+  • on iPhone/iPad Firefox when the folder is served over https.
+
+Recommended for iPhone / iPad: free static hosting (Netlify Drop)
+----------------------------------------------------------------
+Do this once from a computer (Mac, Windows, or Linux):
+
+1. Unzip “TransitAnalyzer (split for iPhone-iPad).zip” so you see index.html
+   at the top of the folder (not nested an extra level).
+
+2. In Firefox or Chrome on that computer, open:
+      https://app.netlify.com/drop
+   (Netlify Drop is free; you may need a free Netlify account.)
+
+3. Drag the whole unzipped folder onto the Drop page. Wait until Netlify
+   finishes and shows a public https://….netlify.app URL.
+
+4. On your iPhone or iPad, open that URL in Firefox.
+
+5. Bookmark it (Firefox menu → Bookmarks).
+
+6. Optional — Add to Home Screen (honest limits):
+   • On iOS, “Add to Home Screen” is historically a Safari share-sheet feature.
+   • In Firefox for iOS, open the tab → Share (□↑) and look for
+     “Add to Home Screen” or “Add to Dock” if your iOS / Firefox version
+     offers it. If you do not see it, keep using the bookmark; the app still
+     works in a normal Firefox tab.
+   • The included manifest.webmanifest helps when the browser supports PWA
+     install; it does not invent a menu item that Firefox/iOS omit.
+
+Alternative: GitHub Pages (also free)
+-------------------------------------
+1. Create a new GitHub repository and upload every file from this folder
+   (index.html must be at the repo root, or in /docs if you enable Docs Pages).
+2. Settings → Pages → deploy from main branch (or /docs).
+3. Open the https://<user>.github.io/<repo>/ URL in Firefox on your device.
+
+Updating meanings / samples later
+---------------------------------
+1. Edit data.js on your computer (it assigns window.HD_DATA = { ... }).
+2. Re-upload the folder to Netlify Drop (new deploy) or push to GitHub Pages.
+3. On the phone, refresh the page (pull to refresh or open the URL again).
+   You do not need to change index.html for data-only updates.
+
+Windows (or Mac) offline / double-click
+---------------------------------------
+1. Unzip the folder.
+2. Double-click index.html — it should open in your desktop browser.
+3. Local astronomy.browser.min.js loads first, so analysis can run offline
+   after the first open (no CDN required if the local file is present).
+4. If a browser blocks local scripts for security, use a tiny local server
+   instead, for example from the folder:
+      python3 -m http.server 8080
+   then visit http://localhost:8080/
+
+Using charts on iOS Firefox
+---------------------------
+• Paste JSON or text into Person 1 / Person 2, or
+• Use Upload and pick a .txt / .json / .docx from Files / iCloud.
+• PNG charts: upload the image, then enter gate.line values in the manual
+  fields under the preview (iOS cannot OCR the bodygraph for you).
+• Load Dennis / Eike / Judy samples to verify the install quickly.
+• Turn on “Real-World Influence” for the expanded not-self narrative.
+
+Limits (please read)
+--------------------
+• This package is not a native App Store app.
+• Firefox on iOS may not show “Add to Home Screen”; bookmarking always works.
+• file:// on iPhone Files is not a supported install path — use https hosting.
+• Very old iOS versions may need a refresh after a Netlify redeploy (cache).
+• .doc (legacy Word) is not supported; use .docx, .txt, or .json.
+
+Quick check after install
+-------------------------
+1. Open the hosted URL in Firefox.
+2. Tap “Load Dennis sample”, set a date, tap Run.
+3. You should see defined centers (Sacral, G, Throat, Solar Plexus, Heart/Ego)
+   and a report. Then try Real-World Influence on/off.
+

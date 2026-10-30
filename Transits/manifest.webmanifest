@@ -1,0 +1,10 @@
+{
+  "name": "Human Design Transit Analyzer",
+  "short_name": "HD Transit",
+  "description": "Natal chart transit analyzer with Real-World Influence readings",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#0f1419",
+  "theme_color": "#0f1419",
+  "icons": []
+}

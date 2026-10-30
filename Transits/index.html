@@ -1,1 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="theme-color" content="#0f1419" />
+<title>Human Design Transit Analyzer</title>
+<link rel="manifest" href="manifest.webmanifest" />
+<style>
 
+
+:root {
+  --bg:#0f1419; --panel:#1a2332; --ink:#e7ecf3; --muted:#9aa7b8;
+  --accent:#c9a227; --accent2:#5b8def; --ok:#3d9a6a; --border:#2c3a4f; --err:#e57373;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:"Segoe UI",system-ui,sans-serif;background:linear-gradient(160deg,#0f1419,#162033 50%,#0f1419);color:var(--ink);min-height:100vh}
+header{padding:1.1rem 1.4rem;border-bottom:1px solid var(--border);background:rgba(26,35,50,.92);position:sticky;top:0;z-index:5}
+header h1{margin:0;font-size:1.2rem}
+header p{margin:.3rem 0 0;color:var(--muted);font-size:.88rem}
+main{display:grid;grid-template-columns:400px 1fr;gap:1rem;padding:1rem;max-width:1480px;margin:0 auto}
+@media(max-width:1000px){main{grid-template-columns:1fr}}
+.panel{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:1rem;box-shadow:0 8px 24px rgba(0,0,0,.25)}
+.panel h2{margin:0 0 .7rem;font-size:.98rem;color:var(--accent)}
+label{display:block;font-size:.78rem;color:var(--muted);margin:.55rem 0 .22rem}
+input,textarea,select,button{width:100%;border-radius:8px;border:1px solid var(--border);background:#101822;color:var(--ink);padding:.5rem .65rem;font:inherit}
+textarea{min-height:90px;font-family:ui-monospace,Consolas,monospace;font-size:.78rem}
+button{cursor:pointer;background:linear-gradient(135deg,#c9a227,#a67c00);color:#111;border:none;font-weight:650;margin-top:.55rem}
+button.secondary{background:#243247;color:var(--ink);border:1px solid var(--border)}
+button:hover{filter:brightness(1.07)}
+button:disabled{opacity:.5;cursor:not-allowed;filter:none}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:.45rem}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.45rem}
+.cal-wrap{margin-top:.45rem}
+.cal-toolbar{display:flex;align-items:center;justify-content:space-between;gap:.5rem;margin:.35rem 0 .4rem;flex-wrap:wrap}
+.cal-toolbar .cal-nav{display:flex;align-items:center;gap:.35rem}
+.cal-toolbar button.cal-nav-btn{margin-top:0;padding:.35rem .65rem;min-width:2.2rem}
+.cal-toolbar .cal-title{font-size:.9rem;color:var(--muted);min-width:10rem;text-align:center}
+.cal-dual{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}
+@media (max-width:720px){.cal-dual{grid-template-columns:1fr}}
+.calendar{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
+.calendar .cal-month-label{grid-column:1/-1;text-align:center;font-size:.82rem;font-weight:600;color:var(--accent);padding:.15rem 0 .25rem}
+.calendar .dow{text-align:center;font-size:.68rem;color:var(--muted);padding:.2rem 0}
+.calendar .day{aspect-ratio:1;border:1px solid var(--border);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:.78rem;cursor:pointer;background:#121a26;user-select:none}
+.calendar .day.muted{opacity:.35;cursor:default}
+.calendar .day.other-month{opacity:.45}
+.calendar .day.inrange{background:#2a4060;border-color:var(--accent2)}
+.calendar .day.selected,.calendar .day.start,.calendar .day.end{background:var(--accent);color:#111;font-weight:700;border-color:var(--accent)}
+.calendar .day.start.end{box-shadow:inset 0 0 0 2px #111}
+.range-fields{display:grid;grid-template-columns:1fr 1fr;gap:.45rem;margin-top:.45rem}
+.range-hint{font-size:.78rem;color:var(--muted);margin:.35rem 0 0}
+.range-hint.warn{color:var(--err)}
+#selectionLabel{font-weight:600;color:var(--accent)}
+.mode-toggle{display:inline-flex;flex-wrap:wrap;gap:.3rem;margin:.45rem 0;padding:.22rem;background:#0c121a;border:1px solid var(--border);border-radius:999px;max-width:100%;box-sizing:border-box}
+.mode-toggle button{margin-top:0;width:auto;flex:1 1 auto;min-width:0;border-radius:999px;font-weight:550;opacity:.72;background:#1a2433;color:#9aa7b8;border:1px solid transparent;box-shadow:none}
+.mode-toggle button.secondary{background:#1a2433;color:#9aa7b8;border:1px solid transparent}
+.mode-toggle button:hover{filter:brightness(1.08);opacity:.9}
+.mode-toggle button.active,
+.mode-toggle button.secondary.active,
+#nowBtn.active,
+button.secondary#nowBtn.active{opacity:1;font-weight:750;background:var(--accent);color:#111;border:1px solid #e0c45a;box-shadow:0 0 0 1px rgba(201,162,39,.35)}
+#nowBtn{width:auto;min-width:4.5rem}
+#report .transit-positions{margin:.6rem 0 1.1rem;padding:.75rem .9rem;border:1px solid var(--border);border-radius:10px;background:#0f1620}
+#report .transit-positions h3{margin:.1rem 0 .35rem;color:var(--accent);font-size:1.02rem}
+#report .transit-positions .pos-when{margin:0 0 .55rem;color:#9aa7b8;font-size:.9rem}
+#report .transit-positions table{width:100%;border-collapse:collapse;font-size:.9rem}
+#report .transit-positions th,#report .transit-positions td{text-align:left;padding:.28rem .4rem;border-bottom:1px solid #243247}
+#report .transit-positions th{color:#d7c27a;font-weight:650}
+#report .transit-positions tr:last-child td{border-bottom:none}
+#report .transit-positions td.gl{font-variant-numeric:tabular-nums;white-space:nowrap}
+#reportWrap{max-height:calc(100vh - 150px);overflow:auto}
+#report{line-height:1.65;font-size:.95rem}
+#report h2{color:var(--accent);font-size:1.15rem;margin:1.2rem 0 .5rem}
+#report h3{color:#d7c27a;font-size:1.02rem;margin:1rem 0 .4rem}
+#report p{margin:0 0 .85rem;color:var(--ink)}
+#report ul.direct-effects{margin:.35rem 0 1rem;padding-left:1.2rem;color:var(--ink)}
+#report ul.direct-effects li{margin:0 0 .4rem;line-height:1.45}
+#report ul.report-section{margin:.35rem 0 1rem;padding-left:1.2rem;color:var(--ink)}
+#report ul.report-section li{margin:0 0 .55rem;line-height:1.5}
+#report h4{color:#9aa7b8;font-size:.92rem;margin:.7rem 0 .3rem;font-weight:600}
+#report .transit-positions{margin:.25rem 0 .9rem}
+#report .tech{margin-top:1.2rem;border-top:1px solid var(--border);padding-top:.8rem}
+#report details.tech summary{cursor:pointer;color:var(--muted);font-size:.9rem;margin-bottom:.5rem}
+#report .tech pre{white-space:pre-wrap;font-size:.78rem;color:var(--muted);line-height:1.45;background:#121a26;padding:.75rem;border-radius:8px;border:1px solid var(--border)}
+.status{font-size:.78rem;color:var(--muted);min-height:1.1em;margin-top:.35rem}
+.status.ok{color:var(--ok)}.status.err{color:var(--err)}
+.check{display:flex;align-items:center;gap:.45rem;margin-top:.65rem;font-size:.82rem;color:var(--muted)}
+.check input{width:auto}
+.png-box{margin-top:.5rem;display:none;border:1px dashed var(--border);border-radius:8px;padding:.5rem;background:#121a26}
+.png-box img{max-width:100%;border-radius:6px;display:block;margin-bottom:.5rem}
+.toolbar{display:flex;flex-wrap:wrap;gap:.35rem;margin-bottom:.6rem}
+.toolbar button{width:auto;margin-top:0;padding:.4rem .7rem;font-size:.82rem}
+.label-row{display:flex;align-items:center;justify-content:space-between;gap:.5rem;margin:.55rem 0 .22rem}
+.label-row label{margin:0;flex:1}
+.clear-btn{width:auto;min-width:1.7rem;height:1.7rem;padding:0 .35rem;margin:0;flex-shrink:0;border-radius:6px;border:1px solid var(--border);background:#1a2433;color:var(--muted);font-size:.85rem;line-height:1;cursor:pointer;font-weight:700}
+.clear-btn:hover{background:#2a3548;color:var(--ink);border-color:#4a5a70}
+.clear-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.empty-hint{color:var(--muted);font-size:.95rem;padding:.75rem 0}
+.selection-row{display:flex;align-items:center;justify-content:space-between;gap:.5rem;margin:.4rem 0 0}
+.selection-row .ephem{margin:0;flex:1}
+.banner{display:none;background:#3a1f1f;border:1px solid var(--err);color:#ffc9c9;padding:.75rem 1rem;margin:1rem;border-radius:10px}
+.banner.show{display:block}
+.ephem{font-size:.78rem;color:var(--muted);margin-top:.35rem}
+@media print{
+  header,#controls,.toolbar,.banner{display:none!important}
+  main{display:block;padding:0}
+  #reportWrap{max-height:none;overflow:visible}
+  body{background:#fff;color:#000}
+  .panel{box-shadow:none;border:none;background:#fff}
+  #report h2,#report h3{color:#000}
+  #report p{color:#000}
+}
+
+
+    .chart-status{font-size:12px;color:#2a6;margin:4px 0 8px;min-height:1.2em}
+    .chart-status.warn{color:#b80}
+    .chart-status.err{color:#c00}
+
+
+/* --- Mobile / touch (iPhone, iPad Firefox) --- */
+html{-webkit-text-size-adjust:100%}
+button,input,select,textarea{font-size:16px;min-height:44px}
+textarea{min-height:120px}
+button,.secondary{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+@media(max-width:1000px){
+  header{padding:.85rem 1rem}
+  header h1{font-size:1.05rem}
+  main{padding:.65rem;gap:.75rem}
+  .panel{padding:.85rem}
+  .row{display:flex;flex-direction:column;gap:.5rem}
+  .row > div{width:100%}
+  .row3{grid-template-columns:1fr}
+  input[type=file]{padding:.65rem;font-size:15px}
+}
+@media(max-width:600px){
+  .label-row{flex-wrap:wrap;gap:.35rem}
+  #controls button{width:100%}
+}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{
+  outline:2px solid var(--accent2);outline-offset:2px
+}
+
+</style>
+</head>
+<body>
+<header>
+  <h1>Human Design Transit Analyzer (Live)</h1>
+  <p>Offline-capable ephemeris · True Lunar Node · Plain-language transit stories · data.js separate</p>
+</header>
+<div class="banner" id="cdnBanner"></div>
+<main>
+  <section class="panel" id="controls">
+    <h2>Inputs</h2>
+    <div class="label-row">
+      <label for="person1">Person / Input 1 (JSON, text, or .docx)</label>
+      <button type="button" class="clear-btn" id="clearPerson1" title="Remove" aria-label="Remove Person 1">×</button>
+    </div>
+    <textarea id="person1" placeholder='{"name":"Dennis","planets":{"Mercury":"38.6"}}'></textarea>
+    <div class="chart-status" id="chartStatus1" aria-live="polite"></div>
+    <div class="row">
+      <div>
+        <label>Upload .json / .txt / .docx / .png</label>
+        <input type="file" id="file1" accept=".json,.txt,.docx,.doc,.png,image/png,image/*,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword" />
+      </div>
+      <div>
+        <label>&nbsp;</label>
+        <button type="button" class="secondary" id="loadDennis">Load Dennis sample</button>
+      </div>
+    </div>
+    <div class="png-box" id="pngBox1">
+      <img id="pngImg1" alt="Chart 1 preview" />
+      <label>Manual gates (from image)</label>
+      <input id="manName1" placeholder="Name" />
+      <input id="manGates1" placeholder="Mercury:38.6, SouthNode:10.2, Mars:31.2" />
+      <button type="button" class="secondary" id="applyMan1">Apply manual gates</button>
+    </div>
+
+    <div class="label-row">
+      <label for="person2">Person / Input 2 (optional couple)</label>
+      <button type="button" class="clear-btn" id="clearPerson2" title="Remove" aria-label="Remove Person 2">×</button>
+    </div>
+    <textarea id="person2"></textarea>
+    <div class="chart-status" id="chartStatus2" aria-live="polite"></div>
+    <div class="row">
+      <div>
+        <label>Upload .json / .txt / .docx / .png</label>
+        <input type="file" id="file2" accept=".json,.txt,.docx,.doc,.png,image/png,image/*,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword" />
+      </div>
+      <div>
+        <label>&nbsp;</label>
+        <button type="button" class="secondary" id="loadJudy">Load Judy sample</button>
+      <button type="button" id="loadEike">Load Eike sample</button>
+      </div>
+    </div>
+    <div class="png-box" id="pngBox2">
+      <img id="pngImg2" alt="Chart 2 preview" />
+      <label>Manual gates (from image)</label>
+      <input id="manName2" placeholder="Name" />
+      <input id="manGates2" placeholder="Earth:27.2, Mars:14.2, Venus:34.5" />
+      <button type="button" class="secondary" id="applyMan2">Apply manual gates</button>
+    </div>
+
+    <h2 style="margin-top:1rem">When</h2>
+    <div class="mode-toggle" id="whenModeToggle" role="group" aria-label="When">
+      <button type="button" class="secondary active" id="modeSingle" aria-pressed="true">Single day</button>
+      <button type="button" class="secondary" id="modeRange" aria-pressed="false">Date range</button>
+    </div>
+    <div class="cal-wrap">
+      <div class="cal-toolbar">
+        <div class="cal-nav">
+          <button type="button" class="secondary cal-nav-btn" id="calPrev" aria-label="Previous month">‹</button>
+          <button type="button" class="secondary cal-nav-btn" id="calNext" aria-label="Next month">›</button>
+        </div>
+        <div class="cal-title" id="calViewLabel">October – November 2026</div>
+        <input type="month" id="month" value="2026-10" title="Jump to month" style="width:auto;max-width:10rem" />
+      </div>
+      <div class="cal-dual" id="calendar"></div>
+      <div class="range-fields" id="rangeFields">
+        <div>
+          <label id="fromLabel">From</label>
+          <input type="date" id="dateFrom" value="2026-10-26" />
+        </div>
+        <div>
+          <label id="toLabel">To</label>
+          <input type="date" id="dateTo" value="2026-10-26" />
+        </div>
+      </div>
+      <div class="selection-row">
+        <p class="ephem"><span id="selectionLabel">Oct 26, 2026</span></p>
+        <button type="button" class="clear-btn" id="clearDates" title="Remove" aria-label="Remove date selection">×</button>
+      </div>
+      <p class="range-hint" id="rangeHint"></p>
+    </div>
+    <div class="row3" style="margin-top:.5rem">
+      <div>
+        <label>Time</label>
+        <div class="time12" style="display:flex;gap:.35rem;align-items:center">
+          <select id="hour12" aria-label="Hour" style="width:auto;flex:1"></select>
+          <span>:</span>
+          <select id="minute" aria-label="Minute" style="width:auto;flex:1"></select>
+          <select id="ampm" aria-label="AM/PM" style="width:auto;flex:1">
+            <option value="AM">AM</option>
+            <option value="PM">PM</option>
+          </select>
+          <input type="hidden" id="timeOfDay" value="15:00" />
+        </div>
+      </div>
+      <div>
+        <label>Timezone</label>
+        <select id="tz"></select>
+      </div>
+      <div>
+        <label>&nbsp;</label>
+        <button type="button" class="secondary" id="nowBtn" aria-pressed="false">Now</button>
+      </div>
+    </div>
+    <p class="ephem" id="ephemNote">Positions computed live (geocentric). Nodes use the <strong>True</strong> Lunar Node.</p>
+    <label class="check" style="display:flex;align-items:center;gap:.5rem;margin:.65rem 0 .2rem">
+      <input type="checkbox" id="includeCodes" />
+      Include gates and lines in description
+    </label>
+    <label class="check" style="display:flex;align-items:center;gap:.5rem;margin:.35rem 0 .2rem">
+      <input type="checkbox" id="realWorldInfluence" />
+      Real-World Influence
+    </label>
+    <p class="hint" id="realWorldHint" style="margin:.15rem 0 .5rem">When checked, the same report structure focuses on practical potentials—how this sky may amplify not-self patterns at work, home, and in conversation (including how partners condition each other's open centers). Unchecked keeps the usual Human Design educational tone.</p>
+    <label class="check" style="display:flex;align-items:center;gap:.5rem;margin:.35rem 0 .2rem">
+      <input type="checkbox" id="moonGateOnly" checked />
+      Moon: gate changes only
+    </label>
+    <p class="hint" id="moonGateOnlyHint" style="margin:.15rem 0 .5rem">Default on. When checked, timeline omits Moon line ingresses (line changes within the same gate) and keeps Moon gate ingresses. Other planets are unchanged. Snapshot mode is unaffected. Works independently of Real-World Influence and Gates &amp; Lines.</p>
+    <label class="check" style="display:flex;align-items:center;gap:.5rem;margin:.35rem 0 .2rem">
+      <input type="checkbox" id="sunGateOnly" checked />
+      Sun/Earth: gate changes only
+    </label>
+    <p class="hint" id="sunGateOnlyHint" style="margin:.15rem 0 .5rem">Default on. When checked, timeline omits Sun and Earth line ingresses (line changes within the same gate) and keeps their gate ingresses. Other planets are unchanged. Snapshot mode is unaffected. Works independently of other settings.</p>
+    <label class="check" id="allGateOnlyLabel" style="display:flex;align-items:center;gap:.5rem;margin:.35rem 0 .2rem">
+      <input type="checkbox" id="allGateOnly" />
+      All planets: gate changes only
+    </label>
+    <p class="hint" id="allGateOnlyHint" style="margin:.15rem 0 .5rem">When checked, timeline omits line ingresses for every planet and keeps gate changes only. Overrides the Moon and Sun/Earth gate-only boxes while on. Snapshot mode is unaffected. Works with Omit Sun/Earth/Moon.</p>
+    <label class="check" id="omitLightsLabel" style="display:flex;align-items:center;gap:.5rem;margin:.35rem 0 .2rem">
+      <input type="checkbox" id="omitLights" />
+      Omit Sun, Earth &amp; Moon
+    </label>
+    <p class="hint" id="omitLightsHint" style="margin:.15rem 0 .5rem">When checked, Sun, Earth, and Moon are excluded entirely from timeline events and from snapshot narrative/interactions. The Moon and Sun/Earth gate-only filters are overridden while this is on. Snapshot raw ephemeris details hide those bodies. Independent of other report settings.</p>
+    <div style="margin:.75rem 0 .35rem"><strong>Report mode</strong></div>
+    <div class="mode-toggle" id="reportModeToggle" role="group" aria-label="Report mode">
+      <button type="button" class="secondary active" id="reportSnapshot" aria-pressed="true">Snapshot at chosen time</button>
+      <button type="button" class="secondary" id="reportTimeline" aria-pressed="false">Timeline of chart-relevant changes</button>
+    </div>
+    <p class="hint" id="timelineHint" style="display:none;margin:.35rem 0 .5rem">Timeline scans the selected day or range in the chosen timezone (from local midnight to midnight) for gate/line ingresses that touch the entered chart(s).</p>
+    <button type="button" id="runBtn">Run transit analysis</button>
+    <button type="button" class="secondary" id="loadCouple">Dennis + Eike · Oct 26, 2026 · 3:00 PM ET</button>
+    <div class="status" id="status"></div>
+  </section>
+
+  <section class="panel">
+    <div class="toolbar">
+      <button type="button" class="secondary" id="exportMd">Export .md</button>
+      <button type="button" class="secondary" id="exportHtml">Export .html</button>
+      <button type="button" class="secondary" id="printBtn">Print</button>
+    </div>
+    <h2>Story</h2>
+    <div id="reportWrap"><div id="report">Load the ephemeris, choose people and a time, then run analysis. The report reads as plain-language paragraphs; technical gate lists stay folded at the bottom.</div></div>
+  </section>
+</main>
+
+<!-- Data is separate from the UI. Script order matters. Works via file:// on Windows and via https on iPhone/iPad Firefox. -->
+<script src="astronomy.browser.min.js"></script>
+<script src="data.js"></script>
+<script src="analyzer.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
