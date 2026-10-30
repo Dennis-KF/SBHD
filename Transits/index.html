@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <meta http-equiv="Cache-Control" content="no-cache" />
+  <meta name="ta-build" content="202610300246" />
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -105,13 +107,24 @@ button.secondary#nowBtn.active{opacity:1;font-weight:750;background:var(--accent
 .banner.show{display:block}
 .ephem{font-size:.78rem;color:var(--muted);margin-top:.35rem}
 @media print{
-  header,#controls,.toolbar,.banner{display:none!important}
-  main{display:block;padding:0}
-  #reportWrap{max-height:none;overflow:visible}
-  body{background:#fff;color:#000}
-  .panel{box-shadow:none;border:none;background:#fff}
-  #report h2,#report h3{color:#000}
-  #report p{color:#000}
+  @page{ margin:12mm; }
+  html,body{ background:#fff!important; color:#000!important; }
+  body{ font-family: Georgia, "Times New Roman", Times, serif; font-size:11pt; line-height:1.45; }
+  header,#controls,.toolbar,.banner,#cdnBanner,.status,.no-print{ display:none!important; }
+  main{ display:block!important; padding:0!important; margin:0!important; max-width:none!important; }
+  .panel{ box-shadow:none!important; border:none!important; background:#fff!important; padding:0!important; margin:0!important; }
+  #reportWrap{ max-height:none!important; overflow:visible!important; height:auto!important; }
+  #report{ display:block!important; color:#000!important; font-size:11pt; line-height:1.5; max-height:none!important; overflow:visible!important; }
+  #report h2,#report h3,#report h4{ color:#000!important; page-break-after:avoid; break-after:avoid; margin:0.9em 0 0.35em; }
+  #report h2{ font-size:1.25rem; }
+  #report h3{ font-size:1.1rem; }
+  #report p,#report li{ color:#000!important; orphans:3; widows:3; }
+  #report ul,#report ol{ page-break-inside:avoid; break-inside:avoid; }
+  #report .transit-positions{ margin-top:1.2em; border:1px solid #ccc!important; background:#fff!important; page-break-inside:avoid; break-inside:avoid; }
+  #report .transit-positions table{ width:100%; border-collapse:collapse; font-size:10pt; }
+  #report .transit-positions th,#report .transit-positions td{ color:#000!important; border-bottom:1px solid #ddd; padding:0.25rem 0.4rem; }
+  #report details.tech{ display:none!important; }
+  #report a{ color:#000; text-decoration:none; }
 }
 
 
@@ -219,6 +232,12 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
       <button type="button" class="secondary active" id="modeSingle" aria-pressed="true">Single day</button>
       <button type="button" class="secondary" id="modeRange" aria-pressed="false">Date range</button>
     </div>
+
+    <label class="check no-print" id="rangeTransitFieldOpt" style="display:none;margin:.35rem 0 .55rem">
+      <input type="checkbox" id="includeRangeTransitField" />
+      Include transit field (positions table)
+    </label>
+    <p class="hint no-print" id="rangeTransitFieldHint" style="display:none;margin:.1rem 0 .55rem">For date ranges only (off by default). Short ranges (≤7 days) add a positions table under each day; longer ranges show start + end only. Single day and Now always include the table.</p>
     <div class="cal-wrap">
       <div class="cal-toolbar">
         <div class="cal-nav">
@@ -226,17 +245,17 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
           <button type="button" class="secondary cal-nav-btn" id="calNext" aria-label="Next month">›</button>
         </div>
         <div class="cal-title" id="calViewLabel">October – November 2026</div>
-        <input type="month" id="month" value="2026-10" title="Jump to month" style="width:auto;max-width:10rem" />
+        <input type="month" id="month" value="" title="Jump to month" style="width:auto;max-width:10rem" />
       </div>
       <div class="cal-dual" id="calendar"></div>
       <div class="range-fields" id="rangeFields">
         <div>
           <label id="fromLabel">From</label>
-          <input type="date" id="dateFrom" value="2026-10-26" />
+          <input type="date" id="dateFrom" value="" />
         </div>
         <div>
           <label id="toLabel">To</label>
-          <input type="date" id="dateTo" value="2026-10-26" />
+          <input type="date" id="dateTo" value="" />
         </div>
       </div>
       <div class="selection-row">
@@ -256,7 +275,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
             <option value="AM">AM</option>
             <option value="PM">PM</option>
           </select>
-          <input type="hidden" id="timeOfDay" value="15:00" />
+          <input type="hidden" id="timeOfDay" value="" />
         </div>
       </div>
       <div>
@@ -313,7 +332,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
     <div class="toolbar">
       <button type="button" class="secondary" id="exportMd">Export .md</button>
       <button type="button" class="secondary" id="exportHtml">Export .html</button>
-      <button type="button" class="secondary" id="printBtn">Print</button>
+      <button type="button" class="secondary no-print" id="printBtn" title="Print or save the report as PDF">Print / Save as PDF</button>
     </div>
     <h2>Story</h2>
     <div id="reportWrap"><div id="report">Load the ephemeris, choose people and a time, then run analysis. The report reads as plain-language paragraphs; technical gate lists stay folded at the bottom.</div></div>
@@ -321,9 +340,9 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 </main>
 
 <!-- Data is separate from the UI. Script order matters. Works via file:// on Windows and via https on iPhone/iPad Firefox. -->
-<script src="astronomy.browser.min.js"></script>
-<script src="data.js"></script>
-<script src="analyzer.js"></script>
-<script src="app.js"></script>
+<script src="astronomy.browser.min.js?v=202610300246"></script>
+<script src="data.js?v=202610300246"></script>
+<script src="analyzer.js?v=202610300246"></script>
+<script src="app.js?v=202610300246"></script>
 </body>
 </html>

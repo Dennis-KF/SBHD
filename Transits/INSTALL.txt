@@ -100,3 +100,18 @@ Quick check after install
 3. You should see defined centers (Sacral, G, Throat, Solar Plexus, Heart/Ego)
    and a report. Then try Real-World Influence on/off.
 
+
+--------------------------------------------------------------------
+Print / Save as PDF (iPhone, iPad, desktop)
+--------------------------------------------------------------------
+1. Load chart(s), pick a time, tap Run analysis so the Story report appears.
+2. Tap "Print / Save as PDF" (near Export). Only the report prints — inputs and
+   buttons are hidden. Transit positions stay at the bottom of the report.
+3. On iPhone / iPad (Safari or Firefox):
+   • In the print preview, pinch open (or use the share/print sheet options)
+   • Choose "Save as PDF" / "Save to Files" (wording varies by iOS version)
+   • Pick a folder (Files app) and Save
+   Tip: If you only see a printer list, tap the share icon or "Options" /
+   "PDF" control in the print sheet — Apple exposes Save as PDF there.
+4. On desktop Firefox/Chrome/Safari: Print dialog → Destination → Save as PDF.
+

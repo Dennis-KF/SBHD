@@ -160,17 +160,17 @@ function parseChartText(text){
   }
 
   // A: Personality/Design/P/D + planet + gate.line
-  const reA=/\b(Personality|Design|Conscious|Unconscious|P|D)\b\s*[-:]?\s*(Sun|Earth|Moon|North\s*Node|South\s*Node|Mercury|Venus|Mars|Jupiter|Saturn|Uranus|Neptune|Pluto|NN|SN|Rahu|Ketu)\s*[-:]?\s*((?:(?<![\d.])\d{1,2}\.\d(?!\d)))\b/gi;
+  const reA=/\b(Personality|Design|Conscious|Unconscious|P|D)\b\s*[-:]?\s*(Sun|Earth|Moon|North\s*Node|South\s*Node|Mercury|Venus|Mars|Jupiter|Saturn|Uranus|Neptune|Pluto|NN|SN|Rahu|Ketu)\s*[-:]?\s*(\d{1,2}\.\d)(?!\d)\b/gi;
   let m;
   while((m=reA.exec(raw))) store(normPlanet(m[2]), m[3], sideFromPrefix(m[1]));
 
   // B: separators including slash — "Sun:13.4" / "North Node:12.5"
-  const reB=/(?:^|[\n,;|/])\s*(?:(Personality|Design|P|D)\s+)?(Sun|Earth|Moon|North\s*Node|South\s*Node|Mercury|Venus|Mars|Jupiter|Saturn|Uranus|Neptune|Pluto|NN|SN|Rahu|Ketu)\s*[:=\-–—]?\s*((?:(?<![\d.])\d{1,2}\.\d(?!\d)))\b/gi;
+  const reB=/(?:^|[\n,;|/])\s*(?:(Personality|Design|P|D)\s+)?(Sun|Earth|Moon|North\s*Node|South\s*Node|Mercury|Venus|Mars|Jupiter|Saturn|Uranus|Neptune|Pluto|NN|SN|Rahu|Ketu)\s*[:=\-–—]?\s*(\d{1,2}\.\d)(?!\d)\b/gi;
   while((m=reB.exec(raw))) store(normPlanet(m[2]), m[3], sideFromPrefix(m[1]));
 
   // B2: explicit " / "-chunk parse (PNG manual paste)
   for(const chunk of raw.split(/\s*\/\s*/)){
-    const mm=chunk.match(/^\s*(?:(Personality|Design|P|D)\s+)?(Sun|Earth|Moon|North\s*Node|South\s*Node|Mercury|Venus|Mars|Jupiter|Saturn|Uranus|Neptune|Pluto|NN|SN|Rahu|Ketu)\s*[:=\-–—]?\s*((?:(?<![\d.])\d{1,2}\.\d(?!\d)))\s*$/i);
+    const mm=chunk.match(/^\s*(?:(Personality|Design|P|D)\s+)?(Sun|Earth|Moon|North\s*Node|South\s*Node|Mercury|Venus|Mars|Jupiter|Saturn|Uranus|Neptune|Pluto|NN|SN|Rahu|Ketu)\s*[:=\-–—]?\s*(\d{1,2}\.\d)(?!\d)\s*$/i);
     if(mm) store(normPlanet(mm[2]), mm[3], sideFromPrefix(mm[1]));
   }
 
@@ -184,7 +184,7 @@ function parseChartText(text){
   }
 
   // D: "11.5 — South Node"
-  const reD=/\b((?:(?<![\d.])\d{1,2}\.\d(?!\d)))\s*(?:exalted|detriment|juxtaposed)?\s*[—\-~–]*\s*(Sun|Earth|Moon|North\s*Node|South\s*Node|Mercury|Venus|Mars|Jupiter|Saturn|Uranus|Neptune|Pluto|NN|SN)\b/gi;
+  const reD=/(?:^|[^0-9.])(\d{1,2}\.\d)(?!\d)\s*(?:exalted|detriment|juxtaposed)?\s*[—\-~–]*\s*(Sun|Earth|Moon|North\s*Node|South\s*Node|Mercury|Venus|Mars|Jupiter|Saturn|Uranus|Neptune|Pluto|NN|SN)\b/gi;
   while((m=reD.exec(raw))){
     const before=raw.slice(Math.max(0,m.index-160), m.index).toLowerCase();
     let side=null;
@@ -201,10 +201,10 @@ function parseChartText(text){
 
   // F: Personality: / Design: section blocks
   function ingestSection(sectionText, side){
-    const re=/(Sun|Earth|Moon|North\s*Node|South\s*Node|Mercury|Venus|Mars|Jupiter|Saturn|Uranus|Neptune|Pluto|NN|SN)\s*[:=\-–—]?\s*((?:(?<![\d.])\d{1,2}\.\d(?!\d)))/gi;
+    const re=/(Sun|Earth|Moon|North\s*Node|South\s*Node|Mercury|Venus|Mars|Jupiter|Saturn|Uranus|Neptune|Pluto|NN|SN)\s*[:=\-–—]?\s*(\d{1,2}\.\d)(?!\d)/gi;
     let mm; while((mm=re.exec(sectionText))) store(normPlanet(mm[1]), mm[2], side);
     for(const line of String(sectionText).split(/\n/)){
-      const sm=line.match(/^\s*([☉⊕☽☾☊☋☿♀♂♃♄♅♆♇])\s*[:=\-–—]?\s*((?:(?<![\d.])\d{1,2}\.\d(?!\d)))\s*$/);
+      const sm=line.match(/^\s*([☉⊕☽☾☊☋☿♀♂♃♄♅♆♇])\s*[:=\-–—]?\s*(\d{1,2}\.\d)(?!\d)\s*$/);
       if(sm) store(normPlanet(sm[1]), sm[2], side);
     }
   }
@@ -215,7 +215,7 @@ function parseChartText(text){
 
   const key=raw.match(/Key placements[\s\S]*$/i);
   if(key){
-    const reK=/\b(Personality|Design)\s+(Sun|Earth|Moon|North\s*Node|South\s*Node|Mercury|Venus|Mars|Jupiter|Saturn|Uranus|Neptune|Pluto)\s+((?:(?<![\d.])\d{1,2}\.\d(?!\d)))/gi;
+    const reK=/\b(Personality|Design)\s+(Sun|Earth|Moon|North\s*Node|South\s*Node|Mercury|Venus|Mars|Jupiter|Saturn|Uranus|Neptune|Pluto)\s+(\d{1,2}\.\d)(?!\d)/gi;
     while((m=reK.exec(key[0]))) store(normPlanet(m[2]), m[3], sideFromPrefix(m[1]));
   }
 
@@ -224,9 +224,9 @@ function parseChartText(text){
   for(const line of raw.split(/\n/)){
     if(/^\s*Personality\b/i.test(line) && !/Personality\s+(Sun|Earth|Moon|Mercury)/i.test(line)) { curSide='personality'; }
     if(/^\s*Design\b/i.test(line) && !/Design\s+(Sun|Earth|Moon|North|South|Mercury|Venus|Mars|Jupiter|Saturn|Uranus|Neptune|Pluto|NN|SN)\b/i.test(line)) { curSide='design'; }
-    const sm=line.match(/^\s*(?:(Personality|Design|P|D)\s+)?([☉⊕☽☾☊☋☿♀♂♃♄♅♆♇])\s*[:=\-–—]?\s*((?:(?<![\d.])\d{1,2}\.\d(?!\d)))\s*$/i);
+    const sm=line.match(/^\s*(?:(Personality|Design|P|D)\s+)?([☉⊕☽☾☊☋☿♀♂♃♄♅♆♇])\s*[:=\-–—]?\s*(\d{1,2}\.\d)(?!\d)\s*$/i);
     if(sm) store(normPlanet(sm[2]), sm[3], sideFromPrefix(sm[1])||curSide);
-    const wm=line.match(/^\s*(?:(Personality|Design|P|D)\s+)?(Sun|Earth|Moon|North\s*Node|South\s*Node|Mercury|Venus|Mars|Jupiter|Saturn|Uranus|Neptune|Pluto|NN|SN|Rahu|Ketu)\s*[:=\-–—]?\s*((?:(?<![\d.])\d{1,2}\.\d(?!\d)))\s*$/i);
+    const wm=line.match(/^\s*(?:(Personality|Design|P|D)\s+)?(Sun|Earth|Moon|North\s*Node|South\s*Node|Mercury|Venus|Mars|Jupiter|Saturn|Uranus|Neptune|Pluto|NN|SN|Rahu|Ketu)\s*[:=\-–—]?\s*(\d{1,2}\.\d)(?!\d)\s*$/i);
     if(wm) store(normPlanet(wm[2]), wm[3], sideFromPrefix(wm[1])||curSide);
     // Gate line form on its own line: "Design Sun Gate 5 Line 2"
     const gl=line.match(/^\s*(?:(Personality|Design|P|D)\s+)?(?:(Sun|Earth|Moon|North\s*Node|South\s*Node|NorthNode|SouthNode|Mercury|Venus|Mars|Jupiter|Saturn|Uranus|Neptune|Pluto|NN|SN)\s*[:=\-–—]?\s*)?Gate\s*(\d{1,2})\s*(?:Line|Lin\.?|L\.?)\s*(\d)\s*$/i);
@@ -1126,6 +1126,15 @@ function scenarioPair(seed, aName, bName, theme, kind){
 function codesOn(){ try{ return !!document.getElementById('includeCodes')?.checked; }catch(e){ return false; } }
 
 function interactionsOnlyOn(){ return false; }
+function includeRangeTransitFieldOn(){
+  try{ return !!document.getElementById('includeRangeTransitField')?.checked; }catch(e){ return false; }
+}
+function rangeTransitFieldMode(dayCount){
+  // Choice: per-day tables when range is short (<=7 days); otherwise start+end only.
+  if(!(dayCount>1)) return 'single';
+  if(!includeRangeTransitFieldOn()) return 'omit';
+  return dayCount <= 7 ? 'per-day' : 'start-end';
+}
 function realWorldOn(){ try{ return !!document.getElementById('realWorldInfluence')?.checked; }catch(e){ return false; } }
 function moonGateOnlyOn(){ try{ return !!document.getElementById('moonGateOnly')?.checked; }catch(e){ return true; } }
 function sunGateOnlyOn(){ try{ return !!document.getElementById('sunGateOnly')?.checked; }catch(e){ return true; } }
@@ -3603,6 +3612,7 @@ function renderPersonIndepthSections(person, transit, tracker, otherPerson, othe
 }
 
 function renderIndepthDayHtml(person1, person2, transitRaw, tracker, meta){
+  meta=meta||{};
   const transit=transitWithoutLights(transitRaw);
   const parts=[];
   const when=transitRaw.display_when||transitRaw.display_date||transitRaw.date||'';
@@ -3628,8 +3638,10 @@ function renderIndepthDayHtml(person1, person2, transitRaw, tracker, meta){
     }
   }
 
-  // Positions table at BOTTOM
-  parts.push(renderTransitPositionsHtml(transitRaw));
+  // Positions table at BOTTOM (optional for multi-day ranges)
+  if(!meta || meta.includePositions !== false){
+    parts.push(renderTransitPositionsHtml(transitRaw));
+  }
 
   let tech=technicalBlock(transit, [r1.day].concat(r2?[r2.day]:[]), person2?coupleDynamics(person1,person2,transit):null);
   const mismatches=[];
@@ -3667,9 +3679,17 @@ function renderStructuredSnapshotHtml(person1, person2, transits, meta){
   if(omitLightsOn()) parts.push('<p><em>'+escapeHtml('Sun, Earth, and Moon are omitted from this analysis.')+'</em></p>');
 
   if(transits.length===1){
-    parts.push(renderIndepthDayHtml(person1, person2, transits[0], tracker, {}));
+    // Single day / Now: always include transit field
+    parts.push(renderIndepthDayHtml(person1, person2, transits[0], tracker, {includePositions:true}));
   } else {
-    // Multi-day snapshot: per day sections; each day ends with its positions
+    // Multi-day range: optional transit field (checkbox).
+    // Choice: <=7 days → per-day table at bottom of each day; longer → start+end only.
+    const fieldMode = (meta && meta.rangeTransitFieldMode) || rangeTransitFieldMode(transits.length);
+    if(fieldMode==='start-end'){
+      parts.push('<p><em>'+escapeHtml('Transit field: first and last day of the range only (range longer than 7 days).')+'</em></p>');
+    } else if(fieldMode==='omit'){
+      parts.push('<p><em>'+escapeHtml('Transit field (positions table) omitted for this range — enable "Include transit field" under When to add it.')+'</em></p>');
+    }
     for(let ti=0; ti<transits.length; ti++){
       const t=transits[ti];
       const dayTracker=makeProseTracker();
@@ -3678,8 +3698,12 @@ function renderStructuredSnapshotHtml(person1, person2, transits, meta){
       dayTracker.usedFrames=tracker.usedFrames;
       dayTracker.usedMeanings=tracker.usedMeanings;
       dayTracker.seq=tracker.seq;
+      let includePositions=false;
+      if(fieldMode==='per-day') includePositions=true;
+      else if(fieldMode==='start-end') includePositions=(ti===0 || ti===transits.length-1);
       parts.push(renderIndepthDayHtml(person1, person2, t, dayTracker, {
-        dayHeading:t.display_when||t.display_date||t.date
+        dayHeading:t.display_when||t.display_date||t.date,
+        includePositions:includePositions
       }));
       tracker.seq=dayTracker.seq;
     }

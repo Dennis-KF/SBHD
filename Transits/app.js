@@ -1,15 +1,26 @@
 let mode='single'; let reportMode='snapshot';
 let nowReadingActive=false;
-let startDate='2026-10-26';
-let endDate=null;
-let calViewYear=2026, calViewMonth=10; // left pane month (1-12)
+function pad2boot(n){ n=String(n|0); return n.length<2 ? ('0'+n) : n; }
+/** Local calendar date/time — never toISOString() (that is UTC). */
+function initialLocalToday(){
+  const n=new Date();
+  const y=n.getFullYear(), m=n.getMonth()+1, d=n.getDate();
+  const hh=n.getHours(), mm=n.getMinutes();
+  const iso=y+'-'+pad2boot(m)+'-'+pad2boot(d);
+  const hm=pad2boot(hh)+':'+pad2boot(mm);
+  return {y:y, m:m, d:d, iso:iso, hh:hh, mm:mm, hm:hm};
+}
+let __BOOT_TODAY__=initialLocalToday();
+let startDate=__BOOT_TODAY__.iso;
+let endDate=null; // single-day default; range mode sets both inputs to today
+let calViewYear=__BOOT_TODAY__.y, calViewMonth=__BOOT_TODAY__.m; // left pane month (1-12)
 let rangeNeedsNewStart=true; // first click in range mode always sets start
 let lastHtml='';
 let lastMd='';
 let engReady=false;
 
 const $ = id => document.getElementById(id);
-const status = (msg, cls='') => { const s=$('status'); s.textContent=msg; s.className='status '+(cls||''); };
+const status = (msg, cls='') => { const s=$('status'); if(!s) return; s.textContent=msg; s.className='status '+(cls||''); };
 
 const TIMEZONES = [
   {id:'local', label:'Local browser time'},
@@ -97,7 +108,7 @@ function initTime12Controls(){
   for(let m=0; m<60; m++){ const o=document.createElement('option'); o.value=pad2(m); o.textContent=pad2(m); msel.appendChild(o); }
   const sync=()=>syncTimeHiddenFrom12();
   hsel.onchange=sync; msel.onchange=sync; $('ampm').onchange=sync;
-  setTime12From24($('timeOfDay').value||'15:00');
+  setTime12From24(($('timeOfDay')&&$('timeOfDay').value)||initialLocalToday().hm);
 }
 
 function zonedTimeToUtc(dateStr, timeStr, timeZone){
@@ -133,6 +144,7 @@ function zonedTimeToUtc(dateStr, timeStr, timeZone){
 
 function fillTimezones(){
   const sel=$('tz');
+  if(!sel) return;
   sel.innerHTML='';
   for(const z of TIMEZONES){
     const opt=document.createElement('option');
@@ -348,9 +360,12 @@ function clearPerson(n){
   clearQuickLoadHighlight(n);
   status('Cleared Person '+n+' — slot is empty','ok');
 }
+
+function omitLightsOn(){ try{ return !!document.getElementById('omitLights')?.checked; }catch(e){ return false; } }
+function allGateOnlyOn(){ try{ return !!document.getElementById('allGateOnly')?.checked; }catch(e){ return false; } }
 function syncOmitLightsUI(){
-  const omit=omitLightsOn();
-  const allGate=allGateOnlyOn();
+  const omit=(typeof omitLightsOn==='function')?omitLightsOn():!!(document.getElementById('omitLights')&&document.getElementById('omitLights').checked);
+  const allGate=(typeof allGateOnlyOn==='function')?allGateOnlyOn():!!(document.getElementById('allGateOnly')&&document.getElementById('allGateOnly').checked);
   const override=omit || allGate;
   for(const id of ['moonGateOnly','sunGateOnly']){
     const el=document.getElementById(id);
@@ -379,11 +394,21 @@ function markNowReading(){
   nowReadingActive=true;
   syncNowBtnHighlight();
 }
+
+function syncRangeTransitFieldOpt(){
+  const show = (mode==='range');
+  const box=$('rangeTransitFieldOpt');
+  const hint=$('rangeTransitFieldHint');
+  if(box) box.style.display = show ? '' : 'none';
+  if(hint) hint.style.display = show ? '' : 'none';
+}
+
 function syncWhenModeHighlight(){
   const ms=$('modeSingle'), mr=$('modeRange');
   const isSingle = mode==='single';
   if(ms){ ms.classList.toggle('active', isSingle); ms.setAttribute('aria-pressed', isSingle?'true':'false'); }
   if(mr){ mr.classList.toggle('active', !isSingle); mr.setAttribute('aria-pressed', !isSingle?'true':'false'); }
+  syncRangeTransitFieldOpt();
 }
 
 function clearDates(){
@@ -437,6 +462,11 @@ function updateChartStatus(n){
   const raw=(ta.value||'').trim();
   if(!raw){ el.textContent=''; el.className='chart-status'; return; }
   try{
+    if(typeof HD==='undefined' || !HD || typeof HD.loadPerson!=='function'){
+      el.textContent='Chart engine not loaded yet — refresh the page.';
+      el.className='chart-status err';
+      return;
+    }
     const person=HD.loadPerson(parseInput(raw) || raw);
     const v=HD.validateNatalOrStop ? HD.validateNatalOrStop(person, 'Person '+n) : {ok:true};
     if(!person.gates.size && !(person.all_planet_activations||[]).length){
@@ -777,10 +807,10 @@ function exportHtml(){
 function loadCoupleSample(){
   loadSampleInto(1, 'dennis');
   loadSampleInto(2, 'eike');
-  mode='single'; startDate='2026-10-26'; endDate=null;
-  $('month').value='2026-10';
-  $('tz').value='America/New_York';
-  setTime12From24('15:00');
+  mode='single';
+  syncWhenModeHighlight();
+  applyBootTodayToInputs();
+  const tzEl=$('tz'); if(tzEl) tzEl.value='America/New_York';
   renderCalendar();
   runAnalysis();
 }
@@ -823,32 +853,65 @@ function loadAstronomy(){
   });
 }
 
+
+function printReport(){
+  const report=$('report');
+  if(!report || !(report.textContent||'').trim() || /Load the ephemeris/.test(report.textContent||'')){
+    status('Run an analysis first — then Print / Save as PDF prints only the report.','err');
+    return;
+  }
+  // Ensure positions table (if present) stays in the print DOM; expand nothing else
+  try{ window.print(); }catch(e){ status('Print failed: '+(e&&e.message?e.message:e),'err'); }
+}
+
+function applyBootTodayToInputs(){
+  const t=initialLocalToday();
+  __BOOT_TODAY__=t;
+  startDate=t.iso;
+  // Range defaults: From/To both today. In single mode endDate stays null for logic,
+  // but the To input still shows today so switching to range is ready.
+  endDate = (mode==='range') ? t.iso : null;
+  calViewYear=t.y; calViewMonth=t.m;
+  const monthEl=$('month'); if(monthEl) monthEl.value=t.iso.slice(0,7);
+  const df=$('dateFrom'); if(df) df.value=t.iso;
+  const dt=$('dateTo'); if(dt) dt.value=t.iso;
+  const tod=$('timeOfDay');
+  if(tod) tod.value=t.hm;
+  try{ setTime12From24(t.hm); }catch(e){}
+  try{ syncDateInputsFromState && syncDateInputsFromState(); }catch(e){}
+  try{ if(typeof updateRangeHint==='function') updateRangeHint(); }catch(e){}
+}
 function wire(){
-  fillTimezones();
-  initTime12Controls();
-  $('month').onchange=()=>{ renderCalendar(); };
+  const safe=(label,fn)=>{ try{ fn(); }catch(err){ console.error('wire:'+label, err); try{ status('Init warning ('+label+'): '+(err&&err.message?err.message:err),'err'); }catch(_e){} } };
+  safe('tz', fillTimezones);
+  safe('time12', initTime12Controls);
+  safe('today', applyBootTodayToInputs);
+  const monthEl=$('month'); if(monthEl) monthEl.onchange=()=>{ renderCalendar(); };
   const calPrev=$('calPrev'), calNext=$('calNext');
   if(calPrev) calPrev.onclick=calPrevMonth;
   if(calNext) calNext.onclick=calNextMonth;
   const dateFrom=$('dateFrom'), dateTo=$('dateTo');
   if(dateFrom) dateFrom.onchange=applyDateInputsToState;
   if(dateTo) dateTo.onchange=applyDateInputsToState;
-  $('modeSingle').onclick=()=>{mode='single';endDate=null;rangeNeedsNewStart=true;syncWhenModeHighlight();renderCalendar();};
-  $('modeRange').onclick=()=>{mode='range';endDate=null;rangeNeedsNewStart=true;clearNowReading();syncWhenModeHighlight();renderCalendar();};
-  $('file1').onchange=e=>handleFile(1,e.target.files?.[0]);
-  $('file2').onchange=e=>handleFile(2,e.target.files?.[0]);
+  const ms=$('modeSingle'), mr=$('modeRange');
+  if(ms) ms.onclick=()=>{mode='single';endDate=null;rangeNeedsNewStart=true;syncWhenModeHighlight();renderCalendar();};
+  if(mr) mr.onclick=()=>{mode='range';endDate=null;rangeNeedsNewStart=true;clearNowReading();syncWhenModeHighlight();renderCalendar();};
+  const f1=$('file1'), f2=$('file2');
+  if(f1) f1.onchange=e=>handleFile(1,e.target.files&&e.target.files[0]);
+  if(f2) f2.onchange=e=>handleFile(2,e.target.files&&e.target.files[0]);
   const cp1=$('clearPerson1'), cp2=$('clearPerson2'), cd=$('clearDates');
   if(cp1) cp1.onclick=()=>clearPerson(1);
   if(cp2) cp2.onclick=()=>clearPerson(2);
   if(cd) cd.onclick=()=>clearDates();
   document.querySelectorAll('button.quick-sample').forEach(btn=>{
-    btn.onclick=()=>loadSampleInto(+btn.getAttribute('data-slot'), btn.getAttribute('data-sample'));
+    if(!btn.getAttribute('type')) btn.setAttribute('type','button');
+    btn.addEventListener('click', ()=>loadSampleInto(+btn.getAttribute('data-slot'), btn.getAttribute('data-sample')));
   });
   ;[1,2].forEach(n=>{
     const ta=$(n===1?'person1':'person2');
     if(ta){ ta.addEventListener('input', ()=>clearQuickLoadHighlight(n)); ta.addEventListener('change', ()=>clearQuickLoadHighlight(n)); }
   });
-  $('loadCouple').onclick=loadCoupleSample;
+  const lc=$('loadCouple'); if(lc) lc.onclick=loadCoupleSample;
   const rs=$('reportSnapshot'), rt=$('reportTimeline'), th=$('timelineHint');
   function setReportMode(m){
     reportMode=m;
@@ -859,27 +922,30 @@ function wire(){
   }
   if(rs) rs.onclick=()=>setReportMode('snapshot');
   if(rt) rt.onclick=()=>setReportMode('timeline');
-  setReportMode(reportMode);
+  safe('reportMode', ()=>setReportMode(reportMode));
 
+    const rangeFieldCb=$('includeRangeTransitField');
+  if(rangeFieldCb) rangeFieldCb.onchange=()=>{ if(window.__LAST_TRANSIT__) runAnalysis(); };
+  syncRangeTransitFieldOpt();
   const ic=$('includeCodes'); if(ic) ic.onchange=()=>{ if(window.__LAST_TRANSIT__) runAnalysis(); };
   const rwCb=$('realWorldInfluence'); if(rwCb) rwCb.onchange=()=>{ if(window.__LAST_TRANSIT__) runAnalysis(); };
   const moonCb=$('moonGateOnly'); if(moonCb) moonCb.onchange=()=>{ if(window.__LAST_TRANSIT__) runAnalysis(); };
   const sunCb=$('sunGateOnly'); if(sunCb) sunCb.onchange=()=>{ if(window.__LAST_TRANSIT__) runAnalysis(); };
   const allGateCb=$('allGateOnly'); if(allGateCb) allGateCb.onchange=()=>{ syncOmitLightsUI(); if(window.__LAST_TRANSIT__) runAnalysis(); };
   const omitCb=$('omitLights'); if(omitCb) omitCb.onchange=()=>{ syncOmitLightsUI(); if(window.__LAST_TRANSIT__) runAnalysis(); };
-  syncOmitLightsUI();
+  safe('omitUI', syncOmitLightsUI);
   /* syncDirectOnlyUI removed */
-  syncNowBtnHighlight();
-  $('runBtn').onclick=runAnalysis;
-  $('nowBtn').onclick=setNow;
-  $('applyMan1').onclick=()=>applyManualGates(1);
-  $('applyMan2').onclick=()=>applyManualGates(2);
-  $('exportMd').onclick=exportMd;
-  $('exportHtml').onclick=exportHtml;
-  $('printBtn').onclick=()=>window.print();
-  syncWhenModeHighlight();
-  setReportMode(reportMode);
-  renderCalendar();
+  safe('nowBtn', syncNowBtnHighlight);
+  const runBtn=$('runBtn'); if(runBtn) runBtn.onclick=runAnalysis;
+  const nowBtn=$('nowBtn'); if(nowBtn) nowBtn.onclick=setNow;
+  const am1=$('applyMan1'); if(am1) am1.onclick=()=>applyManualGates(1);
+  const am2=$('applyMan2'); if(am2) am2.onclick=()=>applyManualGates(2);
+  const em=$('exportMd'); if(em) em.onclick=exportMd;
+  const eh=$('exportHtml'); if(eh) eh.onclick=exportHtml;
+  const pb=$('printBtn'); if(pb) pb.onclick=()=>printReport();
+  safe('whenMode', syncWhenModeHighlight);
+  safe('reportMode2', ()=>setReportMode(reportMode));
+  safe('calendar', renderCalendar);
 
   status('Loading ephemeris library…');
   loadAstronomy().then(()=>{
@@ -891,7 +957,7 @@ function wire(){
     if(q.get('report')==='timeline'){ setReportMode('timeline'); }
     if(q.get('report')==='snapshot'){ setReportMode('snapshot'); }
     if(q.get('autorun')==='1'){
-      // Sample validation: Dennis/Eike @ 2026-10-26 3:00 PM America/New_York (=19:00 UTC)
+      // Autorun: load Dennis/Eike couple sample at current local date/time (tz set in loadCoupleSample)
       loadCoupleSample();
       if(q.get('range')==='7'){
         mode='range'; endDate=addCalendarDays(startDate,6);
@@ -907,4 +973,22 @@ function wire(){
 }
 
 window.__CAL_TEST__={getState:()=>({mode,startDate,endDate,calViewYear,calViewMonth,label:selectionRangeText(),days:rangeDayCount()}), setMode:(m)=>{mode=m; if(m==='single'){endDate=null; rangeNeedsNewStart=true;} else {endDate=null; rangeNeedsNewStart=true;} renderCalendar();}, pick:onPick, prev:calPrevMonth, next:calNextMonth, render:renderCalendar, applyInputs:applyDateInputsToState, clearPerson, clearDates};
-document.addEventListener('DOMContentLoaded', wire);
+function bootApp(){
+  wire();
+}
+if(document.readyState==='loading'){ document.addEventListener('DOMContentLoaded', bootApp); }
+else { bootApp(); }
+// iOS/Safari bfcache: re-apply local now when page is restored
+(function(){
+  var root=null;
+  try{ root = (typeof window!=='undefined' && window) || (typeof self!=='undefined' && self) || null; }catch(e){ root=null; }
+  if(!root || typeof root.addEventListener!=='function') return;
+  try{
+    root.addEventListener('pageshow', function(ev){
+      try{
+        applyBootTodayToInputs();
+        if(typeof renderCalendar==='function') renderCalendar();
+      }catch(e){ try{ console.error('pageshow today', e); }catch(_e){} }
+    });
+  }catch(e){ /* jsdom/vm hosts may reject window.addEventListener across realms */ }
+})();
