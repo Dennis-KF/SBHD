@@ -1149,15 +1149,66 @@ function wantTransitFieldSections(meta){
   meta = meta || {};
   if(meta.includePositions === true || meta.includeTransitField === true) return true;
   if(meta.includePositions === false || meta.includeTransitField === false) return false;
+  // Runtime flag set by runAnalysis from the live checkbox (most reliable)
+  try{
+    if(typeof window!=='undefined' && window.__INCLUDE_TRANSIT_FIELD__===true) return true;
+    if(typeof window!=='undefined' && window.__INCLUDE_TRANSIT_FIELD__===false) return false;
+  }catch(e){}
   // Callers that forgot the flag: if When=range, respect checkbox (default off)
   if(isRangeWhenActive()) return includeRangeTransitFieldOn();
   return true; // single day / Now
+}
+/** Raw planet/gate.line stamps (the "field") — off when range checkbox unchecked. */
+function showTransitFieldPositions(meta){
+  return wantTransitFieldSections(meta);
 }
 function rangeTransitFieldMode(dayCount){
   // Choice: per-day tables when range is short (<=7 days); otherwise start+end only.
   if(!(dayCount>1)) return 'single';
   if(!includeRangeTransitFieldOn()) return 'omit';
   return dayCount <= 7 ? 'per-day' : 'start-end';
+}
+function includeRangeOverviewOn(){
+  try{
+    if(typeof window!=='undefined' && window.__INCLUDE_RANGE_OVERVIEW__===true) return true;
+    if(typeof window!=='undefined' && window.__INCLUDE_RANGE_OVERVIEW__===false) return false;
+    return !!document.getElementById('includeRangeOverview')?.checked;
+  }catch(e){ return false; }
+}
+function wantRangeOverview(meta){
+  meta = meta || {};
+  if(meta.rangeOverview === true) return true;
+  if(meta.rangeOverview === false) return false;
+  try{
+    if(typeof window!=='undefined' && window.__INCLUDE_RANGE_OVERVIEW__===true) return true;
+    if(typeof window!=='undefined' && window.__INCLUDE_RANGE_OVERVIEW__===false) return false;
+  }catch(e){}
+  return isRangeWhenActive() && includeRangeOverviewOn();
+}
+/** First sentence / short clause — no lookbehind (iOS-safe). */
+function firstSentencePlain(text, maxLen){
+  maxLen = maxLen || 220;
+  let s = String(text||'').replace(/\s+/g,' ').trim();
+  if(!s) return '';
+  // Drop source-y tokens without naming them in output
+  s = s.replace(/\b(LCN|TCRI|Ra\s*Uru\s*Hu|Rave\s+I\s*Ching|Black\s+Book)\b/gi,'').replace(/\s+/g,' ').trim();
+  let cut = -1;
+  const lim = Math.min(s.length, maxLen + 40);
+  for(let i=0;i<lim;i++){
+    const ch = s.charAt(i);
+    if(ch==='.' || ch==='!' || ch==='?'){ cut=i; break; }
+  }
+  if(cut>=12) s = s.slice(0, cut+1);
+  else s = s.slice(0, maxLen);
+  s = s.replace(/[,:;\-—]+\s*$/,'').trim();
+  if(s && !/[.!?]$/.test(s)) s += '.';
+  return s;
+}
+function lineDescriptionBrief(line){
+  if(!line) return '';
+  const title = cleanLineTitle(line);
+  const body = firstSentencePlain(line.lcn_text || line.tcri_text || '', 200);
+  return {title: title || '', body: body};
 }
 function realWorldOn(){ try{ return !!document.getElementById('realWorldInfluence')?.checked; }catch(e){ return false; } }
 function moonGateOnlyOn(){ try{ return !!document.getElementById('moonGateOnly')?.checked; }catch(e){ return true; } }
@@ -3379,10 +3430,18 @@ function describeHitParagraph(person, hit, tracker){
 
   const ill=nextIllustration(tracker);
   const leadOpts=[
-    planet+' at '+gl+' ('+theme+') is a direct hit for '+person.name,
-    planet+' at '+gl+' ('+theme+') hooks '+person.name+'’s design',
-    'For '+person.name+', '+planet+' at '+gl+' ('+theme+') is the active contact',
-    planet+' at '+gl+' brings '+theme+' into '+person.name+'’s chart now'
+    showTransitFieldPositions()
+      ? (planet+' at '+gl+' ('+theme+') is a direct hit for '+person.name)
+      : (planet+' ('+theme+') is a direct hit for '+person.name),
+    showTransitFieldPositions()
+      ? (planet+' at '+gl+' ('+theme+') hooks '+person.name+'’s design')
+      : (planet+' ('+theme+') hooks '+person.name+'’s design'),
+    showTransitFieldPositions()
+      ? ('For '+person.name+', '+planet+' at '+gl+' ('+theme+') is the active contact')
+      : ('For '+person.name+', '+planet+' ('+theme+') is the active contact'),
+    showTransitFieldPositions()
+      ? (planet+' at '+gl+' brings '+theme+' into '+person.name+'’s chart now')
+      : (planet+' brings '+theme+' into '+person.name+'’s chart now')
   ];
   let lead='';
   const start=tracker.seq % leadOpts.length;
@@ -3556,15 +3615,15 @@ function describeCoupleComparison(person1, person2, day1, day2, couple, tracker)
   const only1=shared.filter(h=>h.in_a&&!h.in_b);
   const only2=shared.filter(h=>h.in_b&&!h.in_a);
   if(both.length){
-    const s='Shared hooks under this sky: '+both.map(h=>planetLabel(h.planet)+' '+h.gl+' ('+prettyTheme((h.gate&&h.gate.name)||gateThemeName((h.gl||'').split('.')[0]))+')').join('; ')+'.';
+    const s='Shared hooks under this sky: '+both.map(h=>planetLabel(h.planet)+(showTransitFieldPositions()?(' '+h.gl):'')+' ('+prettyTheme((h.gate&&h.gate.name)||gateThemeName((h.gl||'').split('.')[0]))+')').join('; ')+'.';
     bits.push(registerAndFilterSentence(tracker,s)||s);
   }
   if(only1.length){
-    const s=person1.name+'-only hits: '+only1.map(h=>planetLabel(h.planet)+' '+h.gl).join(', ')+', while '+person2.name+' may feel them through open centers rather than natal gates.';
+    const s=person1.name+'-only hits: '+only1.map(h=>planetLabel(h.planet)+(showTransitFieldPositions()?(' '+h.gl):'')).join(', ')+', while '+person2.name+' may feel them through open centers rather than natal gates.';
     bits.push(registerAndFilterSentence(tracker,s)||s);
   }
   if(only2.length){
-    const s=person2.name+'-only hits: '+only2.map(h=>planetLabel(h.planet)+' '+h.gl).join(', ')+', with '+person1.name+' more likely to receive them as conditioning.';
+    const s=person2.name+'-only hits: '+only2.map(h=>planetLabel(h.planet)+(showTransitFieldPositions()?(' '+h.gl):'')).join(', ')+', with '+person1.name+' more likely to receive them as conditioning.';
     bits.push(registerAndFilterSentence(tracker,s)||s);
   }
   const electro=(couple&&couple.electromagnetic)||[];
@@ -3674,25 +3733,177 @@ function renderIndepthDayHtml(person1, person2, transitRaw, tracker, meta){
     parts.push(renderTransitPositionsHtml(transitRaw, meta));
   }
 
-  let tech=technicalBlock(transit, [r1.day].concat(r2?[r2.day]:[]), person2?coupleDynamics(person1,person2,transit):null, {includeTransitField: showField});
-  const mismatches=[];
-  if(person1.center_mismatch) mismatches.push(person1.center_mismatch);
-  if(person2 && person2.center_mismatch) mismatches.push(person2.center_mismatch);
-  // Always log channel-derived center summary
-  function centerTechLine(p){
-    const def=[...p.defined_centers].sort().join(', ')||'none';
-    const open=openCentersOf(p).join(', ')||'none';
-    const ch=(p.natal_channel_list||[]).map(c=>c.id+' '+c.name+' → '+c.centers.join('+')).join('; ')||'none';
-    return p.name+' centers (channel-derived): defined ['+def+']; open ['+open+']; natal channels ['+ch+']';
+  if(showField){
+    let tech=technicalBlock(transit, [r1.day].concat(r2?[r2.day]:[]), person2?coupleDynamics(person1,person2,transit):null, {includeTransitField: true});
+    const mismatches=[];
+    if(person1.center_mismatch) mismatches.push(person1.center_mismatch);
+    if(person2 && person2.center_mismatch) mismatches.push(person2.center_mismatch);
+    function centerTechLine(p){
+      const def=[...p.defined_centers].sort().join(', ')||'none';
+      const open=openCentersOf(p).join(', ')||'none';
+      const ch=(p.natal_channel_list||[]).map(c=>c.id+' '+c.name+' → '+c.centers.join('+')).join('; ')||'none';
+      return p.name+' centers (channel-derived): defined ['+def+']; open ['+open+']; natal channels ['+ch+']';
+    }
+    tech += '\n'+centerTechLine(person1);
+    if(person2) tech += '\n'+centerTechLine(person2);
+    if(mismatches.length) tech += '\n'+mismatches.join('\n');
+    parts.push('<div class="tech"><details class="tech"><summary>Technical details (gates, channels, ephemeris)</summary><pre>'+escapeHtml(tech)+'</pre></details></div>');
   }
-  tech += '\n'+centerTechLine(person1);
-  if(person2) tech += '\n'+centerTechLine(person2);
-  if(mismatches.length) tech += '\n'+mismatches.join('\n');
-  parts.push('<div class="tech"><details class="tech"><summary>Technical details (gates, channels, ephemeris)</summary><pre>'+escapeHtml(tech)+'</pre></details></div>');
+  return parts.join('\n');
+}
+
+
+function briefTouchExplanation(person, hit){
+  const name = firstNameOnly(person.name);
+  const theme = prettyTheme((hit.gateInfo&&hit.gateInfo.name)||gateThemeName(hit.gate));
+  const center = (hit.gateInfo&&hit.gateInfo.center)||'';
+  const open = openCentersOf(person);
+  const isOpen = center && open.indexOf(center)>=0;
+  const lineBits = lineDescriptionBrief(hit.lineInfo);
+  const lineTitle = lineBits.title;
+  const meaning = lineBits.body;
+  const planet = planetLabel(hit.planet);
+  let how = '';
+  if(hit.kind==='channel_supply' || hit.kind==='channel_em'){
+    const chInfo = hit.channelInfo || (hit.channel && hit.channel.info) || null;
+    const chName = prettyTheme(chInfo ? plainChannelName(chInfo) : ((hit.channelId)||'a channel'));
+    how = name+' gets a temporary complete '+chName+' while '+planet+' holds '+theme+'.';
+  } else if(hit.kind==='channel_overlay'){
+    how = planet+' overlays '+name+'’s already-defined '+theme+' circuitry—same gate, louder weather.';
+  } else if(isOpen){
+    how = planet+' lands in '+name+'’s open '+(center||'center')+' on '+theme+', so the theme is felt as conditioning rather than native definition.';
+  } else {
+    how = planet+' activates '+theme+' in '+name+'’s defined '+(center||'circuitry')+', amplifying what is already reliable.';
+  }
+  if(lineTitle){
+    how += ' Line quality: '+lineTitle+(meaning?(' — '+meaning.replace(/\.$/,'')):'')+'.';
+  } else if(meaning){
+    how += ' '+meaning;
+  }
+  // Keep to ~2 sentences
+  const parts = [];
+  let buf = '';
+  for(let i=0;i<how.length;i++){
+    buf += how.charAt(i);
+    if('.!?'.indexOf(how.charAt(i))>=0){
+      parts.push(buf.trim());
+      buf='';
+      if(parts.length>=2) break;
+    }
+  }
+  if(parts.length<2 && buf.trim()) parts.push(buf.trim());
+  return parts.slice(0,2).join(' ');
+}
+
+function oneBridgeLine(person, day){
+  const name = firstNameOnly(person.name);
+  const completed = (day&&day.completed_channels)||[];
+  for(const item of completed){
+    const kind = String(item.kind||'');
+    if(kind.indexOf('electromagnetic')>=0 || kind.indexOf('supply')>=0 || kind==='channel_em' || kind==='channel_supply'){
+      const chName = prettyTheme(item.info ? plainChannelName(item.info) : (item.channel||'channel'));
+      return name+': temporary '+chName+' channel completes.';
+    }
+  }
+  return '';
+}
+
+function renderOverviewHitItem(person, hit){
+  if(!verifyHitAgainstChart(person, hit)) return '';
+  const theme = prettyTheme((hit.gateInfo&&hit.gateInfo.name)||gateThemeName(hit.gate));
+  const lineBits = lineDescriptionBrief(hit.lineInfo);
+  const lineTitle = lineBits.title || ('Line '+hit.line);
+  const gl = hit.gl || (hit.gate+'.'+hit.line);
+  const planet = planetLabel(hit.planet);
+  const showPos = showTransitFieldPositions();
+  const head = showPos
+    ? ('<span class="ov-gl">'+escapeHtml(planet+' '+gl)+'</span> — '+escapeHtml(theme)+' · '+escapeHtml(lineTitle))
+    : (escapeHtml(planet)+' — '+escapeHtml(theme)+' · '+escapeHtml(lineTitle));
+  const brief = briefTouchExplanation(person, hit);
+  return '<li>'+head+': '+escapeHtml(brief)+'</li>';
+}
+
+function renderRangeOverviewDayHtml(person1, person2, transitRaw, meta){
+  meta = meta||{};
+  const transit = transitWithoutLights(transitRaw);
+  const parts = [];
+  const when = transitRaw.display_when || transitRaw.display_date || transitRaw.date || '';
+  parts.push('<div class="ov-day">');
+  parts.push('<h3>'+escapeHtml(when)+'</h3>');
+
+  let bridgeUsed = false;
+  function addPerson(person){
+    const pack = collectDirectHits(person, transit);
+    const items = [];
+    for(const hit of (pack.hits||[])){
+      const li = renderOverviewHitItem(person, hit);
+      if(li) items.push(li);
+    }
+    parts.push('<div class="ov-person">'+escapeHtml(firstNameOnly(person.name))+'</div>');
+    if(items.length){
+      parts.push('<ul class="ov-hits">'+items.join('')+'</ul>');
+    } else {
+      parts.push('<p><em>'+escapeHtml('No chart-relevant gate/line activations at this stamp for '+firstNameOnly(person.name)+'.')+'</em></p>');
+    }
+    if(!bridgeUsed){
+      const br = oneBridgeLine(person, pack.day);
+      if(br){
+        parts.push('<p class="ov-bridge"><em>'+escapeHtml(br)+'</em></p>');
+        bridgeUsed = true;
+      }
+    }
+  }
+  addPerson(person1);
+  if(person2) addPerson(person2);
+
+  const showField = wantTransitFieldSections(meta);
+  if(showField){
+    parts.push(renderTransitPositionsHtml(transitRaw, meta));
+  }
+  parts.push('</div>');
+  return parts.join('\n');
+}
+
+function renderRangeOverviewHtml(person1, person2, transits, meta){
+  meta = meta||{};
+  const parts = [];
+  const names = person2 ? (firstNameOnly(person1.name)+' & '+firstNameOnly(person2.name)) : firstNameOnly(person1.name);
+  let titleDates;
+  if(transits.length===1) titleDates = transits[0].display_when||meta.timeLabel||'';
+  else {
+    const a = transits[0].display_date||transits[0].date;
+    const b = transits[transits.length-1].display_date||transits[transits.length-1].date;
+    const t = transits[0].display_time||'';
+    titleDates = a+' to '+b+(t?(' · '+t):'');
+  }
+  parts.push('<h2>'+escapeHtml('Transit overview: '+names)+'</h2>');
+  parts.push('<p><em>'+escapeHtml(titleDates)+'</em></p>');
+  parts.push('<p><em>'+escapeHtml('Brief gate & line activations that touch the chart—not a full narrative reading.')+'</em></p>');
+  if(omitLightsOn()) parts.push('<p><em>'+escapeHtml('Sun, Earth, and Moon are omitted from this analysis.')+'</em></p>');
+
+  const fieldMode = (meta && meta.rangeTransitFieldMode) || rangeTransitFieldMode(transits.length);
+  parts.push('<div class="range-overview">');
+  for(let ti=0; ti<transits.length; ti++){
+    const t = transits[ti];
+    let includePositions = false;
+    if(fieldMode==='per-day') includePositions = true;
+    else if(fieldMode==='start-end') includePositions = (ti===0 || ti===transits.length-1);
+    else if(fieldMode==='single') includePositions = true;
+    parts.push(renderRangeOverviewDayHtml(person1, person2, t, {
+      includePositions: includePositions,
+      includeTransitField: includePositions
+    }));
+  }
+  parts.push('</div>');
   return parts.join('\n');
 }
 
 function renderStructuredSnapshotHtml(person1, person2, transits, meta){
+  meta = meta||{};
+  // Range overview mode: compact gate/line list (multi-day only). Single day stays full reading.
+  if(transits.length>1 && wantRangeOverview(meta)){
+    return renderRangeOverviewHtml(person1, person2, transits, meta);
+  }
   const tracker=makeProseTracker();
   const parts=[];
   const names=person2?(person1.name+' & '+person2.name):person1.name;
@@ -3811,10 +4022,12 @@ function renderStructuredTimelineHtml(person1, person2, meta){
       continue;
     }
     if(!dayField.display_when) dayField.display_when=day;
+    const _showIngGl = showTransitFieldPositions();
     const ingressNote=list.length
       ? ('Significant ingresses: '+list.map(e=>{
           const t=(String(e.stamp).match(/(\d{1,2}:\d{2}\s*[AP]M)/i)||[''])[0];
-          return (t?t+' ':'')+planetLabel(e.planet)+' '+(e.from&&e.from.gl)+'→'+(e.to&&e.to.gl);
+          const glBit=_showIngGl ? (' '+(e.from&&e.from.gl)+'→'+(e.to&&e.to.gl)) : '';
+          return (t?t+' ':'')+planetLabel(e.planet)+glBit;
         }).join('; ')+'.')
       : '';
     const dayTracker=makeProseTracker();

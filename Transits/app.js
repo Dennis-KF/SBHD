@@ -410,6 +410,10 @@ function syncRangeTransitFieldOpt(){
   const hint=$('rangeTransitFieldHint');
   if(box) box.style.display = show ? '' : 'none';
   if(hint) hint.style.display = show ? '' : 'none';
+  const ov=$('rangeOverviewOpt');
+  const ovh=$('rangeOverviewHint');
+  if(ov) ov.style.display = show ? '' : 'none';
+  if(ovh) ovh.style.display = show ? '' : 'none';
 }
 
 function syncWhenModeHighlight(){
@@ -695,6 +699,22 @@ function buildTransitsForSelection(Astronomy){
   });
 }
 
+function computeIncludeTransitFieldFlag(){
+  // Read the live checkbox at run time. Single day / Now always include the field.
+  try{
+    if(mode!=='range') return true;
+    const cb=document.getElementById('includeRangeTransitField');
+    return !!(cb && cb.checked);
+  }catch(e){ return mode!=='range'; }
+}
+function computeIncludeRangeOverviewFlag(){
+  try{
+    if(mode!=='range') return false;
+    const cb=document.getElementById('includeRangeOverview');
+    return !!(cb && cb.checked);
+  }catch(e){ return false; }
+}
+
 function runAnalysis(){
   try{
     if(!engReady || !window.Astronomy){ status('Ephemeris library not loaded','err'); return; }
@@ -751,7 +771,25 @@ function runAnalysis(){
         startField.display_when=formatDisplayDateTime(new Date(startMs), tz);
         startField.display_date=formatDisplayDateOnly(new Date(startMs), tz);
       }catch(e){}
-      const meta={events:found.events, moonSkipped:found.moonSkipped, rawCount:found.rawCount, rangeLabel, tzLabel, tz, startField};
+      const includeTF=computeIncludeTransitFieldFlag();
+      const includeOverview=computeIncludeRangeOverviewFlag();
+      try{ window.__INCLUDE_TRANSIT_FIELD__=includeTF; window.__INCLUDE_RANGE_OVERVIEW__=includeOverview; }catch(e){}
+      if(includeOverview && dates.length>1){
+        // Compact overview uses one snapshot per local day (same as snapshot range), not ingress essays.
+        const dayTransits=buildTransitsForSelection(window.Astronomy);
+        const ovMeta={timeLabel:rangeLabel, tz, includeTransitField:includeTF, includePositions:includeTF, rangeOverview:true,
+          rangeTransitFieldMode: includeTF ? (dayTransits.length<=7?'per-day':'start-end') : 'omit'};
+        lastHtml=HD.renderNarrativeHtml(person1, person2, dayTransits, ovMeta);
+        lastMd=HD.renderNarrativeMarkdown(person1, person2, dayTransits, ovMeta);
+        $('report').innerHTML=lastHtml;
+        $('ephemNote').textContent = 'Overview (gate & line) · '+dayTransits.length+' days · '+rangeLabel+(includeTF?'':' · transit field omitted');
+        status('Done — overview · '+dayTransits.length+' days','ok');
+        window.__LAST_REPORT_MD__ = lastMd;
+        window.__LAST_TRANSIT__ = dayTransits[0]||null;
+        window.__LAST_EVENTS__ = found.events;
+        return;
+      }
+      const meta={events:found.events, moonSkipped:found.moonSkipped, rawCount:found.rawCount, rangeLabel, tzLabel, tz, startField, includeTransitField:includeTF, includePositions:includeTF, rangeOverview:false};
       lastHtml=renderTimelineHtml(person1, person2, meta);
       lastMd = lastHtml
         .replace(/<script[\s\S]*?<\/script>/gi,'')
@@ -784,11 +822,24 @@ function runAnalysis(){
     const transits=buildTransitsForSelection(window.Astronomy);
     const field0=transits[0];
     const timeLabel=field0.display_when;
-    lastHtml=HD.renderNarrativeHtml(person1, person2, transits, {timeLabel, tz: field0.tz});
-    lastMd=HD.renderNarrativeMarkdown(person1, person2, transits, {timeLabel, tz: field0.tz});
+    const includeTF=computeIncludeTransitFieldFlag();
+    const includeOverview=computeIncludeRangeOverviewFlag();
+    try{ window.__INCLUDE_TRANSIT_FIELD__=includeTF; window.__INCLUDE_RANGE_OVERVIEW__=includeOverview; }catch(e){}
+    const snapMeta={timeLabel, tz: field0.tz, includeTransitField:includeTF, includePositions:includeTF, rangeOverview:includeOverview};
+    if(mode==='range' && transits.length>1){
+      snapMeta.rangeTransitFieldMode = includeTF ? (transits.length<=7?'per-day':'start-end') : 'omit';
+    }
+    lastHtml=HD.renderNarrativeHtml(person1, person2, transits, snapMeta);
+    lastMd=HD.renderNarrativeMarkdown(person1, person2, transits, snapMeta);
     $('report').innerHTML=lastHtml;
     const field=transits[0];
-    $('ephemNote').textContent = `Live field @ ${field.display_when}: Sun ${field.planets.Sun.gl}, Moon ${field.planets.Moon.gl}, NN(true) ${field.planets.NorthNode.gl}`;
+    if(mode==='range' && includeOverview){
+      $('ephemNote').textContent = 'Overview (gate & line) · '+transits.length+' day'+(transits.length===1?'':'s')+' @ '+timeLabel+(includeTF?'':' · transit field omitted');
+    } else if(mode==='range' && !includeTF){
+      $('ephemNote').textContent = 'Range report @ '+timeLabel+(transits.length>1?(' · '+transits.length+' days'):'')+' · transit field omitted';
+    } else {
+      $('ephemNote').textContent = `Live field @ ${field.display_when}: Sun ${field.planets.Sun.gl}, Moon ${field.planets.Moon.gl}, NN(true) ${field.planets.NorthNode.gl}`;
+    }
     status('Done','ok');
     window.__LAST_REPORT_MD__ = lastMd;
     window.__LAST_TRANSIT__ = field;
@@ -934,7 +985,15 @@ function wire(){
   safe('reportMode', ()=>setReportMode(reportMode));
 
     const rangeFieldCb=$('includeRangeTransitField');
-  if(rangeFieldCb) rangeFieldCb.onchange=()=>{ if(window.__LAST_TRANSIT__) runAnalysis(); };
+  if(rangeFieldCb) rangeFieldCb.onchange=()=>{
+    try{ window.__INCLUDE_TRANSIT_FIELD__=computeIncludeTransitFieldFlag(); }catch(e){}
+    if(window.__LAST_TRANSIT__) runAnalysis();
+  };
+  const rangeOvCb=$('includeRangeOverview');
+  if(rangeOvCb) rangeOvCb.onchange=()=>{
+    try{ window.__INCLUDE_RANGE_OVERVIEW__=computeIncludeRangeOverviewFlag(); }catch(e){}
+    if(window.__LAST_TRANSIT__) runAnalysis();
+  };
   syncRangeTransitFieldOpt();
   const ic=$('includeCodes'); if(ic) ic.onchange=()=>{ if(window.__LAST_TRANSIT__) runAnalysis(); };
   const rwCb=$('realWorldInfluence'); if(rwCb) rwCb.onchange=()=>{ if(window.__LAST_TRANSIT__) runAnalysis(); };

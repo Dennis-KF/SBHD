@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta http-equiv="Cache-Control" content="no-cache" />
-  <meta name="ta-build" content="202610300325" />
+  <meta name="ta-build" content="202610292200" />
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -65,6 +65,14 @@ button:disabled{opacity:.5;cursor:not-allowed;filter:none}
 #nowBtn.active,
 button.secondary#nowBtn.active{opacity:1;font-weight:750;background:var(--accent);color:#111;border:1px solid #e0c45a;box-shadow:0 0 0 1px rgba(201,162,39,.35)}
 #nowBtn{width:auto;min-width:4.5rem}
+#report .range-overview{margin:.4rem 0 1rem}
+#report .range-overview .ov-day{margin:0 0 1.1rem;padding:0 0 .75rem;border-bottom:1px solid var(--border)}
+#report .range-overview .ov-day:last-child{border-bottom:none}
+#report .range-overview .ov-person{margin:.45rem 0 .25rem;font-weight:650;color:var(--accent)}
+#report .range-overview ul.ov-hits{margin:.2rem 0 .4rem;padding-left:1.15rem}
+#report .range-overview ul.ov-hits li{margin:.28rem 0;line-height:1.45}
+#report .range-overview .ov-gl{font-variant-numeric:tabular-nums;color:#d7c27a}
+#report .range-overview .ov-bridge{margin:.35rem 0 .15rem;color:var(--muted);font-size:.92rem}
 #report .transit-positions{margin:.6rem 0 1.1rem;padding:.75rem .9rem;border:1px solid var(--border);border-radius:10px;background:#0f1620}
 #report .transit-positions h3{margin:.1rem 0 .35rem;color:var(--accent);font-size:1.02rem}
 #report .transit-positions .pos-when{margin:0 0 .55rem;color:#9aa7b8;font-size:.9rem}
@@ -120,6 +128,10 @@ button.secondary#nowBtn.active{opacity:1;font-weight:750;background:var(--accent
   #report h3{ font-size:1.1rem; }
   #report p,#report li{ color:#000!important; orphans:3; widows:3; }
   #report ul,#report ol{ page-break-inside:avoid; break-inside:avoid; }
+  #report .range-overview .ov-day{ border-bottom:1px solid #ccc!important; page-break-inside:avoid; break-inside:avoid; margin:0 0 0.9em; padding:0 0 0.6em; }
+  #report .range-overview .ov-person{ color:#000!important; font-weight:700; }
+  #report .range-overview .ov-gl{ color:#000!important; font-weight:600; }
+  #report .range-overview .ov-bridge{ color:#333!important; }
   #report .transit-positions{ margin-top:1.2em; border:1px solid #ccc!important; background:#fff!important; page-break-inside:avoid; break-inside:avoid; }
   #report .transit-positions table{ width:100%; border-collapse:collapse; font-size:10pt; }
   #report .transit-positions th,#report .transit-positions td{ color:#000!important; border-bottom:1px solid #ddd; padding:0.25rem 0.4rem; }
@@ -235,9 +247,14 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 
     <label class="check no-print" id="rangeTransitFieldOpt" style="display:none;margin:.35rem 0 .55rem">
       <input type="checkbox" id="includeRangeTransitField" />
-      Include transit field (positions table)
+      Include transit field (positions table & gate.line stamps)
     </label>
-    <p class="hint no-print" id="rangeTransitFieldHint" style="display:none;margin:.1rem 0 .55rem">For date ranges only (off by default). Short ranges (≤7 days) add a positions table under each day; longer ranges show start + end only. Single day and Now always include the table.</p>
+    <p class="hint no-print" id="rangeTransitFieldHint" style="display:none;margin:.1rem 0 .55rem">For date ranges only (off by default). When off: no positions table, no “Transit field” heading, no gate.line field list in Technical details, and day prose omits raw planet@gate.line stamps. When on: short ranges (≤7 days) add a positions table under each day; longer ranges show start + end only. Single day and Now always include the field.</p>
+    <label class="check no-print" id="rangeOverviewOpt" style="display:none;margin:.15rem 0 .35rem">
+      <input type="checkbox" id="includeRangeOverview" />
+      Overview: gate &amp; line descriptions only (brief)
+    </label>
+    <p class="hint no-print" id="rangeOverviewHint" style="display:none;margin:.1rem 0 .55rem">Date ranges only (off by default). When on, the range report is a compact day-by-day list of chart-relevant gate/line activations with a short plain-language note—no long narrative, Real-World essays, or channel weather. Works independently of “Include transit field.”</p>
     <div class="cal-wrap">
       <div class="cal-toolbar">
         <div class="cal-nav">
@@ -340,9 +357,9 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 </main>
 
 <!-- Data is separate from the UI. Script order matters. Works via file:// on Windows and via https on iPhone/iPad Firefox. -->
-<script src="astronomy.browser.min.js?v=202610300325"></script>
-<script src="data.js?v=202610300325"></script>
-<script src="analyzer.js?v=202610300325"></script>
-<script src="app.js?v=202610300325"></script>
+<script src="astronomy.browser.min.js?v=202610292200"></script>
+<script src="data.js?v=202610292200"></script>
+<script src="analyzer.js?v=202610292200"></script>
+<script src="app.js?v=202610292200"></script>
 </body>
 </html>
