@@ -788,14 +788,16 @@ function findChartRelevantEvents(Astronomy, person1, person2, startMs, endMs, tz
 function formatTimelineStamp(date, timeZone){
   const tz=resolveTzId(timeZone);
   const d=date instanceof Date?date:new Date(date);
+  // Local (tz) weekday. e.g. "Thursday, Oct 29, 2026, 4:12 PM EDT"
   const parts=new Intl.DateTimeFormat('en-US',{
-    timeZone:tz, year:'numeric', month:'short', day:'numeric',
+    timeZone:tz, weekday:'long', year:'numeric', month:'short', day:'numeric',
     hour:'numeric', minute:'2-digit', hour12:true, timeZoneName:'short'
   }).formatToParts(d);
   const get=t=>(parts.find(p=>p.type===t)||{}).value||'';
-  // Oct 26, 2026, 4:12 PM EDT
-  return `${get('month')} ${get('day')}, ${get('year')}, ${get('hour')}:${get('minute')} ${get('dayPeriod')} ${get('timeZoneName')}`;
+  return `${get('weekday')}, ${get('month')} ${get('day')}, ${get('year')}, ${get('hour')}:${get('minute')} ${get('dayPeriod')} ${get('timeZoneName')}`;
 }
+
+
 function describeTimelineEvent(ev, reasons, person1, person2, showCodes){
   const planet=ev.planet;
   const themeTo=gateThemeName(ev.to.gate);
@@ -1128,6 +1130,28 @@ function codesOn(){ try{ return !!document.getElementById('includeCodes')?.check
 function interactionsOnlyOn(){ return false; }
 function includeRangeTransitFieldOn(){
   try{ return !!document.getElementById('includeRangeTransitField')?.checked; }catch(e){ return false; }
+}
+function isRangeWhenActive(){
+  try{
+    const mr=document.getElementById('modeRange');
+    if(mr && mr.classList && mr.classList.contains('active')) return true;
+    // When range is active, syncRangeTransitFieldOpt sets display to '' (visible); when single, 'none'.
+    const opt=document.getElementById('rangeTransitFieldOpt');
+    if(opt && opt.style && opt.style.display!=='none'){
+      // Visible (display '' or 'block'/flex) means range mode.
+      return true;
+    }
+  }catch(e){}
+  return false;
+}
+/** Should any Transit field / positions table / gate.line field list appear? */
+function wantTransitFieldSections(meta){
+  meta = meta || {};
+  if(meta.includePositions === true || meta.includeTransitField === true) return true;
+  if(meta.includePositions === false || meta.includeTransitField === false) return false;
+  // Callers that forgot the flag: if When=range, respect checkbox (default off)
+  if(isRangeWhenActive()) return includeRangeTransitFieldOn();
+  return true; // single day / Now
 }
 function rangeTransitFieldMode(dayCount){
   // Choice: per-day tables when range is short (<=7 days); otherwise start+end only.
@@ -2387,11 +2411,17 @@ function narrativeOverview(transit, days){
   return `On ${transit.display_when||formatDisplayDateTime(transit.datetime_utc, transit.tz||'local')}, the collective sky ${chBit}${cBit?`, with ${cBit} feeling more “defined” in the transit field`:''}. ${sunBit}, so the day’s basic polarity is already a conversation between those two themes. What follows is not a prediction of events; it is a reading of conditioning weather—how this sky can amplify themes already latent in each design.`;
 }
 
-function technicalBlock(transit, peopleDays, couple){
+function technicalBlock(transit, peopleDays, couple, opts){
+  opts = opts || {};
   const lines=[];
   lines.push('When: '+(transit.display_when||formatDisplayDateTime(transit.datetime_utc, transit.tz||'local')));
-  const planetKeys=omitLightsOn()?PLANET_ORDER.filter(p=>!isLightPlanet(p)):PLANET_ORDER;
-  lines.push('Transit field (gate.line): '+planetKeys.filter(p=>transit.planets[p]).map(p=>p+': '+transit.planets[p].gl).join(' | ')+(omitLightsOn()?' | (Sun/Earth/Moon omitted)':''));
+  const showField = (opts.includeTransitField !== undefined)
+    ? !!opts.includeTransitField
+    : wantTransitFieldSections({});
+  if(showField){
+    const planetKeys=omitLightsOn()?PLANET_ORDER.filter(p=>!isLightPlanet(p)):PLANET_ORDER;
+    lines.push('Transit field (gate.line): '+planetKeys.filter(p=>transit.planets[p]).map(p=>p+': '+transit.planets[p].gl).join(' | ')+(omitLightsOn()?' | (Sun/Earth/Moon omitted)':''));
+  }
   lines.push('Ephemeris: '+transit.source);
   lines.push('Node: True Lunar Node (r×v from Moon ecliptic positions).');
   const tGates=new Set(Object.values(transit.planets).map(p=>p.gate));
@@ -3638,12 +3668,13 @@ function renderIndepthDayHtml(person1, person2, transitRaw, tracker, meta){
     }
   }
 
-  // Positions table at BOTTOM (optional for multi-day ranges)
-  if(!meta || meta.includePositions !== false){
-    parts.push(renderTransitPositionsHtml(transitRaw));
+  // Positions table / Transit field section at BOTTOM (optional for multi-day ranges)
+  const showField = wantTransitFieldSections(meta);
+  if(showField){
+    parts.push(renderTransitPositionsHtml(transitRaw, meta));
   }
 
-  let tech=technicalBlock(transit, [r1.day].concat(r2?[r2.day]:[]), person2?coupleDynamics(person1,person2,transit):null);
+  let tech=technicalBlock(transit, [r1.day].concat(r2?[r2.day]:[]), person2?coupleDynamics(person1,person2,transit):null, {includeTransitField: showField});
   const mismatches=[];
   if(person1.center_mismatch) mismatches.push(person1.center_mismatch);
   if(person2 && person2.center_mismatch) mismatches.push(person2.center_mismatch);
@@ -3680,16 +3711,16 @@ function renderStructuredSnapshotHtml(person1, person2, transits, meta){
 
   if(transits.length===1){
     // Single day / Now: always include transit field
-    parts.push(renderIndepthDayHtml(person1, person2, transits[0], tracker, {includePositions:true}));
+    parts.push(renderIndepthDayHtml(person1, person2, transits[0], tracker, {includePositions:true, includeTransitField:true}));
   } else {
-    // Multi-day range: optional transit field (checkbox).
+    // Multi-day range: optional transit field (checkbox, default off).
     // Choice: <=7 days → per-day table at bottom of each day; longer → start+end only.
+    // When omit: no positions table, no "Transit field" heading, no gate.line field list in tech.
     const fieldMode = (meta && meta.rangeTransitFieldMode) || rangeTransitFieldMode(transits.length);
     if(fieldMode==='start-end'){
-      parts.push('<p><em>'+escapeHtml('Transit field: first and last day of the range only (range longer than 7 days).')+'</em></p>');
-    } else if(fieldMode==='omit'){
-      parts.push('<p><em>'+escapeHtml('Transit field (positions table) omitted for this range — enable "Include transit field" under When to add it.')+'</em></p>');
+      parts.push('<p><em>'+escapeHtml('Positions table: first and last day of the range only (range longer than 7 days).')+'</em></p>');
     }
+    // No omit note — leave the report clean when unchecked.
     for(let ti=0; ti<transits.length; ti++){
       const t=transits[ti];
       const dayTracker=makeProseTracker();
@@ -3701,9 +3732,11 @@ function renderStructuredSnapshotHtml(person1, person2, transits, meta){
       let includePositions=false;
       if(fieldMode==='per-day') includePositions=true;
       else if(fieldMode==='start-end') includePositions=(ti===0 || ti===transits.length-1);
+      // else omit → false
       parts.push(renderIndepthDayHtml(person1, person2, t, dayTracker, {
         dayHeading:t.display_when||t.display_date||t.date,
-        includePositions:includePositions
+        includePositions:includePositions,
+        includeTransitField:includePositions
       }));
       tracker.seq=dayTracker.seq;
     }
@@ -3753,8 +3786,11 @@ function renderStructuredTimelineHtml(person1, person2, meta){
     dayTracker.usedFrames=tracker.usedFrames;
     dayTracker.usedMeanings=tracker.usedMeanings;
     dayTracker.seq=tracker.seq;
+    const _tlShow = wantTransitFieldSections({includePositions: isRangeWhenActive() ? includeRangeTransitFieldOn() : true});
     parts.push(renderIndepthDayHtml(person1, person2, meta.startField, dayTracker, {
-      dayHeading:meta.startField.display_when||'Range start'
+      dayHeading:meta.startField.display_when||'Range start',
+      includePositions:_tlShow,
+      includeTransitField:_tlShow
     }));
   }
 
@@ -3787,9 +3823,12 @@ function renderStructuredTimelineHtml(person1, person2, meta){
     dayTracker.usedFrames=tracker.usedFrames;
     dayTracker.usedMeanings=tracker.usedMeanings;
     dayTracker.seq=tracker.seq;
+        const _tlShowDay = wantTransitFieldSections({includePositions: isRangeWhenActive() ? includeRangeTransitFieldOn() : true});
     parts.push(renderIndepthDayHtml(person1, person2, dayField, dayTracker, {
       dayHeading:day,
-      ingressNote
+      ingressNote,
+      includePositions:_tlShowDay,
+      includeTransitField:_tlShowDay
     }));
     tracker.seq=dayTracker.seq;
   }
@@ -3804,8 +3843,10 @@ function planetLabel(p){
   return p;
 }
 
-function renderTransitPositionsHtml(transit){
-  // Always list all 13 bodies with gate.line + name (ignore omit / codes / direct filters).
+function renderTransitPositionsHtml(transit, meta){
+  // List all 13 bodies with gate.line + name (ignore omit / codes / direct filters).
+  // Range + unchecked "Include transit field" → never emit this block.
+  if(!wantTransitFieldSections(meta)) return '';
   if(!transit || !transit.planets) return '';
   const when=transit.display_when || transit.display_date || transit.date || '';
   const rows=[];

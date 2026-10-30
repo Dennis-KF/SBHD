@@ -57,21 +57,25 @@ function resolveTzId(tz){
 function formatDisplayDateTime(date, timeZone){
   const tz=resolveTzId(timeZone);
   const d = date instanceof Date ? date : new Date(date);
+  // Local (tz) weekday — never UTC weekday. e.g. "Thursday, Oct 29, 2026 at 3:20 PM (PDT)"
   const parts = new Intl.DateTimeFormat('en-US', {
     timeZone: tz,
-    year:'numeric', month:'long', day:'numeric',
+    weekday:'long', year:'numeric', month:'short', day:'numeric',
     hour:'numeric', minute:'2-digit', second:undefined,
     hour12:true, timeZoneName:'short'
   }).formatToParts(d);
   const get = t => (parts.find(p=>p.type===t)||{}).value || '';
-  return `${get('month')} ${get('day')}, ${get('year')} at ${get('hour')}:${get('minute')} ${get('dayPeriod')} (${get('timeZoneName')})`;
+  return `${get('weekday')}, ${get('month')} ${get('day')}, ${get('year')} at ${get('hour')}:${get('minute')} ${get('dayPeriod')} (${get('timeZoneName')})`;
 }
 function formatDisplayDateOnly(date, timeZone){
   const tz=resolveTzId(timeZone);
   const d = date instanceof Date ? date : new Date(date);
-  return new Intl.DateTimeFormat('en-US', {
-    timeZone: tz, year:'numeric', month:'long', day:'numeric'
-  }).format(d);
+  // Local (tz) weekday. e.g. "Thursday, Oct 29, 2026"
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: tz, weekday:'long', year:'numeric', month:'short', day:'numeric'
+  }).formatToParts(d);
+  const get = t => (parts.find(p=>p.type===t)||{}).value || '';
+  return `${get('weekday')}, ${get('month')} ${get('day')}, ${get('year')}`;
 }
 function formatDisplayTimeOnly(date, timeZone){
   const tz=resolveTzId(timeZone);
@@ -164,8 +168,13 @@ function shiftMonth(y, m, delta){
 function formatFriendlyDate(isoStr){
   if(!isoStr) return '';
   const [y,m,d]=isoStr.split('-').map(Number);
+  // Local calendar date (constructor args = local), with weekday.
   const dt=new Date(y, m-1, d);
-  return dt.toLocaleString('en-US', {month:'short', day:'numeric', year:'numeric'});
+  const parts=new Intl.DateTimeFormat('en-US', {
+    weekday:'long', month:'short', day:'numeric', year:'numeric'
+  }).formatToParts(dt);
+  const get=t=>(parts.find(p=>p.type===t)||{}).value||'';
+  return `${get('weekday')}, ${get('month')} ${get('day')}, ${get('year')}`;
 }
 function selectionRangeText(){
   if(!startDate) return 'No date selected';
