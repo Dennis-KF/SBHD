@@ -345,6 +345,7 @@ function clearPerson(n){
   const manName=$('manName'+n); if(manName) manName.value='';
   const manGates=$('manGates'+n); if(manGates) manGates.value='';
   const st=$('chartStatus'+n); if(st){ st.textContent=''; st.className='chart-status'; }
+  clearQuickLoadHighlight(n);
   status('Cleared Person '+n+' — slot is empty','ok');
 }
 function syncOmitLightsUI(){
@@ -405,12 +406,29 @@ function parseInput(text){
   if(text.startsWith('{')) return JSON.parse(text);
   return text;
 }
-function setPersonText(n,obj){
-  // Full replace — never merge onto stale sample
+function setQuickLoadHighlight(n, sampleKey){
+  const root=$('quickLoad'+n);
+  if(!root) return;
+  root.querySelectorAll('button.quick-sample').forEach(btn=>{
+    const on=!!sampleKey && btn.getAttribute('data-sample')===sampleKey;
+    btn.classList.toggle('active', on);
+    btn.setAttribute('aria-pressed', on?'true':'false');
+  });
+}
+function clearQuickLoadHighlight(n){ setQuickLoadHighlight(n, null); }
+function loadSampleInto(n, sampleKey){
+  const src=(window.DATA&&DATA.samples&&DATA.samples[sampleKey]) || (window.HD_DATA&&HD_DATA.samples&&HD_DATA.samples[sampleKey]);
+  if(!src){ status('Sample "'+sampleKey+'" not found','err'); return; }
+  const clone=JSON.parse(JSON.stringify(src));
+  setPersonText(n, clone, sampleKey);
+}
+function setPersonText(n,obj,sampleKey){
   const ta=$(n===1?'person1':'person2');
   const fresh = (typeof obj==='string') ? obj : JSON.stringify(obj,null,2);
   ta.value=fresh;
   updateChartStatus(n);
+  if(sampleKey) setQuickLoadHighlight(n, sampleKey);
+  else clearQuickLoadHighlight(n);
 }
 function updateChartStatus(n){
   const el=$('chartStatus'+n);
@@ -547,6 +565,7 @@ async function handleFile(n,file){
     const text=await readFileAsText(file);
     ta.value=JSON.stringify(chartObjectFromLoadedText(text, fallbackName),null,2);
     updateChartStatus(n);
+    clearQuickLoadHighlight(n);
     status('Loaded '+file.name,'ok'); return;
   }
   if(name.endsWith('.docx') || (file.type||'')==='application/vnd.openxmlformats-officedocument.wordprocessingml.document'){
@@ -555,6 +574,7 @@ async function handleFile(n,file){
       const text=await extractDocxText(file);
       ta.value=JSON.stringify(chartObjectFromLoadedText(text, fallbackName),null,2);
       updateChartStatus(n);
+      clearQuickLoadHighlight(n);
       status('Loaded '+file.name,'ok');
     }catch(e){
       if(e && e.message==='LEGACY_DOC'){
@@ -575,6 +595,7 @@ async function handleFile(n,file){
     current.planets=current.planets||{};
     current.notes=(current.notes||'')+' PNG loaded — enter gate.line values manually from the image.';
     ta.value=JSON.stringify(current,null,2);
+    clearQuickLoadHighlight(n);
     status('PNG shown beside manual entry (no OCR bundled).','ok'); return;
   }
   status('Use .json, .txt, .docx, or .png (re-save legacy .doc as .docx)','err');
@@ -754,8 +775,8 @@ function exportHtml(){
 }
 
 function loadCoupleSample(){
-  setPersonText(1, DATA.samples.dennis);
-  setPersonText(2, DATA.samples.eike);
+  loadSampleInto(1, 'dennis');
+  loadSampleInto(2, 'eike');
   mode='single'; startDate='2026-10-26'; endDate=null;
   $('month').value='2026-10';
   $('tz').value='America/New_York';
@@ -820,9 +841,13 @@ function wire(){
   if(cp1) cp1.onclick=()=>clearPerson(1);
   if(cp2) cp2.onclick=()=>clearPerson(2);
   if(cd) cd.onclick=()=>clearDates();
-  $('loadDennis').onclick=()=>setPersonText(1, DATA.samples.dennis);
-  $('loadEike').onclick=()=>setPersonText(2, DATA.samples.eike);
-  const lj=$('loadJudy'); if(lj) lj.onclick=()=>setPersonText(1, DATA.samples.judy);
+  document.querySelectorAll('button.quick-sample').forEach(btn=>{
+    btn.onclick=()=>loadSampleInto(+btn.getAttribute('data-slot'), btn.getAttribute('data-sample'));
+  });
+  ;[1,2].forEach(n=>{
+    const ta=$(n===1?'person1':'person2');
+    if(ta){ ta.addEventListener('input', ()=>clearQuickLoadHighlight(n)); ta.addEventListener('change', ()=>clearQuickLoadHighlight(n)); }
+  });
   $('loadCouple').onclick=loadCoupleSample;
   const rs=$('reportSnapshot'), rt=$('reportTimeline'), th=$('timelineHint');
   function setReportMode(m){
