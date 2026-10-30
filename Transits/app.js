@@ -444,6 +444,60 @@ function parseInput(text){
   if(text.startsWith('{')) return JSON.parse(text);
   return text;
 }
+function sampleDataRoot(){
+  return (window.HD_DATA && window.HD_DATA) || (window.DATA && window.DATA) || {};
+}
+function sampleOrderList(){
+  const root=sampleDataRoot();
+  const order=root.sampleOrder;
+  if(Array.isArray(order) && order.length){
+    const out=order.slice(0,12);
+    while(out.length<12) out.push(null);
+    return out;
+  }
+  // Fallback if older data.js
+  return ['dennis','eike','judy','carolyn','milena','teresa',null,null,null,null,null,null];
+}
+function sampleButtonLabel(key){
+  if(!key) return 'Empty';
+  const root=sampleDataRoot();
+  if(root.sampleLabels && root.sampleLabels[key]) return root.sampleLabels[key];
+  if(root.samples && root.samples[key] && root.samples[key].name){
+    const nm=String(root.samples[key].name).trim().split(/\s+/)[0];
+    if(nm) return nm;
+  }
+  return key.charAt(0).toUpperCase()+key.slice(1);
+}
+function renderQuickLoadGrids(){
+  const order=sampleOrderList();
+  for(const n of [1,2]){
+    const grid=$('quickLoadGrid'+n) || ($('quickLoad'+n) && $('quickLoad'+n).querySelector('.quick-load-grid'));
+    if(!grid) continue;
+    grid.innerHTML='';
+    for(let i=0;i<12;i++){
+      const key=order[i];
+      const btn=document.createElement('button');
+      btn.type='button';
+      btn.className='secondary quick-sample'+(key?'':' empty');
+      btn.setAttribute('data-slot', String(n));
+      btn.setAttribute('data-index', String(i+1));
+      btn.setAttribute('aria-pressed','false');
+      if(key){
+        btn.setAttribute('data-sample', key);
+        btn.id='ql'+n+'-'+key;
+        btn.textContent=sampleButtonLabel(key);
+        btn.addEventListener('click', ()=>loadSampleInto(n, key));
+      } else {
+        btn.setAttribute('data-sample','');
+        btn.id='ql'+n+'-empty'+(i+1);
+        btn.textContent='Empty';
+        btn.disabled=true;
+        btn.title='Placeholder — add a sample key in data.js sampleOrder / samples';
+      }
+      grid.appendChild(btn);
+    }
+  }
+}
 function setQuickLoadHighlight(n, sampleKey){
   const root=$('quickLoad'+n);
   if(!root) return;
@@ -963,10 +1017,7 @@ function wire(){
   if(cp1) cp1.onclick=()=>clearPerson(1);
   if(cp2) cp2.onclick=()=>clearPerson(2);
   if(cd) cd.onclick=()=>clearDates();
-  document.querySelectorAll('button.quick-sample').forEach(btn=>{
-    if(!btn.getAttribute('type')) btn.setAttribute('type','button');
-    btn.addEventListener('click', ()=>loadSampleInto(+btn.getAttribute('data-slot'), btn.getAttribute('data-sample')));
-  });
+  renderQuickLoadGrids();
   ;[1,2].forEach(n=>{
     const ta=$(n===1?'person1':'person2');
     if(ta){ ta.addEventListener('input', ()=>clearQuickLoadHighlight(n)); ta.addEventListener('change', ()=>clearQuickLoadHighlight(n)); }

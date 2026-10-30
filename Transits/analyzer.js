@@ -108,7 +108,8 @@ function parseChartText(text){
   let raw=String(text).replace(/\u00a0/g,' ');
 
   let nm=raw.match(/(?:Natal\s*Name|Birth\s*Name|Chart\s*Name)\s*[:=]\s*(.+)/i)
-    || raw.match(/(?:^|\n)\s*Name\s*[:=]\s*(.+)/i);
+    || raw.match(/(?:^|\n)\s*Name\s*[:=]\s*(.+)/i)
+    || raw.match(/^\s*([A-Za-z][A-Za-z'\-]+)\s+Type\s*:/i);
   if(nm) data.name=nm[1].split(/\n/)[0].trim();
 
   const PLANET_ALIASES={
@@ -151,10 +152,16 @@ function parseChartText(text){
     const gate=+m[1], line=+m[2];
     if(gate<1||gate>64||line<1||line>6) return;
     const gl=gate+'.'+line;
-    data.activations.push({planet, gate, line, gl, side:side||'personality'});
-    if(side==='design'){
+    const sideKey=side||'personality';
+    const actKey=sideKey+'|'+planet+'|'+gl;
+    if(!data._actSeen) data._actSeen=Object.create(null);
+    if(!data._actSeen[actKey]){
+      data._actSeen[actKey]=1;
+      data.activations.push({planet, gate, line, gl, side:sideKey});
+    }
+    if(sideKey==='design'){
       data.design_planets[planet]=gl;
-    } else if(side==='personality' || !data.planets[planet]){
+    } else if(sideKey==='personality' || !data.planets[planet]){
       data.planets[planet]=gl;
     }
   }
@@ -166,7 +173,18 @@ function parseChartText(text){
 
   // B: separators including slash — "Sun:13.4" / "North Node:12.5"
   const reB=/(?:^|[\n,;|/])\s*(?:(Personality|Design|P|D)\s+)?(Sun|Earth|Moon|North\s*Node|South\s*Node|Mercury|Venus|Mars|Jupiter|Saturn|Uranus|Neptune|Pluto|NN|SN|Rahu|Ketu)\s*[:=\-–—]?\s*(\d{1,2}\.\d)(?!\d)\b/gi;
-  while((m=reB.exec(raw))) store(normPlanet(m[2]), m[3], sideFromPrefix(m[1]));
+  while((m=reB.exec(raw))){
+    let side=sideFromPrefix(m[1]);
+    if(!side){
+      const before=raw.slice(Math.max(0,m.index-220), m.index).toLowerCase();
+      const lastDesign=Math.max(before.lastIndexOf('design'), before.lastIndexOf('\ndesign'));
+      const lastPers=Math.max(before.lastIndexOf('personality'), before.lastIndexOf('\npersonality'));
+      // Prefer the nearer side token when a planet sits alone after a wrapped "Design"/"Personality"
+      if(lastDesign>lastPers && lastDesign>=0) side='design';
+      else if(lastPers>lastDesign && lastPers>=0) side='personality';
+    }
+    store(normPlanet(m[2]), m[3], side);
+  }
 
   // B2: explicit " / "-chunk parse (PNG manual paste)
   for(const chunk of raw.split(/\s*\/\s*/)){
@@ -224,9 +242,12 @@ function parseChartText(text){
   for(const line of raw.split(/\n/)){
     if(/^\s*Personality\b/i.test(line) && !/Personality\s+(Sun|Earth|Moon|Mercury)/i.test(line)) { curSide='personality'; }
     if(/^\s*Design\b/i.test(line) && !/Design\s+(Sun|Earth|Moon|North|South|Mercury|Venus|Mars|Jupiter|Saturn|Uranus|Neptune|Pluto|NN|SN)\b/i.test(line)) { curSide='design'; }
+    // Trailing side token on a busy line: "... Design Neptune 48.1 Design" → next line is still Design
+    if(/\bDesign\s*$/i.test(line) && !/\bPersonality\s*$/i.test(line)) curSide='design';
+    if(/\bPersonality\s*$/i.test(line)) curSide='personality';
     const sm=line.match(/^\s*(?:(Personality|Design|P|D)\s+)?([☉⊕☽☾☊☋☿♀♂♃♄♅♆♇])\s*[:=\-–—]?\s*(\d{1,2}\.\d)(?!\d)\s*$/i);
     if(sm) store(normPlanet(sm[2]), sm[3], sideFromPrefix(sm[1])||curSide);
-    const wm=line.match(/^\s*(?:(Personality|Design|P|D)\s+)?(Sun|Earth|Moon|North\s*Node|South\s*Node|Mercury|Venus|Mars|Jupiter|Saturn|Uranus|Neptune|Pluto|NN|SN|Rahu|Ketu)\s*[:=\-–—]?\s*(\d{1,2}\.\d)(?!\d)\s*$/i);
+    const wm=line.match(/^\s*(?:(Personality|Design|P|D)\s+)?(Sun|Earth|Moon|North\s*Node|South\s*Node|Mercury|Venus|Mars|Jupiter|Saturn|Uranus|Neptune|Pluto|NN|SN|Rahu|Ketu)\s*[:=\-–—]?\s*(\d{1,2}\.\d)(?!\d)\b/i);
     if(wm) store(normPlanet(wm[2]), wm[3], sideFromPrefix(wm[1])||curSide);
     // Gate line form on its own line: "Design Sun Gate 5 Line 2"
     const gl=line.match(/^\s*(?:(Personality|Design|P|D)\s+)?(?:(Sun|Earth|Moon|North\s*Node|South\s*Node|NorthNode|SouthNode|Mercury|Venus|Mars|Jupiter|Saturn|Uranus|Neptune|Pluto|NN|SN)\s*[:=\-–—]?\s*)?Gate\s*(\d{1,2})\s*(?:Line|Lin\.?|L\.?)\s*(\d)\s*$/i);
@@ -243,6 +264,7 @@ function parseChartText(text){
   }
   const hg=raw.match(/hanging gates?\s*:?\s*([0-9,\s]+)/i);
   if(hg) data.hanging_gates=(hg[1].match(/\d+/g)||[]).map(Number);
+  try{ delete data._actSeen; }catch(e){}
   return data;
 }
 
@@ -371,9 +393,18 @@ function loadPerson(data){
       const gl=parseGl(val);
       if(side) gl.side=side;
       else if(val && val.side) gl.side=val.side;
-      person.all_planet_activations.push({planet:pname, ...gl});
+      const sideKey=gl.side||side||'personality';
+      gl.side=sideKey;
+      if(!person._ingestSeen) person._ingestSeen=Object.create(null);
+      const ik=sideKey+'|'+pname+'|'+gl.gl;
+      if(person._ingestSeen[ik]){
+        // Already recorded this activation; still refresh maps below
+      } else {
+        person._ingestSeen[ik]=1;
+        person.all_planet_activations.push({planet:pname, ...gl});
+      }
       // Keep a representative in planets (prefer personality)
-      if(side==='design'){
+      if(sideKey==='design'){
         person.design_planets[pname]=gl;
         if(!person.planets[pname]) person.planets[pname]=gl;
       } else {
@@ -446,6 +477,7 @@ function loadPerson(data){
       }
     }
   }
+  try{ delete person._ingestSeen; }catch(e){}
   return person;
 }
 

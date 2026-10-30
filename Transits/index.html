@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta http-equiv="Cache-Control" content="no-cache" />
-  <meta name="ta-build" content="202610292200" />
+  <meta name="ta-build" content="202610300841" />
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -169,10 +169,17 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 }
 
 
-.quick-load{display:flex;flex-wrap:wrap;align-items:center;gap:.4rem;margin:.45rem 0 .2rem}
-.quick-load-label{font-size:.75rem;color:var(--muted);margin-right:.15rem}
-.quick-load button.quick-sample{width:auto;min-width:4.2rem;margin-top:0;padding:.4rem .7rem;flex:0 0 auto}
+.quick-load{margin:.45rem 0 .35rem}
+.quick-load-label{display:block;font-size:.75rem;color:var(--muted);margin:0 0 .35rem}
+.quick-load-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.4rem;width:100%}
+@media(max-width:420px){.quick-load-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.quick-load button.quick-sample{
+  width:100%;min-width:0;min-height:44px;margin-top:0;padding:.45rem .35rem;
+  font-size:.82rem;line-height:1.15;touch-action:manipulation;-webkit-tap-highlight-color:transparent
+}
 .quick-load button.quick-sample.active{background:linear-gradient(135deg,#c9a227,#a67c00);color:#111;border:none;font-weight:700;box-shadow:0 0 0 2px rgba(201,162,39,.35)}
+.quick-load button.quick-sample.empty,
+.quick-load button.quick-sample:disabled{opacity:.45;cursor:not-allowed;font-weight:500;color:var(--muted);background:#182232}
 
 </style>
 </head>
@@ -199,9 +206,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
     </div>
     <div class="quick-load" id="quickLoad1" role="group" aria-label="Quick-load sample for Person 1">
       <span class="quick-load-label">Quick load</span>
-      <button type="button" class="secondary quick-sample" data-slot="1" data-sample="dennis" id="ql1-dennis">Dennis</button>
-      <button type="button" class="secondary quick-sample" data-slot="1" data-sample="eike" id="ql1-eike">Eike</button>
-      <button type="button" class="secondary quick-sample" data-slot="1" data-sample="judy" id="ql1-judy">Judy</button>
+      <div class="quick-load-grid" id="quickLoadGrid1"></div>
     </div>
 
     <div class="png-box" id="pngBox1">
@@ -226,9 +231,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
     </div>
     <div class="quick-load" id="quickLoad2" role="group" aria-label="Quick-load sample for Person 2">
       <span class="quick-load-label">Quick load</span>
-      <button type="button" class="secondary quick-sample" data-slot="2" data-sample="dennis" id="ql2-dennis">Dennis</button>
-      <button type="button" class="secondary quick-sample" data-slot="2" data-sample="eike" id="ql2-eike">Eike</button>
-      <button type="button" class="secondary quick-sample" data-slot="2" data-sample="judy" id="ql2-judy">Judy</button>
+      <div class="quick-load-grid" id="quickLoadGrid2"></div>
     </div>
 
     <div class="png-box" id="pngBox2">
@@ -357,9 +360,9 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 </main>
 
 <!-- Data is separate from the UI. Script order matters. Works via file:// on Windows and via https on iPhone/iPad Firefox. -->
-<script src="astronomy.browser.min.js?v=202610292200"></script>
-<script src="data.js?v=202610292200"></script>
-<script src="analyzer.js?v=202610292200"></script>
-<script src="app.js?v=202610292200"></script>
+<script src="astronomy.browser.min.js?v=202610300841"></script>
+<script src="data.js?v=202610300841"></script>
+<script src="analyzer.js?v=202610300841"></script>
+<script src="app.js?v=202610300841"></script>
 </body>
 </html>
