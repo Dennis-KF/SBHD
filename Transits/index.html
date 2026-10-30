@@ -143,6 +143,12 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
   outline:2px solid var(--accent2);outline-offset:2px
 }
 
+
+.quick-load{display:flex;flex-wrap:wrap;align-items:center;gap:.4rem;margin:.45rem 0 .2rem}
+.quick-load-label{font-size:.75rem;color:var(--muted);margin-right:.15rem}
+.quick-load button.quick-sample{width:auto;min-width:4.2rem;margin-top:0;padding:.4rem .7rem;flex:0 0 auto}
+.quick-load button.quick-sample.active{background:linear-gradient(135deg,#c9a227,#a67c00);color:#111;border:none;font-weight:700;box-shadow:0 0 0 2px rgba(201,162,39,.35)}
+
 </style>
 </head>
 <body>
@@ -165,11 +171,14 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
         <label>Upload .json / .txt / .docx / .png</label>
         <input type="file" id="file1" accept=".json,.txt,.docx,.doc,.png,image/png,image/*,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword" />
       </div>
-      <div>
-        <label>&nbsp;</label>
-        <button type="button" class="secondary" id="loadDennis">Load Dennis sample</button>
-      </div>
     </div>
+    <div class="quick-load" id="quickLoad1" role="group" aria-label="Quick-load sample for Person 1">
+      <span class="quick-load-label">Quick load</span>
+      <button type="button" class="secondary quick-sample" data-slot="1" data-sample="dennis" id="ql1-dennis">Dennis</button>
+      <button type="button" class="secondary quick-sample" data-slot="1" data-sample="eike" id="ql1-eike">Eike</button>
+      <button type="button" class="secondary quick-sample" data-slot="1" data-sample="judy" id="ql1-judy">Judy</button>
+    </div>
+
     <div class="png-box" id="pngBox1">
       <img id="pngImg1" alt="Chart 1 preview" />
       <label>Manual gates (from image)</label>
@@ -189,12 +198,14 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
         <label>Upload .json / .txt / .docx / .png</label>
         <input type="file" id="file2" accept=".json,.txt,.docx,.doc,.png,image/png,image/*,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword" />
       </div>
-      <div>
-        <label>&nbsp;</label>
-        <button type="button" class="secondary" id="loadJudy">Load Judy sample</button>
-      <button type="button" id="loadEike">Load Eike sample</button>
-      </div>
     </div>
+    <div class="quick-load" id="quickLoad2" role="group" aria-label="Quick-load sample for Person 2">
+      <span class="quick-load-label">Quick load</span>
+      <button type="button" class="secondary quick-sample" data-slot="2" data-sample="dennis" id="ql2-dennis">Dennis</button>
+      <button type="button" class="secondary quick-sample" data-slot="2" data-sample="eike" id="ql2-eike">Eike</button>
+      <button type="button" class="secondary quick-sample" data-slot="2" data-sample="judy" id="ql2-judy">Judy</button>
+    </div>
+
     <div class="png-box" id="pngBox2">
       <img id="pngImg2" alt="Chart 2 preview" />
       <label>Manual gates (from image)</label>
