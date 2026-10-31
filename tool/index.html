@@ -5,18 +5,39 @@
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>Centers Explanation Program</title>
 <style>
-  :root { --bg:#f7f5f0; --card:#fff; --ink:#2d3748; --muted:#4a5568; --accent:#2b6cb0; --navy:#1a365d; --border:#e2e8f0; }
+  :root { --bg:#f7f5f0; --card:#fff; --ink:#2d3748; --muted:#4a5568; --accent:#2b6cb0; --navy:#1a365d; --border:#e2e8f0; --on:#ebf8ff; }
   * { box-sizing: border-box; }
   body { margin:0; font-family: Calibri, "Segoe UI", system-ui, sans-serif; background:var(--bg); color:var(--ink); }
   header { background:var(--navy); color:#fff; padding:18px 24px; }
   header h1 { margin:0; font-size:1.35rem; }
   header p { margin:6px 0 0; opacity:.85; font-size:.95rem; }
-  main { max-width:920px; margin:24px auto; padding:0 16px 48px; }
+  main { max-width:960px; margin:24px auto; padding:0 16px 48px; }
   .card { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:18px 20px; margin-bottom:16px; }
-  h2 { margin:0 0 12px; font-size:1.1rem; color:var(--navy); }
-  .row { display:flex; flex-wrap:wrap; gap:10px 16px; margin:8px 0 14px; }
+  h2 { margin:0 0 10px; font-size:1.1rem; color:var(--navy); }
+  h3.row-label { margin:14px 0 6px; font-size:.98rem; color:var(--navy); font-weight:600; }
+  .row { display:flex; flex-wrap:wrap; gap:10px 12px; margin:6px 0 10px; }
   label.chk { display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border:1px solid var(--border); border-radius:8px; background:#fafafa; cursor:pointer; user-select:none; }
   label.chk input { accent-color:var(--accent); }
+  .toggle-wrap {
+    display:inline-flex; align-items:center; gap:4px;
+    -webkit-user-select:none; user-select:none;
+  }
+  button.toggle {
+    font:inherit; border-radius:8px; border:1px solid var(--border); padding:10px 14px;
+    min-height:44px; cursor:pointer; background:#fafafa; color:var(--ink);
+    -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+  }
+  button.toggle[aria-pressed="true"],
+  button.toggle.selected {
+    background:var(--on); border-color:var(--accent); color:var(--navy); font-weight:600;
+  }
+  button.tip-btn {
+    border:1px solid var(--border); background:#e2e8f0; color:var(--navy); border-radius:50%;
+    width:32px; height:32px; min-width:32px; min-height:32px; font-size:13px; font-weight:700;
+    padding:0; cursor:pointer; line-height:1;
+    -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+  }
+  button.tip-btn:active, button.toggle:active { opacity:.85; }
   .actions { display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-top:8px; }
   button { font:inherit; border-radius:8px; border:1px solid var(--border); padding:10px 16px; cursor:pointer; background:#fff; }
   button.primary { background:var(--accent); color:#fff; border-color:var(--accent); font-weight:600; }
@@ -24,17 +45,24 @@
   button:disabled { opacity:.45; cursor:not-allowed; }
   #status { margin-top:12px; color:var(--muted); font-size:.95rem; min-height:1.2em; }
   .hint { color:var(--muted); font-size:.92rem; line-height:1.45; }
+  .note { color:var(--muted); font-size:.88rem; line-height:1.4; margin:4px 0 8px; padding:8px 10px; background:#f8fafc; border-radius:6px; border:1px dashed var(--border); }
+  dialog { border:1px solid var(--border); border-radius:12px; padding:18px 20px; max-width:min(420px, 92vw); color:var(--ink); }
+  dialog::backdrop { background:rgba(26,54,93,.35); }
+  dialog h4 { margin:0 0 8px; color:var(--navy); }
+  dialog p { margin:0 0 14px; line-height:1.45; font-size:.95rem; }
+  dialog .dlg-actions { display:flex; justify-content:flex-end; gap:8px; }
+  dialog .dlg-actions button { min-height:44px; min-width:72px; padding:10px 18px; background:var(--accent); color:#fff; border-color:var(--accent); font-weight:600; }
 </style>
 </head>
 <body>
 <header>
   <h1>Centers Explanation Program</h1>
-  <p>Offline report builder — select centers and members, then download a Word report.</p>
+  <p>Offline report builder — select centers, channel types/circuits, and members, then download a Word report.</p>
 </header>
 <main>
   <div class="card">
     <h2>How to use</h2>
-    <p class="hint">Turn on one or more centers and members. The Report includes only gates that sit in the selected center(s). Throat selections include each gate’s voice. The downloaded .docx matches the condensed sample structure (title header, centered Page X of Y footer, headings, ≤6 pages when copied selections stay focused).</p>
+    <p class="hint">Turn on centers and/or channel type &amp; circuit toggles, plus members. Center sections include only gates in the selected center(s). Channel type and circuit sections stand on their own (they are not filtered by center choice) and list each selected member’s completed channels in that category. Throat selections include each gate’s voice. The .docx keeps the approved condensed style (title header, centered Page X of Y footer, H1/H2/H3). Length expands with added type/circuit selections.</p>
   </div>
   <div class="card">
     <h2>Centers</h2>
@@ -43,6 +71,21 @@
       <button type="button" class="quiet" id="clearCenters">Clear centers</button>
     </div>
     <div class="row" id="centerBox"></div>
+
+    <h2>Channel Types &amp; Circuits</h2>
+    <p class="note">Type and circuit sections are independent of center selection. Selecting a center does not filter which channels appear under a type/circuit; those sections report completed channels for the selected members in that category.</p>
+    <h3 class="row-label">Channel Type</h3>
+    <div class="row" id="typeBox"></div>
+    <h3 class="row-label">Individual Empowerment Circuit</h3>
+    <div class="row" id="indivBox"></div>
+    <h3 class="row-label">Collective Sharing Circuit</h3>
+    <div class="row" id="collBox"></div>
+    <h3 class="row-label">Tribal Support Circuit</h3>
+    <div class="row" id="tribBox"></div>
+    <div class="actions">
+      <button type="button" class="quiet" id="clearCircuits">Clear types &amp; circuits</button>
+    </div>
+
     <h2>Members</h2>
     <div class="actions">
       <button type="button" id="allMembers">All members</button>
@@ -55,8 +98,16 @@
     <div id="status"></div>
   </div>
 </main>
+<dialog id="tipDialog">
+  <h4 id="tipTitle"></h4>
+  <p id="tipBody"></p>
+  <div class="dlg-actions">
+    <button type="button" id="tipClose">OK</button>
+  </div>
+</dialog>
 <script>
 const PROGRAM_DATA = {"centers":["Head","Ajna","Throat","G","Sacral","Spleen","Solar Plexus","Root"],"members":["Teresa","Carolyn","Milena","Judy","Eike","Dennis"],"meta":{"Teresa":{"type":"Emotional Manifestor","profile":"2/4","cross":"Right Angle Cross of Planning","defined":["Root","Solar Plexus","Spleen","Throat"],"note":"Listed Design channel “32.54” is treated as 32-54. Channel list matches activations."},"Carolyn":{"type":"Emotional Manifestor","profile":"4/6","cross":"Right Angle Cross of Rulership","defined":["Ajna","G","Head","Solar Plexus","Throat"],"note":"Listed text mixes Variable and Definition wording; channels computed from activations match the listed Personality 7-31."},"Milena":{"type":"Projector","profile":"4/6","cross":"Right Angle Cross of the Unexpected","defined":["Spleen"],"note":"Channel 26-44 appears on both Personality and Design (Personality and Design). Heart/Ego participates via gate 26; Heart is not among the eight selectable centers."},"Judy":{"type":"Manifesting Generator","profile":"5/1","cross":"Left Angle Cross of Duality","defined":["Sacral","Solar Plexus","Spleen","Throat"],"note":"North Node / South Node Design values were completed from the fuller chart notes (49.3 / 4.3). Channel list matches activations."},"Eike":{"type":"Generator","profile":"6/2","cross":"Left Angle Cross of Distraction","defined":["Ajna","G","Root","Sacral","Spleen","Throat"],"note":"Channel 28-38 is electromagnetic within the chart (Personality gate 38 with Design gate 28)."},"Dennis":{"type":"Manifesting Generator","profile":"6/2","cross":"Left Angle Cross of Migration","defined":["G","Sacral","Solar Plexus","Throat"],"note":"Channels computed from activations match the listed Personality and Design channels."}},"gates":{"6":{"name":"Friction","expl":"We have the 6th gate in the channel of Mating, a design focused on reproduction: Conflict, the gate of friction. Its energy is the hope and pain wave of intimacy.","voice":"","voiceMean":""},"15":{"name":"Extremes","expl":"(Please read the section on the Vessel of Love from the Glossary in Volume 2 copied below.) ANALOGY FOR THE VESSEL OF LOVE The Vessel of Love is one of the incarnation crosses comprised of...","voice":"","voiceMean":""},"35":{"name":"Change","expl":"The 35th gate is the gate of life. Out of that gate we have the human experiential way.","voice":"I feel","voiceMean":"experiential change — the Jack of all Trades voice of Progress"},"23":{"name":"Assimilation","expl":"There is a difference between the collective process in the throat, with its primary gates of communication, and the individual process.","voice":"I know","voiceMean":"assimilation — individual insight spoken as knowing"},"18":{"name":"Correction","expl":"We move to the third potential in the splenic center which is the 18th gate, the gate of correction, where we work on what has been spoilt. It is part of the channel of insatiability.","voice":"","voiceMean":""},"61":{"name":"Mystery","expl":"The collective mind, the abstract and the logic, are so deeply related to each other, they need to be fulfilled through each other.","voice":"","voiceMean":""},"31":{"name":"Leading","expl":"The channel 31/7, the channel of theAlpha, for good or bad, a design of leadership. There are no more connotations in this.","voice":"I lead","voiceMean":"manifesting influence — leadership as voice more than primary action"},"52":{"name":"Inaction","expl":"We switch over to the logical format. When looking at the 58th hexagram, there is the obvious polarity of the 58 and 52.","voice":"","voiceMean":""},"1":{"name":"Self-Expression","expl":"The first and second hexagrams are essentially the same. That is, the first hexagram remains closest in spirit to the direction of the second hexagram because there is neither projection nor reflection.","voice":"","voiceMean":""},"48":{"name":"Depth","expl":"We are in a collective process. The 48th hexagram is part of the channel of talent, the channel of The Wave Length.","voice":"","voiceMean":""},"46":{"name":"The Determination of the Self","expl":"Keep something in mind about our work in Human Design.","voice":"","voiceMean":""},"38":{"name":"The Fighter","expl":"We come to the individual process: the 38th hexagram, Opposition, the polarity of the 39th hexagram, Obstruction. These gates are deeply similar in the nature of their pressure.","voice":"","voiceMean":""},"32":{"name":"Continuity","expl":"The 32nd hexagram is part of the channel of Transformation, a design of being driven. It is fueled by the energy of the 54th gate, the Marrying Maiden, the gate of ambition.","voice":"","voiceMean":""},"34":{"name":"Power","expl":"When you from the 14.6 to the first line of the 34, you step into another process, but it is a continuing process, in that sense.","voice":"","voiceMean":""},"14":{"name":"Power Skills","expl":"Gate 14 is Possession in Great Measure. It does not give away its power.","voice":"","voiceMean":""},"60":{"name":"Acceptance","expl":"One of the format energies. Every time I have to deal with the 3rd hexagram, I would like to spend six or seven days talking about it because it is an incredible thing.","voice":"","voiceMean":""},"53":{"name":"Beginnings","expl":"We will look here at one of the collective format pressures, the abstract pressure in the 53rd gate.","voice":"","voiceMean":""},"12":{"name":"Caution","expl":"The 12th gate is the only social channel for the individual process and, as such, the only way in which the individual mutation can go out into the world.","voice":"I try","voiceMean":"caution rooted in mood — “I know I can try if I am in the mood”"},"28":{"name":"The Game Player","expl":"Here, we move to the individual process and we stay with awareness as potential.","voice":"","voiceMean":""},"20":{"name":"The Now","expl":"In many ways, we have here the most complex hexagram in the throat process because the 20th hexagram is not simply looking to the potential of a harmonic gate.","voice":"I am Now","voiceMean":"purely existential Contemplation; with intuition it becomes “I know I am Now”"},"55":{"name":"Spirit","expl":"This 55th gate in the channel of Emoting, a design of moodiness, is of enormous importance to humanity.","voice":"","voiceMean":""},"64":{"name":"Confusion","expl":"When we move to the pressure above, please keep in mind the great irony that is revealed by Human Design about the nature of the mind.","voice":"","voiceMean":""},"16":{"name":"Skills","expl":"One of the things to recognize about the nature of the collective process is that it is all about the difficulty in getting access to energy.","voice":"I experiment","voiceMean":"skills refined through repetition and critical focus"},"33":{"name":"Privacy","expl":"We will now look at one of the two collective gates of identity, this one in the abstract process.","voice":"I remember","voiceMean":"the Witness / Prodigal — sharing what privacy and reflection have stored"},"7":{"name":"The Role of the Self","expl":"This is one of the Sphinx gates and essentially, in many ways, the most influential. This is a gate that leads to the gate of Influence.","voice":"","voiceMean":""},"36":{"name":"Crisis","expl":"We come to the Darkening of the Light, to the 36th hexagram. We come to the beginning of our look at possibility gates.","voice":"","voiceMean":""},"2":{"name":"Higher Knowing","expl":"1Me come to the Sphinx, to the nature of the G center, to the concept of self. Keep in mind about the nature of the G center that this is where the magnetic monopole is.","voice":"","voiceMean":""},"58":{"name":"Aliveness","expl":"We are looking at the left side of the root center. Here, we have the root center going over to the splenic side.","voice":"","voiceMean":""},"62":{"name":"Detail","expl":"Where the abstract process creates a story, the logical process is actually creating the language, the source of what we call language.","voice":"I think","voiceMean":"detail — logical patterns spoken as organized thought, not opinion alone"},"4":{"name":"Formulization","expl":"We come to the logical collective. The experience of the abstract side is always going from the present to the past, and the experience of the individual process is the dealing with the present.","voice":"","voiceMean":""},"49":{"name":"Principles","expl":"This hexagram is called Revolution, and we step into the emotional system. Remember that every single gate out of the emotional system resonates to the nature of that wave.","voice":"","voiceMean":""},"10":{"name":"The Behaviour of the Self","expl":"We come to this place in which the Vessel gets poured out, the 10th gate. It is by far the most complex of all the Vessel gates.","voice":"","voiceMean":""},"37":{"name":"Friendship","expl":"We come to The Family and we move into the tribal process.","voice":"","voiceMean":""},"27":{"name":"Caring","expl":"Looking at the sexual roles in the sacral center, our roles or strategies in forming union, we come to the 27th hexagram, Nourishment. We come to the sexual role that we have in caring.","voice":"","voiceMean":""},"57":{"name":"Intuitive Insight","expl":"So we move to the individual process and in doing so, we come to what is described in the the teaching as an extraordinary gate.","voice":"","voiceMean":""},"11":{"name":"Ideas","expl":"Above the lines of the the teaching it says: A harmonic condition in the individual or society that permits assessment before renewed action. Ideas generate the possibility for examination.","voice":"","voiceMean":""},"17":{"name":"Opinions","expl":"We move over to the logic process and we come to the 17th gate. The first thing to recognize is that exactly opposite the 17th gate is the 18th gate.","voice":"","voiceMean":""},"56":{"name":"Stimulation","expl":"The throat center is the most complex of all the centers for a very obvious reason. It has eleven gates and it represents our capacity to metamorphose.","voice":"I believe","voiceMean":"stimulation — abstract ideas turned into language as belief"},"41":{"name":"Contraction","expl":"The pressure centers are of enormous importance, like all things. We are basically a sandwich.","voice":"","voiceMean":""},"54":{"name":"Ambition","expl":"The 54th hexagram is both the most mundane of all the fuels which come out of the root and the most un- mundane. There is no real word for that un-mundane.","voice":"","voiceMean":""},"59":{"name":"Sexuality","expl":"We are now looking at two gates which are of considerable importance in our lives because they condition so much of our behavior.","voice":"","voiceMean":""},"25":{"name":"The Spirit of the Self","expl":"We discussed the collective gates of love (see the discussion in the 15th gate and in the 46th gate) and I hope that the impression that you were left with is not about the way...","voice":"","voiceMean":""},"5":{"name":"Fixed Rhythms","expl":"The gate of Waiting. The fundamental attunement to natural rhythms.","voice":"","voiceMean":""},"39":{"name":"The Provocateur","expl":"We move to the 39th gate and we come to the individual process.","voice":"","voiceMean":""},"47":{"name":"Realizing","expl":"The channel 64/47, the channel of Abstraction, the channel of mental activity mixed with clarity. The 47th gate is the gate of Oppression, the gate of realization.","voice":"","voiceMean":""},"30":{"name":"Recognition of Feelings","expl":"Everything about the abstract process is about its experiential nature.","voice":"","voiceMean":""},"45":{"name":"The Gatherer","expl":"The 45th gate is the only outlet for the entire tribal process, so this gate carries with it an enormous importance that is part of our evolutionary process.","voice":"I have","voiceMean":"Gathering Together — tribal dominance and material expression"},"29":{"name":"Saying Yes","expl":"The 29th hexagram is something very strange, because it says either yes or no to life. It is making the commitment to be alive as a human.","voice":"","voiceMean":""},"42":{"name":"Growth","expl":"We are dealing with the collective process here. We are dealing with the collective power of the sacral center.","voice":"","voiceMean":""},"50":{"name":"Values","expl":"The root of awareness. The 50th gate is, in that sense, where all awareness is nurtured because it is, like the sixth gate, a gate of fusion.","voice":"","voiceMean":""},"22":{"name":"Openness","expl":"The channel of Openness, the design of a social or an anti-social being, and the 22nd gate, the gate of Grace.","voice":"","voiceMean":""},"44":{"name":"Alertness","expl":"We will shift to the possibilities and, in doing so, understand that there is an unseen process that takes place. There is a movement between potential and possibility.","voice":"","voiceMean":""},"9":{"name":"Focus","expl":"We move to the logic process and take a look at rituals and patterns. Two of the 64 hexagrams use the word 'taming' and there are two that use the word 'small'.","voice":"","voiceMean":""},"13":{"name":"The Listener","expl":"We come to the collective process, to one of the role gates. It is different from the individual process, which is about the individual direction, about being the direction.","voice":"","voiceMean":""}},"lines":{"34.2":{"title":"Momentum","text":"When you come to the second line, they project outwards. The first line is not what you think."},"4.4":{"title":"The Liar","text":"We reach the upper trigram and get to the resonance of the first line, the Pleasure and the timing process. Here you have The Liar."},"32.3":{"title":"Lack of continuity","text":"This is simply stepping out there for the first time, trying to go across that channel and trying to make contact with the 54 on the other side, and the..."},"53.4":{"title":"Assuredness","text":"Fourth line, upper trigram. Here we are dealing with being unidirectional."},"22.1":{"title":"Second class ticket","text":"The essence, the foundation of the hexagram. Moon exalted."},"56.5":{"title":"Attracting attention","text":"Everything about these gates of primary communication is not to forget that that is what they are. They are not gates of action."},"27.2":{"title":"Self-sufficiency","text":"The first line is aware of its capacity to care because it is looking inwards."},"5.2":{"title":"Inner Peace","text":"The second line has such a nice name, Inner Peace. The second and the fifth line both have Pluto in detriment."},"10.2":{"title":"The Hermit","text":"Here in the 10th gate you have a theme of behavior, a code of behavior for all second lines which is being The Hermit."},"27.4":{"title":"Generosity","text":"Just like the fourth line of the 59, when you get to the upper trigram here, you are dealing with channels that are really about our connection with others, about..."},"20.5":{"title":"Realism","text":"The fifth line is called Realism. This is a line of universalization."},"59.1":{"title":"The Preemptive Strike","text":"Every single hexagram (and this is very funny but also sad, but it is how things work) is expressed as an essence through its first line."},"32.1":{"title":"Conservation","text":"In the first line, we start with introspection. We are starting with the foundation of the house."},"38.6":{"title":"Misunderstanding","text":"Each of these gates that come out the root center and point towards the splenic center have very unusual, Uranian lines. We will see the 58.1, the Love of life."},"17.3":{"title":"Understanding","text":"When you get to the top of the lower trigram, you get to the line of adaptation, the line of bonds made and broken, of irresponsibility. It is called Understanding."},"47.6":{"title":"Futility","text":"The ajna center, like the splenic center and like any awareness center, is a center of fear. In the mind, we call it anxiety."},"28.4":{"title":"Holding on","text":"With the fourth line we reach the upper trigram."},"44.2":{"title":"Management","text":"When you get to the second line, you get to a line of projection. All second lines are projection outwards, with the inability to be introspective."},"56.6":{"title":"Caution","text":"When you get to the sixth line, you get to the end of a process."},"4.3":{"title":"Irresponsibility","text":"The third line is about adaptation. We get to the end of the trigram."},"31.6":{"title":"Application","text":"When we get to the sixth line, we get to the transition line. We know that the transition is rooted in the awareness frequency of trust or not."},"31.3":{"title":"Selectivity","text":"The nature of a third line is that, in a sense, it is combining the qualities of the first and second line, the qualities of introspection and projection."},"1.5":{"title":"The energy to attract society","text":"This is one of these fifth lines that are very difficult, as I mentioned earlier. Here you have the projection that is coming from everyone: this is the talented one."},"12.4":{"title":"The Prophet","text":"When you get to the upper trigram, you get to the externalization of our mutative process."},"62.4":{"title":"Asceticism","text":"When you get to the upper trigram, you get to the fourth line, to the line of externalization, of being fixed."},"11.2":{"title":"Rigor","text":"The second line is a line of projection. This is the great line of boredom."},"11.3":{"title":"The Realist","text":"Whenever you get to a third line of an abstract process, remember, it resonates deeply to the emotional side. You are dealing with bonds made and broken."},"15.3":{"title":"Ego inflation","text":"At the end of the lower trigram here, you end up with difficulties."},"48.5":{"title":"Action","text":"When you get to the fifth and sixth lines, you are in the collective themes and the 48th belongs to a collective circuit."},"6.3":{"title":"Allegiance","text":"When we get to the third line, we get to the end of the lower trigram."},"14.2":{"title":"Management","text":"When you get to the second line, you get to projection."},"28.5":{"title":"Treachery","text":"The universalization line of the 28 is called Treachery. It has a wicked name but it is not wicked at all."},"39.1":{"title":"Disengagement","text":"It is called Disengagement. The basis of provocation is to back away."},"39.6":{"title":"The Troubleshooter","text":"The Troubleshooter is an American Western term. They used to have these characters that could take you across the country in carriages."},"37.2":{"title":"Responsibility","text":"When you get to the second line, you get to projection. In getting to the second line, the projection is Responsibility."},"50.1":{"title":"The Immigrant","text":"The Immigrant. Humbleness of origin that benefits rather than restricts destiny."},"23.3":{"title":"Individuality","text":"When you come to this third line, it is called Individuality. It is the nature of the individual process."},"41.5":{"title":"Authorization","text":"The first line always gives you the essential truth of the hexagram, but the fifth line is always how it is perceived by the world around us."},"16.4":{"title":"The Leader","text":"When you get to the upper trigram, to the fourth line, you get to the process of externalizing."},"58.5":{"title":"Defense","text":"The fifth line is always being projected on. Due to that, it represents how society, how a culture as a whole will look at this particular hexagram."},"54.3":{"title":"Covert interaction","text":"Third lines. Bonds made and broken as its frequency."},"15.2":{"title":"Influence","text":"This is an unusual second line because it is an exalted second line for the very reason that most second lines are in a vulnerable position: because other people can..."},"4.2":{"title":"Acceptance","text":"Here, we get to the line of projection and we know with the projection that there is no introspection in that process. The introspection is all about timing."},"11.5":{"title":"The Philanthropist","text":"When you come to the fifth line you, always come to the complete expression of the hexagram. You come to a line of universalization."},"35.3":{"title":"Collaboration","text":"If you want to have a wild and incredible crisis, lots of chaos, enormous turmoil and jump around all over the place psychically, than hang out with a 35.3 because..."},"49.3":{"title":"Popular Discontent","text":"When you get to the third line and you get to Popular discontent, and we have the theme of irresponsibility."},"53.3":{"title":"Practicality","text":"The third line, the end of the lower trigram, deals with the theme of trial and error."},"6.1":{"title":"Retreat","text":"We start with the first line. We are talking about the foundation of intimacy, about the line of introspection, and it says Retreat."},"35.5":{"title":"Altruism","text":"The fifth line always tells you how the world projects onto the gate. The world projects onto this gate as a gate of experience."},"5.5":{"title":"Joy","text":"I love this line. It is a lot of fun for me."},"47.4":{"title":"Repression","text":"With the fourth line, you get to the upper trigram and you get to externalization and to the one-track- process."},"11.4":{"title":"The Teacher","text":"When you get to the fourth line and the upper trigram, something very special happens here."},"35.2":{"title":"Creative block","text":"When we come to the second line, we come to projection. We saw with the 16.2 that what is projected outwards is this Cynicism."},"37.1":{"title":"The Mother/Father","text":"Please remember about the 55.6, the line in the 55 that will awaken to the spirit, its next step is to the 37.1."},"7.6":{"title":"The Administrator","text":"Sixth lines are always so strange. Remember The Optimist in the 13.6 because it helps to understand The Administrator in the 7.6."},"17.1":{"title":"Openness","text":"This foundation line is called Openness. Mars exalted."},"55.5":{"title":"Growth","text":"When you have the second line, you have Distrust, and when you come to the resonance of this line, the fifth line, you come to Growth."},"2.4":{"title":"Secretiveness","text":"When you get to the upper trigram, things change, obviously. You come to a transpersonal line that knows that there is something on the other side."},"52.6":{"title":"Peacefulness","text":"When you get to the sixth line it is called Peacefulness. The word peace shows up in quite a few sixth lines."},"59.5":{"title":"The Femme Fatale or Casanova","text":"We have union, we have sexuality. It is very rare in the 384 lines that you see the word 'love'."},"31.2":{"title":"Arrogance","text":"When you get to the second line, you get to a line that is called Arrogance. Remember that the nature of this hexagram is to transfer a pattern."},"48.1":{"title":"Insignificance","text":"The line of introspection. The foundation is called Insignificance."},"13.6":{"title":"The Optimist","text":"When you look at the 13.6, think about the 59.6."},"55.1":{"title":"Cooperation","text":"The first line is our foundation line. It is the line of introspection."},"18.1":{"title":"Conservatism","text":"When you start here with the first line, it sounds like the other lines. The 32.1 is Conservation, the 28.1 was Preparation, and here we have Conservatism."},"29.6":{"title":"Confusion","text":"The sixth line is all about transition. The transition here is that the whole concept of commitment becomes something totally different."},"4.5":{"title":"Seduction","text":"Here we come to a real key to the nature of what the whole logical process is about."},"12.5":{"title":"The Pragmatist","text":"When you get to the fifth line, you have this wonderful word here: Pragmatist. This is the beauty of the fifth line."},"14.5":{"title":"","text":"think that this driver doesn't know where they are going. That is not arrogance."},"7.3":{"title":"The Anarchist","text":"The Anarchist. An overview line."},"41.6":{"title":"Contagion","text":"When you get to the sixth line, please keep in mind that we are looking at this 41st hexagram as a key to understand our human evolutionary process."},"2.1":{"title":"Intuition","text":"The first line always gives you the basis. It is called Intuition here."},"48.3":{"title":"Incommunicado","text":"When you come to the third line and the fourth line, you come to the themes of individuality."},"1.2":{"title":"Love is light","text":"With individuality, we are dealing with a number of things. First of all, we are dealing with people that are not designed to be interfered with."},"33.6":{"title":"Disassociation","text":"We get to the sixth line, to the transition line."},"44.3":{"title":"Interference","text":"This is the line of adaptation and the end of the lower trigram process. In this line, we have the two earlier processes integrated together."},"48.4":{"title":"Restructuring","text":"The fourth line people are the most gifted."},"28.2":{"title":"Shaking hands with the Devil","text":"The first line is trying to figure out the odds in introspection. The second line only wants to win and does not care what the odds are."},"25.6":{"title":"Ignorance","text":"Like any of these sixth lines we are dealing with, it is something that is outside of the basic nature of a hexagram. It is withdrawn from it."},"18.5":{"title":"Therapy","text":"The fifth line is called Therapy. It is a very important line."},"27.5":{"title":"The Executor","text":"When you start with the first line, it tells you about the essence."},"58.3":{"title":"","text":"the energy. It wants to be the Alpha that leads."},"39.5":{"title":"Single-mindedness","text":"The fifth line is always being projected upon, so anybody that carries this fifth line is projected on as being provocative."},"1.1":{"title":"Creation is independent of will","text":"The first line always speaks for the nature of the hexagram. Here we have the relationship between the self and the ego."},"34.5":{"title":"Annihilation","text":"f line is the nature of the hexagram and the fifth line is the way the world looks at it."},"36.4":{"title":"Espionage","text":"We come to the fourth line and we begin the process of the upper trigram. The fourth line is about externalization which has a narrow field to it."},"37.6":{"title":"Purpose","text":"The 37.6 carries a unique significance. There are six waves of spirituality, the six mystical waves."},"57.6":{"title":"Utilization","text":"The roof of the house. The line of transition."},"45.6":{"title":"","text":"recognizes that, unless we integrate the strangers, the outsiders, into the tribe, the genetic pool of the tribe is going to die."},"13.4":{"title":"Fatigue","text":"With the fourth line we come to the recognition that there is an opportunity as a possibility for expression out of the throat."},"46.4":{"title":"Impact","text":"We are dealing with very specialized collective gates which, obviously, by their very nature are social, and we are dealing here with transpersonal lines."},"13.3":{"title":"Pessimism","text":"The third line, because it is an adaptive line and because it is trial and error, you will have trial and error in who you listen to."},"64.1":{"title":"Conditions","text":"So we come to the first line, the line of introspection, the line which sets the foundation for the hexagram. It is called Conditions."},"55.6":{"title":"Selfishness","text":"We come to the sixth line and to the transition point, the place where the mutation will take place that will begin this process of spirit awareness."},"2.5":{"title":"Intelligent application","text":"Fifth lines are the way society wants to see direction."},"22.6":{"title":"Maturity","text":"One of the great jokes about this is that the next line is the 36.1."},"52.4":{"title":"Self-discipline","text":"The fourth line is actually the exalted line because you have a channel that is all about being fixed and focused."},"17.2":{"title":"Discrimination","text":"We come to projection here. This line is called Discrimination."},"42.2":{"title":"Identification","text":"The first line, due to its introspective nature, recognizes that it has a resource and that those resources can be available for all kinds of diversity."},"60.6":{"title":"Rigidity","text":"The sixth line is the line of transition and here it is in a mutative gate and a mutative channel."},"22.4":{"title":"Sensitivity","text":"When you get to the fourth line, you get to the line of externalization and you get to this fixedness, to this onepointedness, to the one-trackedness. We come to Sensitivity."},"33.5":{"title":"Timing","text":"You know that the fifth line operates in a wave that we call 'the seducer and the seduced.' So it is all about seduction."},"61.3":{"title":"Interdependence","text":"We have seen that when we are looking at the third line and its process of trial and error that belongs to every third line, you also see in every..."},"49.4":{"title":"Platform","text":"When you get to this externalization, here it is no longer a process in which the revolutionary potential will have its difficulties in getting out."},"9.4":{"title":"Dedication","text":"We come to our line of externalization, our line of being fixed. These people are fixed on the resonance of the first line."},"30.1":{"title":"Composure","text":"It begins with the foundation in the first line which is Composure. Hardly what you would imagine."},"33.3":{"title":"Spirit","text":"With the third line, we reach the end of the lower trigram process. Here the bond that is being made and broken is the bond of privacy."},"38.5":{"title":"Alienation","text":"We will see when we look at the 39.5 as the polarity on the other side, because it is projected on these people that they are provocative, that they are..."},"41.2":{"title":"Caution","text":"When you come to the second line, you are no longer in the foundation."}},"views":{"Teresa::Head":{"status":"open","blocks":[]},"Teresa::Ajna":{"status":"open","blocks":[{"g":4,"P":[{"line":"4.2","planets":["Pluto"]}],"D":[{"line":"4.3","planets":["Pluto"]}]},{"g":17,"D":[{"line":"17.1","planets":["Jupiter"]}]}]},"Teresa::Throat":{"status":"defined","blocks":[{"g":16,"ch":{"other":48,"name":"The Wavelength","kind":"Design"},"D":[{"line":"16.4","planets":["Earth"]}]}]},"Teresa::G":{"status":"open","blocks":[{"g":1,"P":[{"line":"1.2","planets":["Mars"]}]},{"g":10,"D":[{"line":"10.2","planets":["Mercury"]}]}]},"Teresa::Sacral":{"status":"open","blocks":[{"g":9,"D":[{"line":"9.4","planets":["Sun"]}]},{"g":59,"P":[{"line":"59.1","planets":["South Node"]}],"D":[{"line":"59.5","planets":["South Node"]}]}]},"Teresa::Spleen":{"status":"defined","blocks":[{"g":18,"D":[{"line":"18.1","planets":["Mars"]}]},{"g":32,"ch":{"other":54,"name":"Transformation","kind":"Design"},"P":[{"line":"32.1","planets":["Neptune"]}],"D":[{"line":"32.1","planets":["Neptune"]},{"line":"32.3","planets":["Venus"]}]},{"g":48,"ch":{"other":16,"name":"The Wavelength","kind":"Design"},"P":[{"line":"48.5","planets":["Saturn"]}],"D":[{"line":"48.4","planets":["Saturn"]}]}]},"Teresa::Solar Plexus":{"status":"defined","blocks":[{"g":22,"P":[{"line":"22.6","planets":["Moon"]}]},{"g":37,"ch":{"other":40,"name":"Community","kind":"Personality"},"P":[{"line":"37.2","planets":["Sun"]},{"line":"37.6","planets":["Mercury"]}]},{"g":55,"ch":{"other":39,"name":"Emoting","kind":"Personality and Design"},"P":[{"line":"55.1","planets":["North Node"]}],"D":[{"line":"55.5","planets":["North Node"]}]}]},"Teresa::Root":{"status":"defined","blocks":[{"g":39,"ch":{"other":55,"name":"Emoting","kind":"Personality and Design"},"P":[{"line":"39.1","planets":["Uranus"]}],"D":[{"line":"39.5","planets":["Uranus"]}]},{"g":41,"P":[{"line":"41.5","planets":["Venus"]}]},{"g":54,"ch":{"other":32,"name":"Transformation","kind":"Design"},"D":[{"line":"54.3","planets":["Moon"]}]}]},"Carolyn::Head":{"status":"defined","blocks":[{"g":61,"P":[{"line":"61.3","planets":["Moon"]}]},{"g":64,"ch":{"other":47,"name":"Abstraction","kind":"Electromagnetic"},"D":[{"line":"64.1","planets":["Mars","Moon"]}]}]},"Carolyn::Ajna":{"status":"defined","blocks":[{"g":11,"D":[{"line":"11.2","planets":["Jupiter"]}]},{"g":47,"ch":{"other":64,"name":"Abstraction","kind":"Electromagnetic"},"P":[{"line":"47.4","planets":["Sun"]}]}]},"Carolyn::Throat":{"status":"defined","blocks":[{"g":12,"ch":{"other":22,"name":"Openness","kind":"Electromagnetic"},"D":[{"line":"12.4","planets":["Uranus"]}]},{"g":31,"ch":{"other":7,"name":"The Alpha","kind":"Personality"},"P":[{"line":"31.3","planets":["Venus"]}]},{"g":33,"D":[{"line":"33.6","planets":["Pluto"]}]},{"g":45,"D":[{"line":"45.6","planets":["Sun"]}]}]},"Carolyn::G":{"status":"defined","blocks":[{"g":1,"D":[{"line":"1.1","planets":["South Node"]}]},{"g":2,"D":[{"line":"2.1","planets":["North Node"]}]},{"g":7,"ch":{"other":31,"name":"The Alpha","kind":"Personality"},"P":[{"line":"7.3","planets":["Pluto"]}],"D":[{"line":"7.6","planets":["Saturn"]}]},{"g":15,"P":[{"line":"15.3","planets":["Uranus"]}]}]},"Carolyn::Sacral":{"status":"open","blocks":[{"g":27,"P":[{"line":"27.5","planets":["North Node"]}]},{"g":29,"P":[{"line":"29.6","planets":["Saturn"]}]}]},"Carolyn::Spleen":{"status":"open","blocks":[{"g":28,"P":[{"line":"28.5","planets":["Mars","South Node"]}]},{"g":48,"P":[{"line":"48.3","planets":["Neptune"]},{"line":"48.5","planets":["Mercury"]}],"D":[{"line":"48.1","planets":["Neptune"]}]}]},"Carolyn::Solar Plexus":{"status":"defined","blocks":[{"g":22,"ch":{"other":12,"name":"Openness","kind":"Electromagnetic"},"P":[{"line":"22.4","planets":["Earth"]}]}]},"Carolyn::Root":{"status":"open","blocks":[{"g":52,"D":[{"line":"52.4","planets":["Mercury"]},{"line":"52.6","planets":["Venus"]}]}]},"Milena::Head":{"status":"open","blocks":[]},"Milena::Ajna":{"status":"open","blocks":[{"g":11,"P":[{"line":"11.5","planets":["Uranus"]}],"D":[{"line":"11.3","planets":["Uranus"]}]},{"g":17,"P":[{"line":"17.3","planets":["Moon"]}]}]},"Milena::Throat":{"status":"open","blocks":[{"g":31,"D":[{"line":"31.6","planets":["Earth"]}]},{"g":35,"P":[{"line":"35.3","planets":["Mars"]}]}]},"Milena::G":{"status":"open","blocks":[{"g":13,"D":[{"line":"13.4","planets":["Mercury"]}]},{"g":25,"P":[{"line":"25.6","planets":["Venus"]}]}]},"Milena::Sacral":{"status":"open","blocks":[{"g":27,"P":[{"line":"27.4","planets":["Sun"]}]},{"g":42,"P":[{"line":"42.2","planets":["Mercury"]}]}]},"Milena::Spleen":{"status":"defined","blocks":[{"g":28,"P":[{"line":"28.4","planets":["Earth"]}]},{"g":44,"ch":{"other":26,"name":"Surrender","kind":"Personality and Design"},"P":[{"line":"44.2","planets":["Pluto"]}],"D":[{"line":"44.3","planets":["Pluto"]}]},{"g":48,"P":[{"line":"48.3","planets":["South Node"]}],"D":[{"line":"48.5","planets":["South Node"]}]}]},"Milena::Solar Plexus":{"status":"open","blocks":[{"g":22,"D":[{"line":"22.6","planets":["Jupiter"]}]}]},"Milena::Root":{"status":"open","blocks":[{"g":41,"D":[{"line":"41.6","planets":["Sun"]}]},{"g":58,"P":[{"line":"58.5","planets":["Neptune"]}],"D":[{"line":"58.3","planets":["Moon","Neptune"]}]}]},"Judy::Head":{"status":"open","blocks":[]},"Judy::Ajna":{"status":"open","blocks":[{"g":4,"P":[{"line":"4.5","planets":["Pluto"]}],"D":[{"line":"4.3","planets":["South Node"]},{"line":"4.4","planets":["Pluto"]}]},{"g":11,"D":[{"line":"11.4","planets":["Moon"]}]},{"g":17,"P":[{"line":"17.2","planets":["Moon"]}]}]},"Judy::Throat":{"status":"defined","blocks":[{"g":20,"ch":{"other":57,"name":"The Brain Wave","kind":"Electromagnetic"},"P":[{"line":"20.5","planets":["Earth"]}]},{"g":23,"D":[{"line":"23.3","planets":["Jupiter"]}]}]},"Judy::G":{"status":"open","blocks":[{"g":2,"P":[{"line":"2.1","planets":["Jupiter"]}]},{"g":7,"P":[{"line":"7.3","planets":["South Node"]}],"D":[{"line":"7.6","planets":["Mercury"]}]},{"g":13,"P":[{"line":"13.3","planets":["North Node"]}]}]},"Judy::Sacral":{"status":"defined","blocks":[{"g":5,"P":[{"line":"5.2","planets":["Mercury"]}]},{"g":34,"ch":{"other":57,"name":"Power","kind":"Design"},"P":[{"line":"34.5","planets":["Sun"]}],"D":[{"line":"34.2","planets":["Mars"]}]}]},"Judy::Spleen":{"status":"defined","blocks":[{"g":32,"P":[{"line":"32.3","planets":["Neptune","Saturn"]}]},{"g":48,"D":[{"line":"48.4","planets":["Saturn"]}]},{"g":57,"ch":{"other":34,"name":"Power","kind":"Design"},"D":[{"line":"57.6","planets":["Neptune"]}]}]},"Judy::Solar Plexus":{"status":"defined","blocks":[{"g":6,"D":[{"line":"6.3","planets":["Venus"]}]},{"g":37,"ch":{"other":40,"name":"Community","kind":"Design"},"D":[{"line":"37.1","planets":["Earth"]}]},{"g":49,"D":[{"line":"49.3","planets":["North Node"]}]}]},"Judy::Root":{"status":"open","blocks":[{"g":38,"P":[{"line":"38.5","planets":["Venus"]}]},{"g":41,"P":[{"line":"41.2","planets":["Mars"]}]},{"g":53,"P":[{"line":"53.4","planets":["Uranus"]}],"D":[{"line":"53.3","planets":["Uranus"]}]}]},"Eike::Head":{"status":"open","blocks":[]},"Eike::Ajna":{"status":"defined","blocks":[{"g":11,"ch":{"other":56,"name":"Curiosity","kind":"Design"},"D":[{"line":"11.4","planets":["Moon"]}]},{"g":47,"D":[{"line":"47.6","planets":["Neptune"]}]}]},"Eike::Throat":{"status":"defined","blocks":[{"g":56,"ch":{"other":11,"name":"Curiosity","kind":"Design"},"P":[{"line":"56.5","planets":["Pluto"]},{"line":"56.6","planets":["Earth"]}],"D":[{"line":"56.6","planets":["Pluto"]}]}]},"Eike::G":{"status":"defined","blocks":[{"g":1,"P":[{"line":"1.1","planets":["North Node"]}],"D":[{"line":"1.2","planets":["Mercury"]},{"line":"1.5","planets":["North Node"]}]},{"g":2,"ch":{"other":14,"name":"The Beat","kind":"Personality"},"P":[{"line":"2.1","planets":["South Node","Uranus"]}],"D":[{"line":"2.4","planets":["Uranus"]},{"line":"2.5","planets":["South Node"]}]},{"g":46,"D":[{"line":"46.4","planets":["Mars"]}]}]},"Eike::Sacral":{"status":"defined","blocks":[{"g":5,"P":[{"line":"5.5","planets":["Venus"]}]},{"g":14,"ch":{"other":2,"name":"The Beat","kind":"Personality"},"P":[{"line":"14.2","planets":["Mars"]}]},{"g":27,"D":[{"line":"27.2","planets":["Earth"]}]},{"g":34,"D":[{"line":"34.5","planets":["Venus"]}]}]},"Eike::Spleen":{"status":"defined","blocks":[{"g":28,"ch":{"other":38,"name":"Struggle","kind":"Electromagnetic"},"D":[{"line":"28.2","planets":["Sun"]}]}]},"Eike::Solar Plexus":{"status":"open","blocks":[{"g":6,"P":[{"line":"6.1","planets":["Neptune"]}]},{"g":30,"P":[{"line":"30.1","planets":["Moon"]}]},{"g":49,"D":[{"line":"49.4","planets":["Jupiter"]}]},{"g":55,"P":[{"line":"55.6","planets":["Jupiter"]}]}]},"Eike::Root":{"status":"defined","blocks":[{"g":38,"ch":{"other":28,"name":"Struggle","kind":"Electromagnetic"},"P":[{"line":"38.6","planets":["Mercury"]}]},{"g":60,"P":[{"line":"60.6","planets":["Sun"]}]}]},"Dennis::Head":{"status":"open","blocks":[]},"Dennis::Ajna":{"status":"open","blocks":[{"g":11,"P":[{"line":"11.5","planets":["South Node"]}]}]},"Dennis::Throat":{"status":"defined","blocks":[{"g":12,"ch":{"other":22,"name":"Openness","kind":"Personality"},"P":[{"line":"12.5","planets":["North Node"]}]},{"g":31,"D":[{"line":"31.2","planets":["Mars"]}]},{"g":33,"ch":{"other":13,"name":"The Prodigal","kind":"Personality"},"P":[{"line":"33.3","planets":["Pluto"]}],"D":[{"line":"33.5","planets":["Pluto"]}]},{"g":35,"ch":{"other":36,"name":"Transitoriness","kind":"Personality"},"P":[{"line":"35.3","planets":["Uranus"]}],"D":[{"line":"35.2","planets":["Earth"]},{"line":"35.5","planets":["Uranus"]}]},{"g":62,"D":[{"line":"62.4","planets":["Saturn"]}]}]},"Dennis::G":{"status":"defined","blocks":[{"g":10,"D":[{"line":"10.2","planets":["South Node"]}]},{"g":13,"ch":{"other":33,"name":"The Prodigal","kind":"Personality"},"P":[{"line":"13.6","planets":["Moon"]}]},{"g":15,"ch":{"other":5,"name":"Rhythm","kind":"Design"},"D":[{"line":"15.2","planets":["North Node"]}]}]},"Dennis::Sacral":{"status":"defined","blocks":[{"g":5,"ch":{"other":15,"name":"Rhythm","kind":"Design"},"D":[{"line":"5.2","planets":["Sun"]}]},{"g":14,"D":[{"line":"14.5","planets":["Venus"]}]}]},"Dennis::Spleen":{"status":"open","blocks":[{"g":18,"P":[{"line":"18.5","planets":["Neptune"]}],"D":[{"line":"18.5","planets":["Neptune"]}]},{"g":32,"D":[{"line":"32.1","planets":["Jupiter"]}]},{"g":50,"P":[{"line":"50.1","planets":["Jupiter"]}]}]},"Dennis::Solar Plexus":{"status":"defined","blocks":[{"g":22,"ch":{"other":12,"name":"Openness","kind":"Personality"},"P":[{"line":"22.1","planets":["Venus"]}]},{"g":36,"ch":{"other":35,"name":"Transitoriness","kind":"Personality"},"P":[{"line":"36.4","planets":["Mercury"]}]},{"g":37,"ch":{"other":40,"name":"Community","kind":"Personality"},"P":[{"line":"37.6","planets":["Sun"]}]}]},"Dennis::Root":{"status":"open","blocks":[{"g":39,"P":[{"line":"39.6","planets":["Mars"]}]},{"g":53,"P":[{"line":"53.4","planets":["Saturn"]}]}]}}};
+const CHANNEL_DATA = {"channels":[{"id":"1-8","gates":[1,8],"name":"Inspiration","design":"A design of a creative role model","centers":["G","Throat"],"circuit":"Knowing","type":"Projecting","blurb":"A design of a creative role model"},{"id":"2-14","gates":[2,14],"name":"The Beat","design":"A design of being a keeper of keys","centers":["G","Sacral"],"circuit":"Knowing","type":"Generating","blurb":"A design of being a keeper of keys"},{"id":"3-60","gates":[3,60],"name":"Mutation","design":"A design of energy that fluctuates and initiates","centers":["Root","Sacral"],"circuit":"Knowing","type":"Generating","blurb":"A design of energy that fluctuates and initiates"},{"id":"4-63","gates":[4,63],"name":"Logic","design":"A design of mental ease mixed with doubt","centers":["Ajna","Head"],"circuit":"Understanding","type":"Projecting","blurb":"A design of mental ease mixed with doubt"},{"id":"5-15","gates":[5,15],"name":"Rhythm","design":"A design of being in the flow","centers":["G","Sacral"],"circuit":"Understanding","type":"Generating","blurb":"A design of being in the flow"},{"id":"6-59","gates":[6,59],"name":"Intimacy","design":"A design focused on reproduction","centers":["Sacral","Solar Plexus"],"circuit":"Defence","type":"Generating","blurb":"A design focused on reproduction"},{"id":"7-31","gates":[7,31],"name":"The Alpha","design":"A design of Leadership","centers":["G","Throat"],"circuit":"Understanding","type":"Projecting","blurb":"A design of Leadership"},{"id":"9-52","gates":[9,52],"name":"Concentration","design":"A design of determination","centers":["Root","Sacral"],"circuit":"Understanding","type":"Generating","blurb":"A design of determination"},{"id":"10-20","gates":[10,20],"name":"Awakening","design":"A design of commitment to higher principles","centers":["G","Throat"],"circuit":"Centering","type":"Projecting","blurb":"A design of commitment to higher principles"},{"id":"10-34","gates":[10,34],"name":"Exploration","design":"A design of following one's convictions","centers":["G","Sacral"],"circuit":"Centering","type":"Generating","blurb":"A design of following one's convictions"},{"id":"10-57","gates":[10,57],"name":"Perfected Form","design":"A design of survival","centers":["G","Spleen"],"circuit":"Centering","type":"Projecting","blurb":"A design of survival"},{"id":"11-56","gates":[11,56],"name":"Curiosity","design":"","centers":["Ajna","Throat"],"circuit":"Sensing","type":"Projecting","blurb":"Curiosity"},{"id":"12-22","gates":[12,22],"name":"Openness","design":"","centers":["Solar Plexus","Throat"],"circuit":"Knowing","type":"Manifesting","blurb":"Openness"},{"id":"13-33","gates":[13,33],"name":"The Prodigal","design":"","centers":["G","Throat"],"circuit":"Sensing","type":"Projecting","blurb":"The Prodigal"},{"id":"16-48","gates":[16,48],"name":"The Wave Length","design":"","centers":["Spleen","Throat"],"circuit":"Understanding","type":"Projecting","blurb":"The Wave Length"},{"id":"17-62","gates":[17,62],"name":"Acceptance","design":"","centers":["Ajna","Throat"],"circuit":"Understanding","type":"Projecting","blurb":"Acceptance"},{"id":"18-58","gates":[18,58],"name":"Judgment","design":"","centers":["Root","Spleen"],"circuit":"Understanding","type":"Projecting","blurb":"Judgment"},{"id":"19-49","gates":[19,49],"name":"Synthesis","design":"","centers":["Root","Solar Plexus"],"circuit":"Ego","type":"Projecting","blurb":"Synthesis"},{"id":"20-34","gates":[20,34],"name":"Charisma","design":"A design where thoughts must be deeds","centers":["Sacral","Throat"],"circuit":"Centering","type":"Manifesting","blurb":"A design where thoughts must be deeds"},{"id":"20-57","gates":[20,57],"name":"The Brain Wave","design":"A design of awareness","centers":["Spleen","Throat"],"circuit":"Knowing","type":"Projecting","blurb":"A design of awareness"},{"id":"21-45","gates":[21,45],"name":"The Money Line","design":"","centers":["Heart/Ego","Throat"],"circuit":"Ego","type":"Manifesting","blurb":"The Money Line"},{"id":"23-43","gates":[23,43],"name":"Structuring","design":"","centers":["Ajna","Throat"],"circuit":"Knowing","type":"Projecting","blurb":"Structuring"},{"id":"24-61","gates":[24,61],"name":"Awareness","design":"","centers":["Ajna","Head"],"circuit":"Knowing","type":"Projecting","blurb":"Awareness"},{"id":"25-51","gates":[25,51],"name":"Initiation","design":"","centers":["G","Heart/Ego"],"circuit":"Centering","type":"Projecting","blurb":"Initiation"},{"id":"26-44","gates":[26,44],"name":"Surrender","design":"","centers":["Heart/Ego","Spleen"],"circuit":"Ego","type":"Projecting","blurb":"Surrender"},{"id":"27-50","gates":[27,50],"name":"Preservation","design":"","centers":["Sacral","Spleen"],"circuit":"Defence","type":"Generating","blurb":"Preservation"},{"id":"28-38","gates":[28,38],"name":"Struggle","design":"","centers":["Root","Spleen"],"circuit":"Knowing","type":"Projecting","blurb":"Struggle"},{"id":"29-46","gates":[29,46],"name":"Discovery","design":"","centers":["G","Sacral"],"circuit":"Sensing","type":"Generating","blurb":"Discovery"},{"id":"30-41","gates":[30,41],"name":"Recognition","design":"","centers":["Root","Solar Plexus"],"circuit":"Sensing","type":"Projecting","blurb":"Recognition"},{"id":"32-54","gates":[32,54],"name":"Transformation","design":"","centers":["Root","Spleen"],"circuit":"Ego","type":"Projecting","blurb":"Transformation"},{"id":"34-57","gates":[34,57],"name":"Power","design":"A design of an archetype","centers":["Sacral","Spleen"],"circuit":"Centering","type":"Generating","blurb":"A design of an archetype"},{"id":"35-36","gates":[35,36],"name":"Transitoriness","design":"","centers":["Solar Plexus","Throat"],"circuit":"Sensing","type":"Manifesting","blurb":"Transitoriness"},{"id":"37-40","gates":[37,40],"name":"Community","design":"","centers":["Heart/Ego","Solar Plexus"],"circuit":"Ego","type":"Projecting","blurb":"Community"},{"id":"39-55","gates":[39,55],"name":"Emoting","design":"","centers":["Root","Solar Plexus"],"circuit":"Knowing","type":"Projecting","blurb":"Emoting"},{"id":"42-53","gates":[42,53],"name":"Maturation","design":"","centers":["Root","Sacral"],"circuit":"Sensing","type":"Generating","blurb":"Maturation"},{"id":"47-64","gates":[47,64],"name":"Abstraction","design":"","centers":["Ajna","Head"],"circuit":"Sensing","type":"Projecting","blurb":"Abstraction"}],"gateCircuit":{"1":"Knowing","2":"Knowing","3":"Knowing","4":"Understanding","5":"Understanding","6":"Defence","7":"Understanding","8":"Knowing","9":"Understanding","10":"Centering","11":"Sensing","12":"Knowing","13":"Sensing","14":"Knowing","15":"Understanding","16":"Understanding","17":"Understanding","18":"Understanding","19":"Ego","20":"Knowing","21":"Ego","22":"Knowing","23":"Knowing","24":"Knowing","25":"Centering","26":"Ego","27":"Defence","28":"Knowing","29":"Sensing","30":"Sensing","31":"Understanding","32":"Ego","33":"Sensing","34":"Centering","35":"Sensing","36":"Sensing","37":"Ego","38":"Knowing","39":"Knowing","40":"Ego","41":"Sensing","42":"Sensing","43":"Knowing","44":"Ego","45":"Ego","46":"Sensing","47":"Sensing","48":"Understanding","49":"Ego","50":"Defence","51":"Centering","52":"Understanding","53":"Sensing","54":"Ego","55":"Knowing","56":"Sensing","57":"Knowing","58":"Understanding","59":"Defence","60":"Knowing","61":"Knowing","62":"Understanding","63":"Understanding","64":"Sensing"},"tips":{"Generating":"Generating channels include the Sacral (without needing a motor-to-Throat link). They are response energy\u2014life force that works when engaged correctly.","Manifesting":"Manifesting channels connect a motor to the Throat. They are designs where energy can move into voice and action as manifestation.","Projecting":"Projecting channels are neither Sacral-generating nor motor-to-Throat. Their definition is recognized and invited rather than pushed.","Knowing":"Knowing is the individual empowerment circuit of mutation: acoustic knowing, mood, and unique contribution that changes others by example.","Centering":"Centering empowers the behavior and direction of the Self. With Integration bridges it links conviction, power, and presence in the now.","Understanding":"Understanding is the collective logic circuit. Its keynote is sharing patterns, formulas, and proven direction for the future.","Sensing":"Sensing is the collective abstract circuit. Its keynote is sharing experience, memory, and the wave of lived cycles.","Ego":"Ego is the tribal support circuit of the material plane\u2014will, resources, and community bargains that keep the tribe alive.","Defence":"Defence is the tribal sexual and caring circuit\u2014intimacy, values, and custodianship that nurture what the tribe creates."},"intros":{"Generating":"These channels carry Sacral life-force that works through response. Energy builds and sustains when the body says yes.","Manifesting":"These channels link a motor to the Throat, so energy can move into expression or action as manifestation rather than only response.","Projecting":"These channels do not include Sacral generating or a motor-to-Throat path. Their gifts need recognition and correct timing to be received.","Knowing":"Individual Knowing is the mutative empowerment circuit: unique insight, mood, and acoustic knowing that empower by example rather than by sharing proof.","Centering":"Individual Centering (with Integration bridges) empowers direction and behavior of the Self\u2014conviction, initiation, and being present as oneself.","Understanding":"Collective Understanding is logical sharing: patterns, focus, experimentation, and proven formulas offered for the future of the group.","Sensing":"Collective Sensing is abstract sharing: experience, stories, cycles, and reflection that make meaning from what has been lived.","Ego":"Tribal Ego is the support circuit of the material plane\u2014willpower, resources, bargains, and community survival through deals and ambition.","Defence":"Tribal Defence (Defense) is the sexual and caring circuit\u2014intimacy, values, and custodianship that protect and raise the next generation."}};
 
 const HARMONIC = {1:8,2:14,3:60,4:63,5:15,6:59,7:31,8:1,9:52,10:57,11:56,12:22,13:33,14:2,15:5,16:48,17:62,18:58,19:49,20:57,21:45,22:12,23:43,24:61,25:51,26:44,27:50,28:38,29:46,30:41,31:7,32:54,33:13,34:57,35:36,36:35,37:40,38:28,39:55,40:37,41:30,42:53,43:23,44:26,45:21,46:29,47:64,48:16,49:19,50:27,51:25,52:9,53:42,54:32,55:39,56:11,57:10,58:18,59:6,60:3,61:24,62:17,63:4,64:47};
 const FOCUS = {
@@ -65,7 +116,7 @@ const FOCUS = {
   Throat: ["The Throat is the center of manifestation, voice, and metamorphosis.", "expression and manifestation"],
   G: ["The G Center is the hub of identity, love, and direction.", "sense of self and life direction"],
   Sacral: ["The Sacral is the generative power center of life-force, work energy, and sexuality.", "response and sustainable energy"],
-  Spleen: ["The Spleen is the home of existential body awareness in the now.", "instinct, intuition, taste, and immune intelligence"],
+  Spleen: ["The Spleen is the center of existential awareness, intuition, health, and survival timing.", "intuition, health, and in-the-now survival awareness"],
   "Solar Plexus": ["The Solar Plexus is the center of emotional awareness and the emotional wave.", "feelings, desire, and clarity over time"],
   Root: ["The Root is an adrenal pressure center.", "stress, fuel for action, and the pulse that pushes life forward"],
 };
@@ -73,34 +124,20 @@ const FOCUS = {
 function scrubCitations(s) {
   if (!s) return "";
   return String(s)
-    .replace(/\bRave I['’]?Ching\b/gi, "the teaching")
-    .replace(/\bI['’]?Ching\b/gi, "the teaching")
-    .replace(/\btraditional \['?Ching\b/gi, "traditional teaching")
-    .replace(/\bWhite Book:\s*/gi, "")
-    .replace(/\bin the white book[^.]*\.\s*/gi, "")
-    .replace(/\bRa Uru Hu\b/gi, "")
-    .replace(/\bTCRI\b/g, "")
-    .replace(/\bLCN\b/g, "")
-    .replace(/[ \t]{2,}/g, " ")
+    .replace(/\b(LCN|TCRI|Rave I['']Ching|Ra Uru Hu|Jovian|IHDS|White Book|Black Book)\b/gi, "the teaching")
+    .replace(/\s{2,}/g, " ")
     .trim();
 }
-function wordCount(s) {
-  const m = scrubCitations(s).match(/[A-Za-z0-9']+/g);
-  return m ? m.length : 0;
-}
+function wordCount(s) { return String(s || "").trim() ? String(s).trim().split(/\s+/).length : 0; }
 function clipWords(text, maxWords) {
-  const t = scrubCitations(text);
-  if (!t || maxWords <= 0) return "";
-  const w = t.split(/\s+/).filter(Boolean);
-  if (w.length <= maxWords) return w.join(" ");
-  let cut = w.slice(0, maxWords).join(" ").replace(/[,;:]+$/, "");
-  if (!/[.!?…]$/.test(cut) && !cut.endsWith("...")) cut += "...";
-  return cut;
+  if (!maxWords || maxWords <= 0) return "";
+  const words = String(text || "").trim().split(/\s+/);
+  if (words.length <= maxWords) return words.join(" ");
+  return words.slice(0, maxWords).join(" ") + "…";
 }
 function firstSentences(text, n, maxWords) {
-  const t = scrubCitations(text);
-  if (!t) return "";
-  const parts = t.split(/(?<=[.!?])\s+/);
+  const t = scrubCitations(text || "");
+  const parts = t.split(/(?<=[.!?])\s+/).filter(Boolean);
   return clipWords(parts.slice(0, n).join(" "), maxWords);
 }
 function cleanTitle(t) {
@@ -111,6 +148,7 @@ function cleanTitle(t) {
   if (s.startsWith("is ") || s.startsWith("the kind")) return "";
   return s;
 }
+
 function centerIntro(center) {
   const pair = FOCUS[center] || ["This center shapes experience when defined or open.", "this theme"];
   if (center === "Throat") {
@@ -118,6 +156,7 @@ function centerIntro(center) {
   }
   return pair[0] + " Defined: consistent pathway for " + pair[1] + ". Open: conditioned by others. Completing a channel gives a reliable defined pathway; a hanging gate remains potential until bridged.";
 }
+
 function channelLine(g, ch) {
   if (ch) {
     const lo = g < ch.other ? g : ch.other;
@@ -125,7 +164,9 @@ function channelLine(g, ch) {
     return "Completes channel " + lo + "-" + hi + " (" + ch.name + ") — " + ch.kind + ". Defined pathway.";
   }
   const harm = HARMONIC[g];
-  if (harm) return "Hanging gate — needs gate " + harm + " (or transit/relationship) for consistent defined pathway.";
+  if (harm) {
+    return "Hanging gate — needs gate " + harm + " (or transit/relationship) for consistent defined pathway.";
+  }
   return "Hanging gate — needs its harmonic gate (or transit/relationship) for consistent defined pathway.";
 }
 function voiceLine(gate) {
@@ -159,54 +200,200 @@ function gateReportBlocks(data, center, block, themeWords, lineWords) {
   for (const ref of block.D || []) out.push({ kind: "p", text: linePara(ref, "Design", data.lines, lineWords) });
   return out;
 }
-function buildReportBlocks(data, centers, members, themeWords, lineWords) {
-  const blocks = [];
-  const title = centers.length === 1 ? centers[0] + " Center Activations" : "Centers Explanation Report — " + centers.join(", ");
-  blocks.push({ kind: "h1", text: title });
-  blocks.push({ kind: "p", text: "Condensed Essentials – Gates, Lines" + (centers.indexOf("Throat") >= 0 ? " & Voices" : "") });
-  for (const center of centers) {
-    if (centers.length > 1) {
-      blocks.push({ kind: "h1", text: center + " Center Activations" });
-      blocks.push({ kind: "p", text: "Condensed Essentials – Gates, Lines" + (center === "Throat" ? " & Voices" : "") });
+
+function chKey(a, b) { return Math.min(a, b) + "-" + Math.max(a, b); }
+
+function memberActivations(data, member) {
+  const gates = {}; // gate -> {P: [lineobjs], D: [...]}
+  const channels = {}; // id -> {kind, name, gates, linesByGate}
+  for (const center of data.centers) {
+    const view = data.views[member + "::" + center];
+    if (!view) continue;
+    for (const b of (view.blocks || [])) {
+      const g = b.g;
+      if (!gates[g]) gates[g] = { P: [], D: [] };
+      for (const side of ["P", "D"]) {
+        for (const item of (b[side] || [])) gates[g][side].push(item);
+      }
+      if (b.ch && b.ch.other) {
+        const id = chKey(g, b.ch.other);
+        if (!channels[id]) {
+          channels[id] = { id, kind: b.ch.kind || "defined", name: b.ch.name || "", gates: [Math.min(g, b.ch.other), Math.max(g, b.ch.other)] };
+        } else if (b.ch.kind && channels[id].kind !== b.ch.kind) {
+          // prefer more complete label
+          const k = b.ch.kind;
+          if (/Personality and Design/i.test(k) || /Electromagnetic/i.test(k)) channels[id].kind = k;
+        }
+      }
     }
-    blocks.push({ kind: "p", text: centerIntro(center) });
+  }
+  // Also detect completed channels from gate pairs even if ch missing on one side
+  const present = new Set(Object.keys(gates).map(Number));
+  for (const ch of CHANNEL_DATA.channels) {
+    const [a, b] = ch.gates;
+    if (present.has(a) && present.has(b) && !channels[ch.id]) {
+      // Determine kind from sides
+      const ga = gates[a], gb = gates[b];
+      const aP = !!(ga.P && ga.P.length), aD = !!(ga.D && ga.D.length);
+      const bP = !!(gb.P && gb.P.length), bD = !!(gb.D && gb.D.length);
+      let kind = "defined";
+      if ((aP && bD && !aD && !bP) || (aD && bP && !aP && !bD)) kind = "Electromagnetic";
+      else if ((aP || bP) && (aD || bD)) kind = "Personality and Design";
+      else if (aP || bP) kind = "Personality";
+      else if (aD || bD) kind = "Design";
+      channels[ch.id] = { id: ch.id, kind, name: ch.name, gates: ch.gates };
+    }
+  }
+  return { gates, channels };
+}
+
+function formatGateLines(gatesMap, gateNum) {
+  const g = gatesMap[gateNum];
+  if (!g) return "gate " + gateNum;
+  const bits = [];
+  for (const item of (g.P || [])) bits.push("Personality " + item.line);
+  for (const item of (g.D || [])) bits.push("Design " + item.line);
+  return "gate " + gateNum + (bits.length ? " (" + bits.join("; ") + ")" : "");
+}
+
+function channelMeaning(chMeta, kind) {
+  const design = (chMeta.design || chMeta.blurb || "").trim();
+  const base = design ? design.replace(/\.$/, "") + "." : ("Channel of " + chMeta.name + ".");
+  let role = "";
+  if (/Electromagnetic/i.test(kind)) role = " Electromagnetic here: one side Personality, the other Design—completed across the natal split.";
+  else if (/Personality and Design/i.test(kind)) role = " Present in both Personality and Design.";
+  else if (/^Personality$/i.test(kind)) role = " Carried on the Personality side.";
+  else if (/^Design$/i.test(kind)) role = " Carried on the Design side.";
+  return scrubCitations(base + role);
+}
+
+function buildCircuitTypeBlocks(data, members, types, circuits, themeWords) {
+  const blocks = [];
+  const typeOrder = ["Generating", "Manifesting", "Projecting"];
+  const circuitOrder = ["Knowing", "Centering", "Understanding", "Sensing", "Ego", "Defence"];
+  const selectedTypes = typeOrder.filter((t) => types.indexOf(t) >= 0);
+  const selectedCircuits = circuitOrder.filter((c) => circuits.indexOf(c) >= 0);
+
+  function sectionFor(kind, key) {
+    const intro = CHANNEL_DATA.intros[key] || "";
+    const title = kind === "type" ? ("Channel Type: " + key) : (
+      key === "Knowing" || key === "Centering" ? ("Individual Empowerment — " + key) :
+      key === "Understanding" || key === "Sensing" ? ("Collective Sharing — " + key) :
+      ("Tribal Support — " + (key === "Defence" ? "Defense" : key))
+    );
+    blocks.push({ kind: "h1", text: title });
+    blocks.push({ kind: "p", text: intro });
+    const matchChannels = CHANNEL_DATA.channels.filter((ch) => kind === "type" ? ch.type === key : ch.circuit === key);
+    const matchIds = new Set(matchChannels.map((c) => c.id));
+    const gateSet = new Set();
+    for (const ch of matchChannels) { gateSet.add(ch.gates[0]); gateSet.add(ch.gates[1]); }
+
     for (const m of members) {
-      const view = data.views[m + "::" + center];
       blocks.push({ kind: "h2", text: m });
       const meta = data.meta[m];
       if (meta && (meta.type || meta.profile || meta.cross)) {
         blocks.push({ kind: "p", text: [meta.type, meta.profile, meta.cross].filter(Boolean).join(" • ") });
       }
-      const status = view && view.status ? view.status : "unknown";
-      const st = status.charAt(0).toUpperCase() + status.slice(1);
-      blocks.push({ kind: "p", text: center + " Center: " + st });
-      const themeHint = (FOCUS[center] || ["", "this theme"])[1];
-      if (status.toLowerCase() === "defined") {
-        blocks.push({ kind: "p", text: center === "Throat" ? "Consistent, reliable theme for how expression and manifestation operate." : "Consistent, reliable theme for " + themeHint + "." });
-      } else if (status.toLowerCase() === "open") {
-        blocks.push({ kind: "p", text: center === "Throat" ? "Takes in and amplifies this theme from others. Voice and timing of manifestation conditioned by who and what is around them." : "Takes in and amplifies this theme from others rather than carrying a fixed definition of its own." });
+      const act = memberActivations(data, m);
+      const owned = [];
+      for (const id of Object.keys(act.channels)) {
+        if (!matchIds.has(id)) continue;
+        const metaCh = matchChannels.find((c) => c.id === id) || CHANNEL_DATA.channels.find((c) => c.id === id);
+        owned.push({ id, info: act.channels[id], meta: metaCh });
       }
-      const blist = view ? view.blocks : [];
-      if (!blist.length) {
-        blocks.push({ kind: "p", text: "No activated gates in the " + center + " Center in this data set." });
-        continue;
+      owned.sort((a, b) => a.info.gates[0] - b.info.gates[0] || a.info.gates[1] - b.info.gates[1]);
+      if (!owned.length) {
+        blocks.push({ kind: "p", text: "No completed " + key + " channels in this chart data." });
+      } else {
+        for (const o of owned) {
+          const [a, b] = o.info.gates;
+          const nm = (o.meta && o.meta.name) || o.info.name || o.id;
+          blocks.push({ kind: "h3", text: "Channel " + a + "-" + b + " — " + nm });
+          blocks.push({ kind: "p", text: formatGateLines(act.gates, a) + "; " + formatGateLines(act.gates, b) + " — " + (o.info.kind || "defined") + "." });
+          blocks.push({ kind: "p", text: channelMeaning(o.meta || { name: nm, design: "" }, o.info.kind) });
+        }
       }
-      for (const b of blist) blocks.push(...gateReportBlocks(data, center, b, themeWords, lineWords));
+      // Hanging gates in this circuit/type
+      const hanging = [];
+      for (const gStr of Object.keys(act.gates)) {
+        const g = +gStr;
+        if (!gateSet.has(g)) continue;
+        // hanging if no completed matchChannel includes this gate for this member
+        const completes = owned.some((o) => o.info.gates[0] === g || o.info.gates[1] === g);
+        if (!completes) hanging.push(g);
+      }
+      hanging.sort((a, b) => a - b);
+      if (hanging.length) {
+        const bits = hanging.map((g) => formatGateLines(act.gates, g));
+        blocks.push({ kind: "p", text: "Hanging in this " + (kind === "type" ? "type" : "circuit") + " (not completing a channel here): " + bits.join("; ") + "." });
+      }
     }
+  }
+
+  for (const t of selectedTypes) sectionFor("type", t);
+  for (const c of selectedCircuits) sectionFor("circuit", c);
+  return blocks;
+}
+
+function buildReportBlocks(data, centers, members, types, circuits, themeWords, lineWords) {
+  const blocks = [];
+  const hasCenters = centers && centers.length;
+  const hasExtra = (types && types.length) || (circuits && circuits.length);
+  if (hasCenters) {
+    const title = centers.length === 1 ? centers[0] + " Center Activations" : "Centers Explanation Report — " + centers.join(", ");
+    blocks.push({ kind: "h1", text: title });
+    blocks.push({ kind: "p", text: "Condensed Essentials – Gates, Lines" + (centers.indexOf("Throat") >= 0 ? " & Voices" : "") });
+    for (const center of centers) {
+      if (centers.length > 1) {
+        blocks.push({ kind: "h1", text: center + " Center Activations" });
+        blocks.push({ kind: "p", text: "Condensed Essentials – Gates, Lines" + (center === "Throat" ? " & Voices" : "") });
+      }
+      blocks.push({ kind: "p", text: centerIntro(center) });
+      for (const m of members) {
+        const view = data.views[m + "::" + center];
+        blocks.push({ kind: "h2", text: m });
+        const meta = data.meta[m];
+        if (meta && (meta.type || meta.profile || meta.cross)) {
+          blocks.push({ kind: "p", text: [meta.type, meta.profile, meta.cross].filter(Boolean).join(" • ") });
+        }
+        const status = view && view.status ? view.status : "unknown";
+        const st = status.charAt(0).toUpperCase() + status.slice(1);
+        blocks.push({ kind: "p", text: center + " Center: " + st });
+        const themeHint = (FOCUS[center] || ["", "this theme"])[1];
+        if (status.toLowerCase() === "defined") {
+          blocks.push({ kind: "p", text: center === "Throat" ? "Consistent, reliable theme for how expression and manifestation operate." : "Consistent, reliable theme for " + themeHint + "." });
+        } else if (status.toLowerCase() === "open") {
+          blocks.push({ kind: "p", text: center === "Throat" ? "Takes in and amplifies this theme from others. Voice and timing of manifestation conditioned by who and what is around them." : "Takes in and amplifies this theme from others rather than carrying a fixed definition of its own." });
+        }
+        const blist = view ? view.blocks : [];
+        if (!blist.length) {
+          blocks.push({ kind: "p", text: "No activated gates in the " + center + " Center in this data set." });
+          continue;
+        }
+        for (const b of blist) blocks.push(...gateReportBlocks(data, center, b, themeWords, lineWords));
+      }
+    }
+  }
+  if (hasExtra) {
+    if (hasCenters) blocks.push({ kind: "p", text: "Channel type and circuit sections below are independent of the center selection above." });
+    blocks.push(...buildCircuitTypeBlocks(data, members, types || [], circuits || [], themeWords));
   }
   return blocks;
 }
+
 function blocksWordCount(blocks) {
   let n = 0;
   for (const b of blocks) n += wordCount(b.text);
   return n;
 }
-function fitReportBlocks(data, centers, members) {
-  const budget = 3000;
+
+function fitReportBlocks(data, centers, members, types, circuits) {
+  const nExtra = (types ? types.length : 0) + (circuits ? circuits.length : 0);
+  const budget = 3000 + nExtra * 900; // expand ~1–2 pages per added selection
   const trials = [[95,75],[85,65],[75,55],[60,45],[45,35],[35,25],[25,18],[18,12],[12,8],[8,0],[0,0]];
-  let last = { blocks: buildReportBlocks(data, centers, members, 0, 0), words: 0, themeWords: 0, lineWords: 0 };
+  let last = { blocks: buildReportBlocks(data, centers, members, types, circuits, 0, 0), words: 0, themeWords: 0, lineWords: 0 };
   for (const [tw, lw] of trials) {
-    const blocks = buildReportBlocks(data, centers, members, tw, lw);
+    const blocks = buildReportBlocks(data, centers, members, types, circuits, tw, lw);
     const w = blocksWordCount(blocks);
     last = { blocks, words: w, themeWords: tw, lineWords: lw };
     if (w <= budget) return last;
@@ -217,16 +404,16 @@ function fitReportBlocks(data, centers, members) {
 /* ===== Minimal ZIP (STORE) + DOCX OOXML writer (no CDN) ===== */
 const CRC_TABLE = (() => {
   const t = new Uint32Array(256);
-  for (let n = 0; n < 256; n++) {
-    let c = n;
+  for (let i = 0; i < 256; i++) {
+    let c = i;
     for (let k = 0; k < 8; k++) c = (c & 1) ? (0xedb88320 ^ (c >>> 1)) : (c >>> 1);
-    t[n] = c >>> 0;
+    t[i] = c >>> 0;
   }
   return t;
 })();
 function crc32(buf) {
   let c = 0xffffffff;
-  for (let i = 0; i < buf.length; i++) c = CRC_TABLE[(c ^ buf[i]) & 0xff] ^ (c >>> 8);
+  for (let i = 0; i < buf.length; i++) c = CRC_TABLE[(c ^ buf[i]) & 255] ^ (c >>> 8);
   return (c ^ 0xffffffff) >>> 0;
 }
 function u16(n) { const b = new Uint8Array(2); new DataView(b.buffer).setUint16(0, n, true); return b; }
@@ -239,87 +426,77 @@ function concatBytes(parts) {
 }
 function strBytes(s) { return new TextEncoder().encode(s); }
 function zipStore(files) {
-  // files: [{name, data:Uint8Array}]
-  const locals = []; const centrals = [];
-  let offset = 0;
+  const local = []; const central = []; let offset = 0;
   for (const f of files) {
     const name = strBytes(f.name);
     const data = f.data;
     const crc = crc32(data);
-    const local = concatBytes([
+    const localHeader = concatBytes([
       u32(0x04034b50), u16(20), u16(0), u16(0), u16(0), u16(0),
-      u32(crc), u32(data.length), u32(data.length), u16(name.length), u16(0),
-      name, data
+      u32(crc), u32(data.length), u32(data.length), u16(name.length), u16(0), name, data
     ]);
-    const central = concatBytes([
+    local.push(localHeader);
+    const centralHeader = concatBytes([
       u32(0x02014b50), u16(20), u16(20), u16(0), u16(0), u16(0), u16(0),
       u32(crc), u32(data.length), u32(data.length), u16(name.length), u16(0), u16(0),
       u16(0), u16(0), u32(0), u32(offset), name
     ]);
-    locals.push(local); centrals.push(central); offset += local.length;
+    central.push(centralHeader);
+    offset += localHeader.length;
   }
-  const centralDir = concatBytes(centrals);
+  const centralBin = concatBytes(central);
   const end = concatBytes([
     u32(0x06054b50), u16(0), u16(0), u16(files.length), u16(files.length),
-    u32(centralDir.length), u32(offset), u16(0)
+    u32(centralBin.length), u32(offset), u16(0)
   ]);
-  return concatBytes([...locals, centralDir, end]);
+  return concatBytes([...local, centralBin, end]);
 }
 function xmlEscape(s) {
-  return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 function wRun(text, opts) {
   opts = opts || {};
-  const sz = (opts.size || 22); // half-points
+  const sz = opts.size || 22;
   const bold = opts.bold ? "<w:b/>" : "";
-  const italic = opts.italic ? "<w:i/>" : "";
   const color = opts.color ? `<w:color w:val="${opts.color}"/>` : "";
-  return `<w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/>${bold}${italic}<w:sz w:val="${sz}"/><w:szCs w:val="${sz}"/>${color}</w:rPr><w:t xml:space="preserve">${xmlEscape(text)}</w:t></w:r>`;
+  return `<w:r><w:rPr>${bold}<w:sz w:val="${sz}"/><w:szCs w:val="${sz}"/>${color}<w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/></w:rPr><w:t xml:space="preserve">${xmlEscape(text)}</w:t></w:r>`;
 }
 function wField(instr) {
-  return `<w:r><w:fldChar w:fldCharType="begin"/></w:r><w:r><w:instrText xml:space="preserve">${instr}</w:instrText></w:r><w:r><w:fldChar w:fldCharType="separate"/></w:r><w:r><w:t>1</w:t></w:r><w:r><w:fldChar w:fldCharType="end"/></w:r>`;
+  return `<w:r><w:fldChar w:fldCharType="begin"/></w:r><w:r><w:instrText xml:space="preserve">${xmlEscape(instr)}</w:instrText></w:r><w:r><w:fldChar w:fldCharType="end"/></w:r>`;
 }
 function wPara(inner, opts) {
   opts = opts || {};
+  const align = opts.align ? `<w:jc w:val="${opts.align}"/>` : "";
+  const before = opts.before != null ? opts.before : 60;
+  const after = opts.after != null ? opts.after : 60;
   const style = opts.style ? `<w:pStyle w:val="${opts.style}"/>` : "";
-  const jc = opts.align ? `<w:jc w:val="${opts.align}"/>` : "";
-  const spBefore = opts.before != null ? `<w:spacing w:before="${opts.before}" w:after="${opts.after != null ? opts.after : 120}" w:line="276" w:lineRule="auto"/>` : `<w:spacing w:after="120" w:line="276" w:lineRule="auto"/>`;
-  return `<w:p><w:pPr>${style}${jc}${spBefore}</w:pPr>${inner}</w:p>`;
+  return `<w:p><w:pPr>${style}${align}<w:spacing w:before="${before}" w:after="${after}"/></w:pPr>${inner}</w:p>`;
 }
 function buildDocx(blocks) {
   const body = [];
   for (const b of blocks) {
-    if (b.kind === "h1") body.push(wPara(wRun(b.text, {size:32, bold:true, color:"2B6CB0"}), {style:"Heading1", before:240, after:80}));
-    else if (b.kind === "h2") body.push(wPara(wRun(b.text, {size:26, bold:true, color:"2B6CB0"}), {style:"Heading2", before:200, after:80}));
-    else if (b.kind === "h3") body.push(wPara(wRun(b.text, {size:24, bold:true, color:"2B6CB0"}), {style:"Heading3", before:160, after:60}));
-    else body.push(wPara(wRun(b.text, {size:22, color:"2D3748"}), {before:0, after:120}));
+    if (b.kind === "h1") body.push(wPara(wRun(b.text, { size: 32, bold: true, color: "1A365D" }), { before: 200, after: 80 }));
+    else if (b.kind === "h2") body.push(wPara(wRun(b.text, { size: 26, bold: true, color: "2B6CB0" }), { before: 160, after: 60 }));
+    else if (b.kind === "h3") body.push(wPara(wRun(b.text, { size: 24, bold: true, color: "2D3748" }), { before: 120, after: 40 }));
+    else body.push(wPara(wRun(b.text, { size: 22 }), { before: 40, after: 60 }));
   }
-  body.push(`<w:sectPr>
-    <w:headerReference w:type="default" r:id="rId4"/>
-    <w:footerReference w:type="default" r:id="rId5"/>
-    <w:pgSz w:w="12240" w:h="15840"/>
-    <w:pgMar w:top="1080" w:right="1080" w:bottom="1080" w:left="1080" w:header="720" w:footer="720"/>
-  </w:sectPr>`);
-
+  body.push(`<w:sectPr><w:headerReference w:type="default" r:id="rId2"/><w:footerReference w:type="default" r:id="rId3"/><w:pgSz w:w="12240" w:h="15840"/><w:pgMar w:top="1080" w:right="1080" w:bottom="1080" w:left="1080" w:header="720" w:footer="720"/></w:sectPr>`);
   const documentXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
 <w:body>
 ${body.join("\n")}
 </w:body>
 </w:document>`;
-
   const headerXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <w:hdr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
 ${wPara(wRun("Centers Explanation Report", {size:26, bold:true, color:"1A365D"}), {align:"center", before:0, after:20})}
 ${wPara("", {align:"center", before:0, after:0}).replace("</w:pPr>", '<w:pBdr><w:bottom w:val="single" w:sz="4" w:space="4" w:color="A0AEC0"/></w:pBdr></w:pPr>')}
 </w:hdr>`;
-
-  const footerInner = wRun("Page ", {size:20, color:"4A5568"}) + wField(" PAGE ") + wRun(" of ", {size:20, color:"4A5568"}) + wField(" NUMPAGES ");
+  const footerInner = wRun("Page ", {size:18, color:"4A5568"}) + wField(" PAGE ") + wRun(" of ", {size:18, color:"4A5568"}) + wField(" NUMPAGES ");
   const footerXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <w:ftr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
 ${wPara(footerInner, {align:"center", before:0, after:0})}
 </w:ftr>`;
-
   const contentTypes = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
   <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
@@ -329,32 +506,25 @@ ${wPara(footerInner, {align:"center", before:0, after:0})}
   <Override PartName="/word/header1.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.header+xml"/>
   <Override PartName="/word/footer1.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.footer+xml"/>
 </Types>`;
-
   const rels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
   <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
 </Relationships>`;
-
   const docRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
   <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
-  <Relationship Id="rId4" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/header" Target="header1.xml"/>
-  <Relationship Id="rId5" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/footer" Target="footer1.xml"/>
+  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/header" Target="header1.xml"/>
+  <Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/footer" Target="footer1.xml"/>
 </Relationships>`;
-
   const styles = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
-  <w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/><w:qFormat/><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:sz w:val="22"/></w:rPr></w:style>
-  <w:style w:type="paragraph" w:styleId="Heading1"><w:name w:val="heading 1"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:qFormat/><w:pPr><w:outlineLvl w:val="0"/></w:pPr><w:rPr><w:b/><w:sz w:val="32"/><w:color w:val="2B6CB0"/></w:rPr></w:style>
-  <w:style w:type="paragraph" w:styleId="Heading2"><w:name w:val="heading 2"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:qFormat/><w:pPr><w:outlineLvl w:val="1"/></w:pPr><w:rPr><w:b/><w:sz w:val="26"/><w:color w:val="2B6CB0"/></w:rPr></w:style>
-  <w:style w:type="paragraph" w:styleId="Heading3"><w:name w:val="heading 3"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:qFormat/><w:pPr><w:outlineLvl w:val="2"/></w:pPr><w:rPr><w:b/><w:sz w:val="24"/><w:color w:val="2B6CB0"/></w:rPr></w:style>
+  <w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/><w:qFormat/></w:style>
 </w:styles>`;
-
   const files = [
     { name: "[Content_Types].xml", data: strBytes(contentTypes) },
     { name: "_rels/.rels", data: strBytes(rels) },
-    { name: "word/document.xml", data: strBytes(documentXml) },
     { name: "word/_rels/document.xml.rels", data: strBytes(docRels) },
+    { name: "word/document.xml", data: strBytes(documentXml) },
     { name: "word/styles.xml", data: strBytes(styles) },
     { name: "word/header1.xml", data: strBytes(headerXml) },
     { name: "word/footer1.xml", data: strBytes(footerXml) },
@@ -373,6 +543,71 @@ function downloadDocx(bytes, filename) {
 
 /* ===== UI ===== */
 const centerSel = {}; const memberSel = {};
+const typeSel = {}; const circuitSel = {};
+const TYPE_KEYS = ["Generating", "Manifesting", "Projecting"];
+const INDIV_KEYS = ["Knowing", "Centering"];
+const COLL_KEYS = ["Understanding", "Sensing"];
+const TRIB_KEYS = ["Ego", "Defence"];
+const TRIB_LABEL = { Ego: "Ego", Defence: "Defense" };
+
+function showTip(key) {
+  const title = TRIB_LABEL[key] || key;
+  document.getElementById("tipTitle").textContent = title;
+  document.getElementById("tipBody").textContent = CHANNEL_DATA.tips[key] || "";
+  const dlg = document.getElementById("tipDialog");
+  if (typeof dlg.showModal === "function") dlg.showModal();
+  else dlg.setAttribute("open", "");
+}
+
+function closeTip() {
+  const dlg = document.getElementById("tipDialog");
+  if (dlg.open && typeof dlg.close === "function") dlg.close();
+  else dlg.removeAttribute("open");
+}
+
+function syncToggleVisual(btn, on) {
+  btn.setAttribute("aria-pressed", on ? "true" : "false");
+  btn.classList.toggle("selected", !!on);
+}
+
+function makeToggle(key, label, selMap) {
+  const wrap = document.createElement("div");
+  wrap.className = "toggle-wrap";
+  wrap.dataset.key = key;
+
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "toggle" + (selMap[key] ? " selected" : "");
+  btn.setAttribute("aria-pressed", selMap[key] ? "true" : "false");
+  btn.setAttribute("aria-label", label);
+  btn.title = "Select " + label;
+  btn.textContent = label;
+
+  const tip = document.createElement("button");
+  tip.type = "button";
+  tip.className = "tip-btn";
+  tip.textContent = "i";
+  tip.setAttribute("aria-label", "About " + label);
+  tip.title = "About " + label;
+
+  tip.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    showTip(key);
+  });
+
+  btn.addEventListener("click", (e) => {
+    e.preventDefault();
+    selMap[key] = !selMap[key];
+    syncToggleVisual(btn, selMap[key]);
+    updateStatus();
+  });
+
+  wrap.appendChild(btn);
+  wrap.appendChild(tip);
+  return wrap;
+}
+
 function renderToggles() {
   const cb = document.getElementById("centerBox");
   const mb = document.getElementById("memberBox");
@@ -393,36 +628,80 @@ function renderToggles() {
     lab.querySelector("input").addEventListener("change", (e) => { memberSel[m] = e.target.checked; updateStatus(); });
     mb.appendChild(lab);
   }
+  const typeBox = document.getElementById("typeBox");
+  const indivBox = document.getElementById("indivBox");
+  const collBox = document.getElementById("collBox");
+  const tribBox = document.getElementById("tribBox");
+  typeBox.innerHTML = ""; indivBox.innerHTML = ""; collBox.innerHTML = ""; tribBox.innerHTML = "";
+  for (const k of TYPE_KEYS) { typeSel[k] = !!typeSel[k]; typeBox.appendChild(makeToggle(k, k, typeSel)); }
+  for (const k of INDIV_KEYS) { circuitSel[k] = !!circuitSel[k]; indivBox.appendChild(makeToggle(k, k, circuitSel)); }
+  for (const k of COLL_KEYS) { circuitSel[k] = !!circuitSel[k]; collBox.appendChild(makeToggle(k, k, circuitSel)); }
+  for (const k of TRIB_KEYS) { circuitSel[k] = !!circuitSel[k]; tribBox.appendChild(makeToggle(k, TRIB_LABEL[k], circuitSel)); }
 }
 function selectedCenters() { return PROGRAM_DATA.centers.filter((c) => centerSel[c]); }
 function selectedMembers() { return PROGRAM_DATA.members.filter((m) => memberSel[m]); }
+function selectedTypes() { return TYPE_KEYS.filter((k) => typeSel[k]); }
+function selectedCircuits() { return ["Knowing","Centering","Understanding","Sensing","Ego","Defence"].filter((k) => circuitSel[k]); }
+
 function updateStatus() {
   const sc = selectedCenters(); const sm = selectedMembers();
+  const st = selectedTypes(); const sci = selectedCircuits();
   const el = document.getElementById("status");
-  if (!sc.length || !sm.length) { el.textContent = "Select at least one center and one member."; return; }
-  const fitted = fitReportBlocks(PROGRAM_DATA, sc, sm);
+  if (!sm.length || (!sc.length && !st.length && !sci.length)) {
+    el.textContent = "Select at least one member, plus one or more centers and/or channel type/circuit toggles.";
+    return;
+  }
+  const fitted = fitReportBlocks(PROGRAM_DATA, sc, sm, st, sci);
   const pages = Math.max(1, Math.ceil(fitted.words / 500));
-  el.textContent = `Ready: ${sm.join(", ")} × ${sc.join(", ")} — about ${fitted.words} words (~${pages} page${pages===1?"":"s"}).`;
+  const extras = [...st, ...sci.map((k) => TRIB_LABEL[k] || k)];
+  el.textContent = `Ready: ${sm.join(", ")} × ${[...sc, ...extras].join(", ") || "(none)"} — about ${fitted.words} words (~${pages} page${pages===1?"":"s"}).`;
 }
-function setAll(map, keys, val) { for (const k of keys) map[k] = val; renderToggles(); updateStatus(); }
+function setAll(map, keys, val) { for (const k of keys) map[k] = val; document.getElementById("tipClose").addEventListener("click", (e) => { e.preventDefault(); closeTip(); });
+document.getElementById("tipDialog").addEventListener("click", (e) => {
+  // tap backdrop (dialog itself when clicking outside panel is handled by cancel; also allow Esc)
+  if (e.target === e.currentTarget) closeTip();
+});
+renderToggles(); updateStatus(); }
 document.getElementById("allCenters").onclick = () => setAll(centerSel, PROGRAM_DATA.centers, true);
 document.getElementById("clearCenters").onclick = () => setAll(centerSel, PROGRAM_DATA.centers, false);
 document.getElementById("allMembers").onclick = () => setAll(memberSel, PROGRAM_DATA.members, true);
 document.getElementById("clearMembers").onclick = () => setAll(memberSel, PROGRAM_DATA.members, false);
+document.getElementById("clearCircuits").onclick = () => {
+  for (const k of TYPE_KEYS) typeSel[k] = false;
+  for (const k of ["Knowing","Centering","Understanding","Sensing","Ego","Defence"]) circuitSel[k] = false;
+  document.getElementById("tipClose").addEventListener("click", (e) => { e.preventDefault(); closeTip(); });
+document.getElementById("tipDialog").addEventListener("click", (e) => {
+  // tap backdrop (dialog itself when clicking outside panel is handled by cancel; also allow Esc)
+  if (e.target === e.currentTarget) closeTip();
+});
+renderToggles(); updateStatus();
+};
 document.getElementById("reportBtn").onclick = () => {
   const sc = selectedCenters(); const sm = selectedMembers();
-  if (!sc.length || !sm.length) { document.getElementById("status").textContent = "Select at least one center and one member, then press Report."; return; }
-  const fitted = fitReportBlocks(PROGRAM_DATA, sc, sm);
+  const st = selectedTypes(); const sci = selectedCircuits();
+  if (!sm.length || (!sc.length && !st.length && !sci.length)) {
+    document.getElementById("status").textContent = "Select at least one member, plus centers and/or type/circuit toggles, then press Report.";
+    return;
+  }
+  const fitted = fitReportBlocks(PROGRAM_DATA, sc, sm, st, sci);
   const bytes = buildDocx(fitted.blocks);
-  const cpart = sc.length === 1 ? sc[0].replace(/\s+/g, "") : "Centers";
+  const parts = [];
+  if (sc.length === 1) parts.push(sc[0].replace(/\s+/g, ""));
+  else if (sc.length) parts.push("Centers");
+  if (st.length || sci.length) parts.push("Circuits");
+  const cpart = parts.join("_") || "Report";
   const mpart = sm.length === PROGRAM_DATA.members.length ? "All_Members" : sm.join("_");
   downloadDocx(bytes, `Report_${cpart}_${mpart}.docx`);
   const pages = Math.max(1, Math.ceil(fitted.words / 500));
   document.getElementById("status").textContent = `Downloaded Report_${cpart}_${mpart}.docx (${fitted.words} words, ~${pages} pages).`;
 };
-// Expose for node/headless verification
-window.__CEP = { PROGRAM_DATA, fitReportBlocks, buildDocx, buildReportBlocks };
+window.__CEP = { PROGRAM_DATA, CHANNEL_DATA, fitReportBlocks, buildDocx, buildReportBlocks, memberActivations };
 
+document.getElementById("tipClose").addEventListener("click", (e) => { e.preventDefault(); closeTip(); });
+document.getElementById("tipDialog").addEventListener("click", (e) => {
+  // tap backdrop (dialog itself when clicking outside panel is handled by cancel; also allow Esc)
+  if (e.target === e.currentTarget) closeTip();
+});
 renderToggles(); updateStatus();
 </script>
 </body>
