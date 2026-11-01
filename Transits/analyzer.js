@@ -1163,6 +1163,13 @@ function interactionsOnlyOn(){ return false; }
 function includeRangeTransitFieldOn(){
   try{ return !!document.getElementById('includeRangeTransitField')?.checked; }catch(e){ return false; }
 }
+function includeRangeOverviewTransitFieldOn(){
+  try{
+    if(typeof window!=='undefined' && window.__INCLUDE_OVERVIEW_TRANSIT_FIELD__===true) return true;
+    if(typeof window!=='undefined' && window.__INCLUDE_OVERVIEW_TRANSIT_FIELD__===false) return false;
+    return !!document.getElementById('includeRangeOverviewField')?.checked;
+  }catch(e){ return false; }
+}
 function isRangeWhenActive(){
   try{
     const mr=document.getElementById('modeRange');
@@ -1181,13 +1188,16 @@ function wantTransitFieldSections(meta){
   meta = meta || {};
   if(meta.includePositions === true || meta.includeTransitField === true) return true;
   if(meta.includePositions === false || meta.includeTransitField === false) return false;
-  // Runtime flag set by runAnalysis from the live checkbox (most reliable)
+  // Runtime flag set by runAnalysis from the effective checkbox for this report mode
   try{
     if(typeof window!=='undefined' && window.__INCLUDE_TRANSIT_FIELD__===true) return true;
     if(typeof window!=='undefined' && window.__INCLUDE_TRANSIT_FIELD__===false) return false;
   }catch(e){}
-  // Callers that forgot the flag: if When=range, respect checkbox (default off)
-  if(isRangeWhenActive()) return includeRangeTransitFieldOn();
+  // Callers that forgot the flag: range mode picks overview vs narrative field box
+  if(isRangeWhenActive()){
+    if(wantRangeOverview(meta)) return includeRangeOverviewTransitFieldOn();
+    return includeRangeTransitFieldOn();
+  }
   return true; // single day / Now
 }
 /** Raw planet/gate.line stamps (the "field") — off when range checkbox unchecked. */
@@ -1196,8 +1206,11 @@ function showTransitFieldPositions(meta){
 }
 function rangeTransitFieldMode(dayCount){
   // Choice: per-day tables when range is short (<=7 days); otherwise start+end only.
+  // When Overview is on, the overview-field checkbox governs; otherwise the upper narrative field box.
   if(!(dayCount>1)) return 'single';
-  if(!includeRangeTransitFieldOn()) return 'omit';
+  const ovOn = (typeof wantRangeOverview==='function') ? wantRangeOverview({}) : includeRangeOverviewOn();
+  const fieldOn = ovOn ? includeRangeOverviewTransitFieldOn() : includeRangeTransitFieldOn();
+  if(!fieldOn) return 'omit';
   return dayCount <= 7 ? 'per-day' : 'start-end';
 }
 function includeRangeOverviewOn(){

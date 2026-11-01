@@ -414,6 +414,17 @@ function syncRangeTransitFieldOpt(){
   const ovh=$('rangeOverviewHint');
   if(ov) ov.style.display = show ? '' : 'none';
   if(ovh) ovh.style.display = show ? '' : 'none';
+  const ovf=$('rangeOverviewFieldOpt');
+  const ovfh=$('rangeOverviewFieldHint');
+  if(ovf) ovf.style.display = show ? '' : 'none';
+  if(ovfh) ovfh.style.display = show ? '' : 'none';
+  // Keep overview-field control visible in range mode; grey when Overview is off
+  const ovOn = !!( $('includeRangeOverview') && $('includeRangeOverview').checked );
+  if(ovf){
+    ovf.classList.toggle('is-muted', show && !ovOn);
+    const cb=$('includeRangeOverviewField');
+    if(cb) cb.disabled = false; // still clickable; muted is visual only
+  }
 }
 
 function syncWhenModeHighlight(){
@@ -754,7 +765,7 @@ function buildTransitsForSelection(Astronomy){
 }
 
 function computeIncludeTransitFieldFlag(){
-  // Read the live checkbox at run time. Single day / Now always include the field.
+  // Upper checkbox: full narrative range report. Single day / Now always include the field.
   try{
     if(mode!=='range') return true;
     const cb=document.getElementById('includeRangeTransitField');
@@ -767,6 +778,20 @@ function computeIncludeRangeOverviewFlag(){
     const cb=document.getElementById('includeRangeOverview');
     return !!(cb && cb.checked);
   }catch(e){ return false; }
+}
+function computeIncludeOverviewTransitFieldFlag(){
+  // Overview-only transit field checkbox (independent of the upper narrative field box).
+  try{
+    if(mode!=='range') return false;
+    const cb=document.getElementById('includeRangeOverviewField');
+    return !!(cb && cb.checked);
+  }catch(e){ return false; }
+}
+/** Effective field flag for the report about to render. */
+function computeEffectiveTransitFieldFlag(includeOverview){
+  if(mode!=='range') return true;
+  if(includeOverview) return computeIncludeOverviewTransitFieldFlag();
+  return computeIncludeTransitFieldFlag();
 }
 
 function runAnalysis(){
@@ -825,9 +850,13 @@ function runAnalysis(){
         startField.display_when=formatDisplayDateTime(new Date(startMs), tz);
         startField.display_date=formatDisplayDateOnly(new Date(startMs), tz);
       }catch(e){}
-      const includeTF=computeIncludeTransitFieldFlag();
       const includeOverview=computeIncludeRangeOverviewFlag();
-      try{ window.__INCLUDE_TRANSIT_FIELD__=includeTF; window.__INCLUDE_RANGE_OVERVIEW__=includeOverview; }catch(e){}
+      const includeTF=computeEffectiveTransitFieldFlag(includeOverview);
+      try{
+        window.__INCLUDE_TRANSIT_FIELD__=includeTF;
+        window.__INCLUDE_RANGE_OVERVIEW__=includeOverview;
+        window.__INCLUDE_OVERVIEW_TRANSIT_FIELD__=computeIncludeOverviewTransitFieldFlag();
+      }catch(e){}
       if(includeOverview && dates.length>1){
         // Compact overview uses one snapshot per local day (same as snapshot range), not ingress essays.
         const dayTransits=buildTransitsForSelection(window.Astronomy);
@@ -876,9 +905,13 @@ function runAnalysis(){
     const transits=buildTransitsForSelection(window.Astronomy);
     const field0=transits[0];
     const timeLabel=field0.display_when;
-    const includeTF=computeIncludeTransitFieldFlag();
     const includeOverview=computeIncludeRangeOverviewFlag();
-    try{ window.__INCLUDE_TRANSIT_FIELD__=includeTF; window.__INCLUDE_RANGE_OVERVIEW__=includeOverview; }catch(e){}
+    const includeTF=computeEffectiveTransitFieldFlag(includeOverview);
+    try{
+      window.__INCLUDE_TRANSIT_FIELD__=includeTF;
+      window.__INCLUDE_RANGE_OVERVIEW__=includeOverview;
+      window.__INCLUDE_OVERVIEW_TRANSIT_FIELD__=computeIncludeOverviewTransitFieldFlag();
+    }catch(e){}
     const snapMeta={timeLabel, tz: field0.tz, includeTransitField:includeTF, includePositions:includeTF, rangeOverview:includeOverview};
     if(mode==='range' && transits.length>1){
       snapMeta.rangeTransitFieldMode = includeTF ? (transits.length<=7?'per-day':'start-end') : 'omit';
@@ -1035,14 +1068,30 @@ function wire(){
   if(rt) rt.onclick=()=>setReportMode('timeline');
   safe('reportMode', ()=>setReportMode(reportMode));
 
-    const rangeFieldCb=$('includeRangeTransitField');
+  const rangeFieldCb=$('includeRangeTransitField');
   if(rangeFieldCb) rangeFieldCb.onchange=()=>{
-    try{ window.__INCLUDE_TRANSIT_FIELD__=computeIncludeTransitFieldFlag(); }catch(e){}
+    try{
+      const ov=computeIncludeRangeOverviewFlag();
+      window.__INCLUDE_TRANSIT_FIELD__=computeEffectiveTransitFieldFlag(ov);
+    }catch(e){}
     if(window.__LAST_TRANSIT__) runAnalysis();
   };
   const rangeOvCb=$('includeRangeOverview');
   if(rangeOvCb) rangeOvCb.onchange=()=>{
-    try{ window.__INCLUDE_RANGE_OVERVIEW__=computeIncludeRangeOverviewFlag(); }catch(e){}
+    try{
+      window.__INCLUDE_RANGE_OVERVIEW__=computeIncludeRangeOverviewFlag();
+      window.__INCLUDE_TRANSIT_FIELD__=computeEffectiveTransitFieldFlag(window.__INCLUDE_RANGE_OVERVIEW__);
+    }catch(e){}
+    syncRangeTransitFieldOpt();
+    if(window.__LAST_TRANSIT__) runAnalysis();
+  };
+  const rangeOvFieldCb=$('includeRangeOverviewField');
+  if(rangeOvFieldCb) rangeOvFieldCb.onchange=()=>{
+    try{
+      window.__INCLUDE_OVERVIEW_TRANSIT_FIELD__=computeIncludeOverviewTransitFieldFlag();
+      const ov=computeIncludeRangeOverviewFlag();
+      window.__INCLUDE_TRANSIT_FIELD__=computeEffectiveTransitFieldFlag(ov);
+    }catch(e){}
     if(window.__LAST_TRANSIT__) runAnalysis();
   };
   syncRangeTransitFieldOpt();
