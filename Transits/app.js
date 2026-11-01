@@ -406,25 +406,12 @@ function markNowReading(){
 
 function syncRangeTransitFieldOpt(){
   const show = (mode==='range');
-  const box=$('rangeTransitFieldOpt');
-  const hint=$('rangeTransitFieldHint');
-  if(box) box.style.display = show ? '' : 'none';
-  if(hint) hint.style.display = show ? '' : 'none';
-  const ov=$('rangeOverviewOpt');
-  const ovh=$('rangeOverviewHint');
-  if(ov) ov.style.display = show ? '' : 'none';
-  if(ovh) ovh.style.display = show ? '' : 'none';
-  const ovf=$('rangeOverviewFieldOpt');
-  const ovfh=$('rangeOverviewFieldHint');
-  if(ovf) ovf.style.display = show ? '' : 'none';
-  if(ovfh) ovfh.style.display = show ? '' : 'none';
-  // Keep overview-field control visible in range mode; grey when Overview is off
-  const ovOn = !!( $('includeRangeOverview') && $('includeRangeOverview').checked );
-  if(ovf){
-    ovf.classList.toggle('is-muted', show && !ovOn);
-    const cb=$('includeRangeOverviewField');
-    if(cb) cb.disabled = false; // still clickable; muted is visual only
-  }
+  const wrap=$('rangeReportOpts');
+  if(wrap) wrap.style.display = show ? '' : 'none';
+  // legacy ids still present as children; keep individual toggles in sync if wrap missing
+  ['rangeFullDescOpt','rangeFullDescHint','rangeBriefDescOpt','rangeBriefDescHint','rangeTransitFieldOpt','rangeTransitFieldHint'].forEach(id=>{
+    const el=$(id); if(el && !wrap) el.style.display = show ? '' : 'none';
+  });
 }
 
 function syncWhenModeHighlight(){
@@ -765,33 +752,47 @@ function buildTransitsForSelection(Astronomy){
 }
 
 function computeIncludeTransitFieldFlag(){
-  // Upper checkbox: full narrative range report. Single day / Now always include the field.
+  // Box 3: add positions table after each day. Single day / Now always include the field.
   try{
     if(mode!=='range') return true;
     const cb=document.getElementById('includeRangeTransitField');
     return !!(cb && cb.checked);
   }catch(e){ return mode!=='range'; }
 }
-function computeIncludeRangeOverviewFlag(){
+function computeIncludeRangeBriefFlag(){
+  // Box 2: brief descriptions (mutually exclusive with Full).
   try{
     if(mode!=='range') return false;
-    const cb=document.getElementById('includeRangeOverview');
+    const cb=document.getElementById('includeRangeBriefDesc');
     return !!(cb && cb.checked);
   }catch(e){ return false; }
 }
-function computeIncludeOverviewTransitFieldFlag(){
-  // Overview-only transit field checkbox (independent of the upper narrative field box).
+function computeIncludeRangeFullFlag(){
+  // Box 1: full descriptions. If neither Full nor Brief is checked, treat as Full.
   try{
-    if(mode!=='range') return false;
-    const cb=document.getElementById('includeRangeOverviewField');
-    return !!(cb && cb.checked);
-  }catch(e){ return false; }
+    if(mode!=='range') return true;
+    const full=document.getElementById('includeRangeFullDesc');
+    const brief=document.getElementById('includeRangeBriefDesc');
+    const fullOn=!!(full && full.checked);
+    const briefOn=!!(brief && brief.checked);
+    if(briefOn && !fullOn) return false;
+    return true; // full checked, or neither → full
+  }catch(e){ return true; }
 }
+/** @deprecated name kept: brief mode == former overview */
+function computeIncludeRangeOverviewFlag(){ return computeIncludeRangeBriefFlag(); }
+function computeIncludeOverviewTransitFieldFlag(){ return computeIncludeTransitFieldFlag(); }
 /** Effective field flag for the report about to render. */
-function computeEffectiveTransitFieldFlag(includeOverview){
+function computeEffectiveTransitFieldFlag(_includeOverview){
   if(mode!=='range') return true;
-  if(includeOverview) return computeIncludeOverviewTransitFieldFlag();
   return computeIncludeTransitFieldFlag();
+}
+function enforceRangeDescMutualExclusion(changedId){
+  const full=document.getElementById('includeRangeFullDesc');
+  const brief=document.getElementById('includeRangeBriefDesc');
+  if(!full || !brief) return;
+  if(changedId==='includeRangeFullDesc' && full.checked) brief.checked=false;
+  if(changedId==='includeRangeBriefDesc' && brief.checked) full.checked=false;
 }
 
 function runAnalysis(){
@@ -855,17 +856,18 @@ function runAnalysis(){
       try{
         window.__INCLUDE_TRANSIT_FIELD__=includeTF;
         window.__INCLUDE_RANGE_OVERVIEW__=includeOverview;
-        window.__INCLUDE_OVERVIEW_TRANSIT_FIELD__=computeIncludeOverviewTransitFieldFlag();
+        window.__INCLUDE_OVERVIEW_TRANSIT_FIELD__=includeTF;
+        window.__INCLUDE_RANGE_FULL__=computeIncludeRangeFullFlag();
       }catch(e){}
       if(includeOverview && dates.length>1){
         // Compact overview uses one snapshot per local day (same as snapshot range), not ingress essays.
         const dayTransits=buildTransitsForSelection(window.Astronomy);
         const ovMeta={timeLabel:rangeLabel, tz, includeTransitField:includeTF, includePositions:includeTF, rangeOverview:true,
-          rangeTransitFieldMode: includeTF ? (dayTransits.length<=7?'per-day':'start-end') : 'omit'};
+          rangeTransitFieldMode: includeTF ? 'per-day' : 'omit'};
         lastHtml=HD.renderNarrativeHtml(person1, person2, dayTransits, ovMeta);
         lastMd=HD.renderNarrativeMarkdown(person1, person2, dayTransits, ovMeta);
         $('report').innerHTML=lastHtml;
-        $('ephemNote').textContent = 'Overview (gate & line) · '+dayTransits.length+' days · '+rangeLabel+(includeTF?'':' · transit field omitted');
+        $('ephemNote').textContent = 'Brief descriptions · '+dayTransits.length+' days · '+rangeLabel+(includeTF?' · transit field/day':'');
         status('Done — overview · '+dayTransits.length+' days','ok');
         window.__LAST_REPORT_MD__ = lastMd;
         window.__LAST_TRANSIT__ = dayTransits[0]||null;
@@ -910,18 +912,19 @@ function runAnalysis(){
     try{
       window.__INCLUDE_TRANSIT_FIELD__=includeTF;
       window.__INCLUDE_RANGE_OVERVIEW__=includeOverview;
-      window.__INCLUDE_OVERVIEW_TRANSIT_FIELD__=computeIncludeOverviewTransitFieldFlag();
+      window.__INCLUDE_OVERVIEW_TRANSIT_FIELD__=includeTF;
+      window.__INCLUDE_RANGE_FULL__=computeIncludeRangeFullFlag();
     }catch(e){}
     const snapMeta={timeLabel, tz: field0.tz, includeTransitField:includeTF, includePositions:includeTF, rangeOverview:includeOverview};
     if(mode==='range' && transits.length>1){
-      snapMeta.rangeTransitFieldMode = includeTF ? (transits.length<=7?'per-day':'start-end') : 'omit';
+      snapMeta.rangeTransitFieldMode = includeTF ? 'per-day' : 'omit';
     }
     lastHtml=HD.renderNarrativeHtml(person1, person2, transits, snapMeta);
     lastMd=HD.renderNarrativeMarkdown(person1, person2, transits, snapMeta);
     $('report').innerHTML=lastHtml;
     const field=transits[0];
     if(mode==='range' && includeOverview){
-      $('ephemNote').textContent = 'Overview (gate & line) · '+transits.length+' day'+(transits.length===1?'':'s')+' @ '+timeLabel+(includeTF?'':' · transit field omitted');
+      $('ephemNote').textContent = 'Brief descriptions · '+transits.length+' day'+(transits.length===1?'':'s')+' @ '+timeLabel+(includeTF?' · transit field/day':'');
     } else if(mode==='range' && !includeTF){
       $('ephemNote').textContent = 'Range report @ '+timeLabel+(transits.length>1?(' · '+transits.length+' days'):'')+' · transit field omitted';
     } else {
@@ -1068,33 +1071,34 @@ function wire(){
   if(rt) rt.onclick=()=>setReportMode('timeline');
   safe('reportMode', ()=>setReportMode(reportMode));
 
+  function syncRangeDescFlags(){
+    try{
+      const brief=computeIncludeRangeBriefFlag();
+      window.__INCLUDE_RANGE_OVERVIEW__=brief; // brief == former overview path
+      window.__INCLUDE_TRANSIT_FIELD__=computeEffectiveTransitFieldFlag(brief);
+      window.__INCLUDE_OVERVIEW_TRANSIT_FIELD__=computeIncludeTransitFieldFlag();
+      window.__INCLUDE_RANGE_FULL__=computeIncludeRangeFullFlag();
+    }catch(e){}
+  }
   const rangeFieldCb=$('includeRangeTransitField');
   if(rangeFieldCb) rangeFieldCb.onchange=()=>{
-    try{
-      const ov=computeIncludeRangeOverviewFlag();
-      window.__INCLUDE_TRANSIT_FIELD__=computeEffectiveTransitFieldFlag(ov);
-    }catch(e){}
+    syncRangeDescFlags();
     if(window.__LAST_TRANSIT__) runAnalysis();
   };
-  const rangeOvCb=$('includeRangeOverview');
-  if(rangeOvCb) rangeOvCb.onchange=()=>{
-    try{
-      window.__INCLUDE_RANGE_OVERVIEW__=computeIncludeRangeOverviewFlag();
-      window.__INCLUDE_TRANSIT_FIELD__=computeEffectiveTransitFieldFlag(window.__INCLUDE_RANGE_OVERVIEW__);
-    }catch(e){}
-    syncRangeTransitFieldOpt();
+  const rangeFullCb=$('includeRangeFullDesc');
+  if(rangeFullCb) rangeFullCb.onchange=()=>{
+    enforceRangeDescMutualExclusion('includeRangeFullDesc');
+    syncRangeDescFlags();
     if(window.__LAST_TRANSIT__) runAnalysis();
   };
-  const rangeOvFieldCb=$('includeRangeOverviewField');
-  if(rangeOvFieldCb) rangeOvFieldCb.onchange=()=>{
-    try{
-      window.__INCLUDE_OVERVIEW_TRANSIT_FIELD__=computeIncludeOverviewTransitFieldFlag();
-      const ov=computeIncludeRangeOverviewFlag();
-      window.__INCLUDE_TRANSIT_FIELD__=computeEffectiveTransitFieldFlag(ov);
-    }catch(e){}
+  const rangeBriefCb=$('includeRangeBriefDesc');
+  if(rangeBriefCb) rangeBriefCb.onchange=()=>{
+    enforceRangeDescMutualExclusion('includeRangeBriefDesc');
+    syncRangeDescFlags();
     if(window.__LAST_TRANSIT__) runAnalysis();
   };
   syncRangeTransitFieldOpt();
+  syncRangeDescFlags();
   const ic=$('includeCodes'); if(ic) ic.onchange=()=>{ if(window.__LAST_TRANSIT__) runAnalysis(); };
   const rwCb=$('realWorldInfluence'); if(rwCb) rwCb.onchange=()=>{ if(window.__LAST_TRANSIT__) runAnalysis(); };
   const moonCb=$('moonGateOnly'); if(moonCb) moonCb.onchange=()=>{ if(window.__LAST_TRANSIT__) runAnalysis(); };

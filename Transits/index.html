@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta http-equiv="Cache-Control" content="no-cache" />
-  <meta name="ta-build" content="202611011030" />
+  <meta name="ta-build" content="202611011100" />
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -250,21 +250,23 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
       <button type="button" class="secondary" id="modeRange" aria-pressed="false">Date range</button>
     </div>
 
-    <label class="check no-print" id="rangeTransitFieldOpt" style="display:none;margin:.35rem 0 .55rem">
+        <div id="rangeReportOpts" class="no-print" style="display:none">
+    <label class="check" id="rangeFullDescOpt" style="margin:.35rem 0 .15rem">
+      <input type="checkbox" id="includeRangeFullDesc" />
+      Full descriptions
+    </label>
+    <p class="hint" id="rangeFullDescHint" style="margin:.05rem 0 .45rem">Per event: gate.line, weekday date, local AM/PM time, and the full reading—channel completions, other transit interactions, chart touches, and couple comparison when two charts are loaded. Does not add positions tables. Unchecked by default. If neither Full nor Brief is checked, the report uses Full descriptions.</p>
+    <label class="check" id="rangeBriefDescOpt" style="margin:.15rem 0 .15rem">
+      <input type="checkbox" id="includeRangeBriefDesc" />
+      Brief descriptions
+    </label>
+    <p class="hint" id="rangeBriefDescHint" style="margin:.05rem 0 .45rem">Per event: gate.line, gate number/name, line name, weekday date, time, and short keynotes (no long pasted passages). Does not add positions tables. Unchecked by default. Mutually exclusive with Full descriptions.</p>
+    <label class="check" id="rangeTransitFieldOpt" style="margin:.15rem 0 .15rem">
       <input type="checkbox" id="includeRangeTransitField" />
-      Include transit field (positions table & gate.line stamps)
+      Add transit field after each day
     </label>
-    <p class="hint no-print" id="rangeTransitFieldHint" style="display:none;margin:.1rem 0 .55rem">For date ranges only (off by default). Controls the full narrative range report (when Overview is off): positions table, Transit field heading, gate.line stamps, and Technical details field list. Short ranges (≤7 days) add a table under each day; longer ranges show start + end only. Single day and Now always include the field. Overview mode uses its own checkbox below.</p>
-    <label class="check no-print" id="rangeOverviewOpt" style="display:none;margin:.15rem 0 .35rem">
-      <input type="checkbox" id="includeRangeOverview" />
-      Overview: gate &amp; line descriptions only (brief)
-    </label>
-    <p class="hint no-print" id="rangeOverviewHint" style="display:none;margin:.1rem 0 .35rem">Date ranges only (off by default). When on, the range report is a compact day-by-day list of chart-relevant gate/line activations with a short plain-language note—no long narrative, Real-World essays, or channel weather. Use “Include transit field (overview)” below for positions tables in overview mode.</p>
-    <label class="check no-print" id="rangeOverviewFieldOpt" style="display:none;margin:.15rem 0 .35rem">
-      <input type="checkbox" id="includeRangeOverviewField" />
-      Include transit field (overview)
-    </label>
-    <p class="hint no-print" id="rangeOverviewFieldHint" style="display:none;margin:.1rem 0 .55rem">Date ranges only (off by default). Applies when Overview is on: short ranges (≤7 days) add a positions table under each day; longer ranges show start + end only. When Overview is off, the upper “Include transit field” checkbox controls the full narrative instead.</p>
+    <p class="hint" id="rangeTransitFieldHint" style="margin:.05rem 0 .55rem">Appends the planet positions table at the end of every day in the range (any length). Independent of Full/Brief. Unchecked by default. Single day and Now always include the field.</p>
+    </div>
     <div class="cal-wrap">
       <div class="cal-toolbar">
         <div class="cal-nav">
@@ -367,9 +369,9 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 </main>
 
 <!-- Data is separate from the UI. Script order matters. Works via file:// on Windows and via https on iPhone/iPad Firefox. -->
-<script src="astronomy.browser.min.js?v=202611011030"></script>
-<script src="data.js?v=202611011030"></script>
-<script src="analyzer.js?v=202611011030"></script>
-<script src="app.js?v=202611011030"></script>
+<script src="astronomy.browser.min.js?v=202611011100"></script>
+<script src="data.js?v=202611011100"></script>
+<script src="analyzer.js?v=202611011100"></script>
+<script src="app.js?v=202611011100"></script>
 </body>
 </html>

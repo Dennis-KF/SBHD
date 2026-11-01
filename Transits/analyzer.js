@@ -500,12 +500,34 @@ function openCentersOf(person){
 
 function gateInfo(gate){
   const g=GATES[String(gate)]||{};
-  return {number:gate, name:g.name||('Gate '+gate), center:g.center, description:g.description||'', lcn_intro:(g.lcn_intro||'').slice(0,8000), source:''};
+  return {number:gate, name:g.name||('Gate '+gate), center:g.center, description:g.description||'', lcn_intro:(g.lcn_intro||'').slice(0,8000), hexagram_keynote:g.hexagram_keynote||'', lcn_title:g.lcn_title||g.hexagram_title||'', source:''};
+}
+const LINE_TITLE_FALLBACKS = {"26.5": "Adaptability", "50.3": "Adaptability"};
+function sanitizeLineTitleRaw(title){
+  let t=String(title||'').trim();
+  if(!t) return '';
+  // Strip trailing lecture prose glued onto a short title
+  const prose=/\s+(?:A|An|The|We|When|This|In|It|There|What|How|Why|Humbleness|Without|With|For|As|If|Once|After|Before|During|While|Because|That|They|You|I)\b/;
+  const mThe=/^(The\s+[A-Z][A-Za-z'\-]+)/.exec(t);
+  if(mThe && prose.exec(t.slice(mThe[1].length))) return mThe[1];
+  const mWord=/^([A-Z][A-Za-z'\-]+(?:\s+[A-Z][A-Za-z'\-]+){0,3})/.exec(t);
+  if(mWord && prose.exec(t.slice(mWord[1].length))) return mWord[1];
+  if(t.length>48){
+    const cut=t.indexOf('.');
+    return (cut>3?t.slice(0,cut):t.slice(0,48)).trim();
+  }
+  return t;
 }
 function lineInfo(gate,line){
   const g=GATES[String(gate)]||{};
   const ld=(g.lines||{})[String(line)]||{};
-  return {gate, line, gl:gate+'.'+line, title:ld.lcn_title||ld.title||('Line '+line), tcri_text:ld.text||'', lcn_title:ld.lcn_title||'', lcn_text:(ld.lcn_text||'').slice(0,8000), source:''};
+  const gl=gate+'.'+line;
+  let title=sanitizeLineTitleRaw(ld.lcn_title||ld.title||'');
+  if(!title || /^Line\s+\d+$/i.test(title)){
+    title=sanitizeLineTitleRaw(LINE_TITLE_FALLBACKS[gl]||'');
+  }
+  if(!title) title='Line '+line;
+  return {gate, line, gl:gl, title:title, tcri_text:ld.text||'', lcn_title:title, lcn_text:(ld.lcn_text||'').slice(0,8000), source:''};
 }
 function channelInfo(chId){
   const ch=CHANNELS[chId]||{gates:chId.split('-').map(Number), name:chId, design:'', centers:[], description:''};
@@ -1164,11 +1186,8 @@ function includeRangeTransitFieldOn(){
   try{ return !!document.getElementById('includeRangeTransitField')?.checked; }catch(e){ return false; }
 }
 function includeRangeOverviewTransitFieldOn(){
-  try{
-    if(typeof window!=='undefined' && window.__INCLUDE_OVERVIEW_TRANSIT_FIELD__===true) return true;
-    if(typeof window!=='undefined' && window.__INCLUDE_OVERVIEW_TRANSIT_FIELD__===false) return false;
-    return !!document.getElementById('includeRangeOverviewField')?.checked;
-  }catch(e){ return false; }
+  // Same as box 3 (Add transit field after each day) — overview-specific box removed.
+  return includeRangeTransitFieldOn();
 }
 function isRangeWhenActive(){
   try{
@@ -1193,9 +1212,8 @@ function wantTransitFieldSections(meta){
     if(typeof window!=='undefined' && window.__INCLUDE_TRANSIT_FIELD__===true) return true;
     if(typeof window!=='undefined' && window.__INCLUDE_TRANSIT_FIELD__===false) return false;
   }catch(e){}
-  // Callers that forgot the flag: range mode picks overview vs narrative field box
+  // Callers that forgot the flag: range uses the single "after each day" checkbox
   if(isRangeWhenActive()){
-    if(wantRangeOverview(meta)) return includeRangeOverviewTransitFieldOn();
     return includeRangeTransitFieldOn();
   }
   return true; // single day / Now
@@ -1205,18 +1223,21 @@ function showTransitFieldPositions(meta){
   return wantTransitFieldSections(meta);
 }
 function rangeTransitFieldMode(dayCount){
-  // Choice: per-day tables when range is short (<=7 days); otherwise start+end only.
-  // When Overview is on, the overview-field checkbox governs; otherwise the upper narrative field box.
+  // Box 3 on → positions table after every day (any length). Off → omit.
   if(!(dayCount>1)) return 'single';
-  const ovOn = (typeof wantRangeOverview==='function') ? wantRangeOverview({}) : includeRangeOverviewOn();
-  const fieldOn = ovOn ? includeRangeOverviewTransitFieldOn() : includeRangeTransitFieldOn();
-  if(!fieldOn) return 'omit';
-  return dayCount <= 7 ? 'per-day' : 'start-end';
+  try{
+    if(typeof window!=='undefined' && window.__INCLUDE_TRANSIT_FIELD__===true) return 'per-day';
+    if(typeof window!=='undefined' && window.__INCLUDE_TRANSIT_FIELD__===false) return 'omit';
+  }catch(e){}
+  if(!includeRangeTransitFieldOn()) return 'omit';
+  return 'per-day';
 }
 function includeRangeOverviewOn(){
   try{
     if(typeof window!=='undefined' && window.__INCLUDE_RANGE_OVERVIEW__===true) return true;
     if(typeof window!=='undefined' && window.__INCLUDE_RANGE_OVERVIEW__===false) return false;
+    const brief=document.getElementById('includeRangeBriefDesc');
+    if(brief) return !!brief.checked;
     return !!document.getElementById('includeRangeOverview')?.checked;
   }catch(e){ return false; }
 }
@@ -2801,9 +2822,11 @@ function prettyTheme(theme){
 function lineOrdinal(n){ return ORDINAL_LINE[+n]||((''+n)+'th'); }
 
 function cleanLineTitle(line){
-  let title=String((line&& (line.title||line.lcn_title))||'').trim().replace(/^The\s+/i,'').trim();
+  let title=sanitizeLineTitleRaw((line&& (line.title||line.lcn_title))||'');
+  title=String(title||'').trim().replace(/^The\s+/i,'').trim();
   if(!title || title.length>48) return '';
   if(/\d+\.\d/.test(title)) return '';
+  if(/^Line\s+\d+$/i.test(title)) return '';
   if(/speaks for a hexagram|this (first|second|third) line is called|we have lines that/i.test(title)) return '';
   if(/^(and|or|but)\b/i.test(title)) return '';
   return title;
@@ -3806,7 +3829,6 @@ function briefTouchExplanation(person, hit){
   const isOpen = center && open.indexOf(center)>=0;
   const lineBits = lineDescriptionBrief(hit.lineInfo);
   const lineTitle = lineBits.title;
-  const meaning = lineBits.body;
   const planet = planetLabel(hit.planet);
   let how = '';
   if(hit.kind==='channel_supply' || hit.kind==='channel_em'){
@@ -3816,28 +3838,19 @@ function briefTouchExplanation(person, hit){
   } else if(hit.kind==='channel_overlay'){
     how = planet+' overlays '+name+'’s already-defined '+theme+' circuitry—same gate, louder weather.';
   } else if(isOpen){
-    how = planet+' lands in '+name+'’s open '+(center||'center')+' on '+theme+', so the theme is felt as conditioning rather than native definition.';
+    how = planet+' lands in '+name+'’s open '+(center||'center')+' on '+theme+', felt as conditioning rather than native definition.';
   } else {
     how = planet+' activates '+theme+' in '+name+'’s defined '+(center||'circuitry')+', amplifying what is already reliable.';
   }
-  if(lineTitle){
-    how += ' Line quality: '+lineTitle+(meaning?(' — '+meaning.replace(/\.$/,'')):'')+'.';
-  } else if(meaning){
-    how += ' '+meaning;
-  }
-  // Keep to ~2 sentences
-  const parts = [];
-  let buf = '';
-  for(let i=0;i<how.length;i++){
-    buf += how.charAt(i);
-    if('.!?'.indexOf(how.charAt(i))>=0){
-      parts.push(buf.trim());
-      buf='';
-      if(parts.length>=2) break;
-    }
-  }
-  if(parts.length<2 && buf.trim()) parts.push(buf.trim());
-  return parts.slice(0,2).join(' ');
+  // Short keynotes only (no long LCN paste)
+  const keys = [];
+  const gInfo = hit.gateInfo || gateInfo(hit.gate);
+  let hexCue = String((gInfo && (gInfo.hexagram_keynote || gInfo.lcn_title || '')) || '').replace(/^The\s+/i,'').trim();
+  if(hexCue && hexCue.length<=48) keys.push(hexCue);
+  else if(theme) keys.push(theme);
+  if(lineTitle) keys.push(lineTitle);
+  if(keys.length) how += ' Keynotes: '+keys.join('; ')+'.';
+  return how;
 }
 
 function oneBridgeLine(person, day){
@@ -3853,19 +3866,24 @@ function oneBridgeLine(person, day){
   return '';
 }
 
-function renderOverviewHitItem(person, hit){
+function renderOverviewHitItem(person, hit, whenLabel){
   if(!verifyHitAgainstChart(person, hit)) return '';
   const gateNum = +hit.gate || +String(hit.gl||'').split('.')[0] || 0;
   const theme = prettyTheme((hit.gateInfo&&hit.gateInfo.name)||gateThemeName(gateNum||hit.gate));
   const lineBits = lineDescriptionBrief(hit.lineInfo);
-  const lineTitle = lineBits.title || ('Line '+hit.line);
+  let lineTitle = lineBits.title;
+  if(!lineTitle){
+    const li = lineInfo(gateNum||hit.gate, hit.line);
+    lineTitle = cleanLineTitle(li) || li.title || ('Line '+hit.line);
+  }
   const gl = hit.gl || (gateNum+'.'+hit.line);
   const planet = planetLabel(hit.planet);
-  // Overview always shows planet + gate.line + gate number/name + line title (field checkbox only controls tables).
   const gateLabel = gateNum ? (gateNum+' '+theme) : theme;
+  const when = whenLabel || hit.whenLabel || '';
   const head = '<span class="ov-gl">'+escapeHtml(planet+' '+gl)+'</span> — '+escapeHtml(gateLabel)+' · '+escapeHtml(lineTitle);
+  const whenBit = when ? (' · <span class="ov-when">'+escapeHtml(when)+'</span>') : '';
   const brief = briefTouchExplanation(person, hit);
-  return '<li>'+head+': '+escapeHtml(brief)+'</li>';
+  return '<li>'+head+whenBit+': '+escapeHtml(brief)+'</li>';
 }
 
 function renderRangeOverviewDayHtml(person1, person2, transitRaw, meta){
@@ -3881,7 +3899,7 @@ function renderRangeOverviewDayHtml(person1, person2, transitRaw, meta){
     const pack = collectDirectHits(person, transit);
     const items = [];
     for(const hit of (pack.hits||[])){
-      const li = renderOverviewHitItem(person, hit);
+      const li = renderOverviewHitItem(person, hit, when);
       if(li) items.push(li);
     }
     parts.push('<div class="ov-person">'+escapeHtml(firstNameOnly(person.name))+'</div>');
@@ -3921,9 +3939,9 @@ function renderRangeOverviewHtml(person1, person2, transits, meta){
     const t = transits[0].display_time||'';
     titleDates = a+' to '+b+(t?(' · '+t):'');
   }
-  parts.push('<h2>'+escapeHtml('Transit overview: '+names)+'</h2>');
+  parts.push('<h2>'+escapeHtml('Transit brief: '+names)+'</h2>');
   parts.push('<p><em>'+escapeHtml(titleDates)+'</em></p>');
-  parts.push('<p><em>'+escapeHtml('Brief gate & line activations that touch the chart—not a full narrative reading.')+'</em></p>');
+  parts.push('<p><em>'+escapeHtml('Brief descriptions: gate.line, weekday date/time, and short keynotes—not a full narrative reading.')+'</em></p>');
   if(omitLightsOn()) parts.push('<p><em>'+escapeHtml('Sun, Earth, and Moon are omitted from this analysis.')+'</em></p>');
 
   const fieldMode = (meta && meta.rangeTransitFieldMode) || rangeTransitFieldMode(transits.length);
@@ -3931,8 +3949,7 @@ function renderRangeOverviewHtml(person1, person2, transits, meta){
   for(let ti=0; ti<transits.length; ti++){
     const t = transits[ti];
     let includePositions = false;
-    if(fieldMode==='per-day') includePositions = true;
-    else if(fieldMode==='start-end') includePositions = (ti===0 || ti===transits.length-1);
+    if(fieldMode==='per-day' || fieldMode==='start-end') includePositions = true;
     else if(fieldMode==='single') includePositions = true;
     parts.push(renderRangeOverviewDayHtml(person1, person2, t, {
       includePositions: includePositions,
@@ -3973,10 +3990,7 @@ function renderStructuredSnapshotHtml(person1, person2, transits, meta){
     // Choice: <=7 days → per-day table at bottom of each day; longer → start+end only.
     // When omit: no positions table, no "Transit field" heading, no gate.line field list in tech.
     const fieldMode = (meta && meta.rangeTransitFieldMode) || rangeTransitFieldMode(transits.length);
-    if(fieldMode==='start-end'){
-      parts.push('<p><em>'+escapeHtml('Positions table: first and last day of the range only (range longer than 7 days).')+'</em></p>');
-    }
-    // No omit note — leave the report clean when unchecked.
+    // Field mode is per-day or omit (start-end retired: box 3 always means every day).
     for(let ti=0; ti<transits.length; ti++){
       const t=transits[ti];
       const dayTracker=makeProseTracker();
@@ -3986,8 +4000,7 @@ function renderStructuredSnapshotHtml(person1, person2, transits, meta){
       dayTracker.usedMeanings=tracker.usedMeanings;
       dayTracker.seq=tracker.seq;
       let includePositions=false;
-      if(fieldMode==='per-day') includePositions=true;
-      else if(fieldMode==='start-end') includePositions=(ti===0 || ti===transits.length-1);
+      if(fieldMode==='per-day' || fieldMode==='start-end') includePositions=true;
       // else omit → false
       parts.push(renderIndepthDayHtml(person1, person2, t, dayTracker, {
         dayHeading:t.display_when||t.display_date||t.date,
