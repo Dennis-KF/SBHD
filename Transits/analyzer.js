@@ -77,6 +77,7 @@ function computeTransitField(Astronomy, dateObj){
     date: dateObj.toISOString().slice(0,10),
     datetime_utc: dateObj.toISOString(),
     time_gmt: dateObj.toISOString().slice(11,19),
+    _atMs: dateObj.getTime(),
     planets,
     source: 'astronomy-engine (geocentric ecliptic; True Lunar Node; Gate 41 @ 302°)',
     node_note: 'True Node (orbital r×v). Mean Node available in library internals but not used.'
@@ -679,6 +680,225 @@ function scanPlanetIngresses(Astronomy, planet, startMs, endMs){
   }
   return uniq;
 }
+
+/** Gate-only span? (all-gate-only, or Moon/Sun/Earth gate-only options). */
+function gateOnlySpanForPlanet(planet){
+  if(allGateOnlyOn()) return true;
+  if(omitLightsOn()) return false;
+  if(planet==='Moon' && moonGateOnlyOn()) return true;
+  if((planet==='Sun' || planet==='Earth') && sunGateOnlyOn()) return true;
+  return false;
+}
+function samePlanetSpan(a, b, gateOnly){
+  if(!a || !b) return false;
+  if(gateOnly) return +a.gate===+b.gate;
+  return +a.gate===+b.gate && +a.line===+b.line;
+}
+function bisectPlanetChange(Astronomy, planet, tLo, tHi, glLo, gateOnly){
+  let lo=tLo, hi=tHi, gLo=glLo;
+  while(hi-lo > 60000){
+    const mid=Math.floor((lo+hi)/2);
+    const gm=getPlanetGL(Astronomy, planet, new Date(mid));
+    if(samePlanetSpan(gm, gLo, gateOnly)){ lo=mid; gLo=gm; }
+    else { hi=mid; }
+  }
+  return hi;
+}
+const __PLANET_SPAN_CACHE__ = (typeof Map!=='undefined') ? new Map() : null;
+function clearPlanetSpanCache(){ try{ if(__PLANET_SPAN_CACHE__) __PLANET_SPAN_CACHE__.clear(); }catch(e){} }
+/**
+ * Enter/exit of current gate.line (or gate when gateOnly) around atMs.
+ * Search capped at ~1 year each way. exitMs null → beyond capDate.
+ */
+function findPlanetSpanAround(Astronomy, planet, atMs, gateOnly){
+  gateOnly=!!gateOnly;
+  const YEAR=Math.floor(365.25*24*3600*1000);
+  const floor=atMs-YEAR, cap=atMs+YEAR;
+  const gl0=getPlanetGL(Astronomy, planet, new Date(atMs));
+  const cacheKey=planet+'|'+gl0.gate+'.'+gl0.line+'|'+(gateOnly?1:0)+'|'+Math.floor(atMs/3600000);
+  if(__PLANET_SPAN_CACHE__ && __PLANET_SPAN_CACHE__.has(cacheKey)) return __PLANET_SPAN_CACHE__.get(cacheKey);
+  const step=planetStepMs(planet);
+  // Forward → exit
+  let exitMs=null;
+  let t=atMs, glCursor=gl0;
+  while(t < cap){
+    const t2=Math.min(t+step, cap);
+    const gl2=getPlanetGL(Astronomy, planet, new Date(t2));
+    if(!samePlanetSpan(gl0, gl2, gateOnly)){
+      exitMs=bisectPlanetChange(Astronomy, planet, t, t2, glCursor, gateOnly);
+      break;
+    }
+    t=t2; glCursor=gl2;
+    if(t>=cap) break;
+  }
+  // Backward → enter
+  let enterMs=null;
+  t=atMs; glCursor=gl0;
+  while(t > floor){
+    const t2=Math.max(t-step, floor);
+    const gl2=getPlanetGL(Astronomy, planet, new Date(t2));
+    if(!samePlanetSpan(gl0, gl2, gateOnly)){
+      enterMs=bisectPlanetChange(Astronomy, planet, t2, t, gl2, gateOnly);
+      break;
+    }
+    t=t2; glCursor=gl2;
+    if(t<=floor) break;
+  }
+  const out={
+    planet:planet,
+    gate:gl0.gate,
+    line:gl0.line,
+    gl:gl0.gl || (gl0.gate+'.'+gl0.line),
+    gateOnly:gateOnly,
+    enterMs:enterMs, // null → before floor
+    exitMs:exitMs,   // null → beyond cap
+    floorMs:floor,
+    capMs:cap,
+    atMs:atMs
+  };
+  if(__PLANET_SPAN_CACHE__) __PLANET_SPAN_CACHE__.set(cacheKey, out);
+  return out;
+}
+function formatLocalAmPmStamp(ms, tz){
+  // Legacy full stamp (weekday, Mon D, YYYY h:mm AM/PM) — kept for technical/debug use.
+  const d=new Date(ms);
+  let zone='UTC';
+  try{ zone=(typeof resolveTzId==='function')?resolveTzId(tz||'local'):(tz&&tz!=='local'?tz:(Intl.DateTimeFormat().resolvedOptions().timeZone||'UTC')); }catch(e){}
+  const parts=new Intl.DateTimeFormat('en-US',{
+    timeZone:zone, weekday:'long', year:'numeric', month:'short', day:'numeric',
+    hour:'numeric', minute:'2-digit', hour12:true
+  }).formatToParts(d);
+  const get=t=>(parts.find(p=>p.type===t)||{}).value||'';
+  return get('weekday')+', '+get('month')+' '+get('day')+', '+get('year')+' '+get('hour')+':'+get('minute')+' '+get('dayPeriod');
+}
+/** Prose stamp: "Sunday, Oct 25 at 2:51 AM" (year only when withYear). */
+function formatLocalAtStamp(ms, tz, withYear){
+  const d=new Date(ms);
+  let zone='UTC';
+  try{ zone=(typeof resolveTzId==='function')?resolveTzId(tz||'local'):(tz&&tz!=='local'?tz:(Intl.DateTimeFormat().resolvedOptions().timeZone||'UTC')); }catch(e){}
+  const parts=new Intl.DateTimeFormat('en-US',{
+    timeZone:zone, weekday:'long', year:'numeric', month:'short', day:'numeric',
+    hour:'numeric', minute:'2-digit', hour12:true
+  }).formatToParts(d);
+  const get=t=>(parts.find(p=>p.type===t)||{}).value||'';
+  const yearBit=withYear?(', '+get('year')):'';
+  return get('weekday')+', '+get('month')+' '+get('day')+yearBit+' at '+get('hour')+':'+get('minute')+' '+get('dayPeriod');
+}
+function spanYearsDiffer(span, tz){
+  if(!span) return false;
+  function yearOf(ms){
+    let zone='UTC';
+    try{ zone=(typeof resolveTzId==='function')?resolveTzId(tz||'local'):(tz&&tz!=='local'?tz:(Intl.DateTimeFormat().resolvedOptions().timeZone||'UTC')); }catch(e){}
+    const parts=new Intl.DateTimeFormat('en-US',{timeZone:zone, year:'numeric'}).formatToParts(new Date(ms));
+    return (parts.find(p=>p.type==='year')||{}).value||'';
+  }
+  const a=span.enterMs!=null?span.enterMs:span.floorMs;
+  const b=span.exitMs!=null?span.exitMs:span.capMs;
+  if(a==null||b==null) return false;
+  return yearOf(a)!==yearOf(b);
+}
+/** "From Sunday, Oct 25 at 2:51 AM until Friday, Oct 30 at 6:10 PM" */
+function formatFromUntil(span, tz){
+  if(!span) return '';
+  const withYear=spanYearsDiffer(span, tz);
+  const start=(span.enterMs!=null)?formatLocalAtStamp(span.enterMs, tz, withYear):('before '+formatLocalAtStamp(span.floorMs, tz, withYear));
+  const end=(span.exitMs!=null)?formatLocalAtStamp(span.exitMs, tz, withYear):('beyond '+formatLocalAtStamp(span.capMs, tz, withYear));
+  return 'From '+start+' until '+end;
+}
+function gateMoveClause(planet, gate, theme){
+  return planetLabel(planet)+' moves through gate '+gate+(theme?(' ('+theme+')'):'');
+}
+function gateRemainClause(planet, gate, theme){
+  return planetLabel(planet)+' remains in gate '+gate+(theme?(' ('+theme+')'):'');
+}
+/** Canonical prose activation: "From … until …, Mars moves through gate 27 (Caring)" */
+function formatActivationSpanLabel(planet, gate, line, span, tz, nameBits){
+  const theme=nameBits && nameBits.theme ? nameBits.theme : prettyTheme(gateThemeName(gate));
+  const move=gateMoveClause(planet, gate, theme);
+  const fromUntil=formatFromUntil(span, tz);
+  return fromUntil ? (fromUntil+', '+move) : move;
+}
+function astronomyEngine(){
+  try{ return (typeof window!=='undefined' && window.Astronomy) ? window.Astronomy : (typeof Astronomy!=='undefined'?Astronomy:null); }catch(e){ return null; }
+}
+function transitTzOf(transit, meta){
+  if(meta && meta.tz) return meta.tz;
+  if(transit && transit.tz) return transit.tz;
+  try{ const el=document.getElementById('tz'); if(el && el.value) return el.value; }catch(e){}
+  return 'local';
+}
+function transitAtMs(transit){
+  if(!transit) return Date.now();
+  if(transit.datetime_utc){ const t=Date.parse(transit.datetime_utc); if(!isNaN(t)) return t; }
+  if(transit._atMs) return transit._atMs;
+  return Date.now();
+}
+/** Always GATE enter–exit for report prose (line spans are not listed). */
+function spanForPlanetAt(planet, atMs, tz){
+  const Astr=astronomyEngine();
+  if(!Astr || atMs==null) return null;
+  return findPlanetSpanAround(Astr, planet, atMs, true);
+}
+function claimGateSpan(tracker, planet, gate){
+  if(!tracker) return true;
+  if(!tracker.introducedGateSpans) tracker.introducedGateSpans=new Set();
+  const key=String(planet)+'|'+String(gate);
+  if(tracker.introducedGateSpans.has(key)) return false;
+  tracker.introducedGateSpans.add(key);
+  return true;
+}
+function claimHitSpeech(tracker, person, hit){
+  if(!tracker) return true;
+  if(!tracker.spokenHits) tracker.spokenHits=new Set();
+  const ch=(hit.channelId||(hit.channel&&(hit.channel.id||hit.channel.channel))||'')+'';
+  const key=(person&&person.name||'')+'|'+hit.planet+'|'+hit.gate+'|'+(hit.kind||'')+'|'+ch;
+  if(tracker.spokenHits.has(key)) return false;
+  tracker.spokenHits.add(key);
+  return true;
+}
+function activationLabelForHit(hit, transit, meta){
+  const planet=hit.planet;
+  const gate=+hit.gate || +(String(hit.gl||'').split('.')[0]) || 0;
+  const line=+hit.line || +(String(hit.gl||'').split('.')[1]) || 0;
+  const tz=transitTzOf(transit, meta);
+  const at=transitAtMs(transit);
+  const span=spanForPlanetAt(planet, at, tz);
+  const theme=prettyTheme((hit.gateInfo&&hit.gateInfo.name)||gateThemeName(gate));
+  return formatActivationSpanLabel(planet, gate, line, span, tz, {theme:theme});
+}
+function activationLabelForEvent(ev, tz){
+  const planet=ev.planet;
+  const gate=ev.to && ev.to.gate;
+  const line=ev.to && ev.to.line;
+  const at=ev.tMs;
+  // Gate span: real gate enter/exit (do not pin enter to a line-ingress moment).
+  const span=spanForPlanetAt(planet, at, tz);
+  const theme=prettyTheme(gateThemeName(gate));
+  return formatActivationSpanLabel(planet, gate, line, span, tz||'local', {theme:theme});
+}
+
+/** Prose lead for a timeline ingress using GATE span (no line-arrow lists). */
+function timelineGateSpanLead(ev, tz){
+  const planet=ev.planet;
+  const gate=ev.to && ev.to.gate;
+  const theme=prettyTheme(gateThemeName(gate));
+  const span=spanForPlanetAt(planet, ev.tMs, tz||'local');
+  const fromUntil=formatFromUntil(span, tz||'local');
+  if(ev.gateChanged){
+    const move=gateMoveClause(planet, gate, theme);
+    return fromUntil ? (fromUntil+', '+move) : move;
+  }
+  // Line-only change: keep gate span, mention line in prose only when title exists
+  const remain=gateRemainClause(planet, gate, theme);
+  const base=fromUntil ? (fromUntil+', '+remain) : remain;
+  const title=cleanLineTitle(lineInfo(gate, ev.to && ev.to.line));
+  if(title && ev.to && ev.to.gl){
+    return base+'; at '+ev.to.gl+' the “'+title+'” line flavor is in play';
+  }
+  return base;
+}
+
+
 function chartStateKey(person, transit){
   const day=analyzeDay(person, transit);
   const ch=day.completed_channels.map(c=>c.channel+':'+c.kind).sort().join(',');
@@ -700,6 +920,7 @@ function cloneTransitField(field){
     date:field.date,
     datetime_utc:field.datetime_utc,
     time_gmt:field.time_gmt,
+    _atMs:field._atMs,
     source:field.source,
     node_note:field.node_note,
     tz:field.tz,
@@ -790,6 +1011,7 @@ function classifyEventWho(reasons, person1, person2){
   };
 }
 function findChartRelevantEvents(Astronomy, person1, person2, startMs, endMs, tz){
+  try{ clearPlanetSpanCache(); }catch(e){}
   const raw=[];
   const omitLights=omitLightsOn();
   for(const planet of PLANET_ORDER){
@@ -858,14 +1080,7 @@ function describeTimelineEvent(ev, reasons, person1, person2, showCodes){
   const themeFrom=gateThemeName(ev.from.gate);
   const gateTo=fmtGateTheme(ev.to.gate, showCodes);
   const gateFrom=fmtGateTheme(ev.from.gate, showCodes);
-  let move;
-  if(ev.gateChanged){
-    move=planet+' leaves '+gateFrom+' and enters '+gateTo+(showCodes?(' · '+ev.from.gl+' → '+ev.to.gl):'');
-  } else {
-    move=showCodes
-      ? (planet+' shifts from '+ev.from.gl+' to '+ev.to.gl+' within '+gateTo)
-      : (planet+' shifts emphasis within '+gateTo);
-  }
+  const move=timelineGateSpanLead(ev, (ev.afterField&&ev.afterField.tz)||'local');
   const sentences=[move+'.'];
   const people=[person1].concat(person2?[person2]:[]);
   let primaryTheme=themeTo;
@@ -1439,7 +1654,7 @@ function narrativePersonShortRW(person, day, transit){
   for(const t of (day.touches||[]).slice(0,3)){
     if(covered.has(t.gate&&t.gate.center)) {/* still allow */}
     const theme=t.gate?.name||gateThemeName(t.transit.gate);
-    const hook=show?(t.planet+' at '+t.transit.gl+' ('+theme+')'):(t.planet+' around '+theme);
+    const hook=(t.planet+' at '+t.transit.gl+' ('+theme+')');
     const c=t.gate&&t.gate.center;
     const info=c?centerNotSelfInfo(c):null;
     const nsBit=info?(' If '+c+' is open in the chart, not-self may sound like: '+info.not_self_question):'';
@@ -1542,7 +1757,7 @@ function narrativeInteractionsOnlyRW(p1, p2, dyn, transit, day1, day2){
   const bothHooks=(dyn && dyn.shared_transit_hooks)?dyn.shared_transit_hooks.filter(h=>h.in_a&&h.in_b):[];
   for(const h of bothHooks.slice(0,2)){
     const theme=h.gate.name||gateThemeName(h.gate.number||h.line.gate);
-    const hook=show?(h.planet+' at '+h.gl+' ('+theme+')'):(h.planet+' around '+theme);
+    const hook=(h.planet+' at '+h.gl+' ('+theme+')');
     const example=scenarioRWPair((h.gate.number||7)*11, p1.name, p2.name, theme, 'shared');
     items.push(
       'Potential: they mirror each other on '+hook+', which can amplify not-self urgency on both sides. '+example
@@ -1558,7 +1773,7 @@ function narrativeInteractionsOnlyRW(p1, p2, dyn, transit, day1, day2){
       const hookedName=aOnly.length?p1.name:p2.name;
       const otherName=aOnly.length?p2.name:p1.name;
       const theme=hooked.gate.name||gateThemeName(hooked.line.gate);
-      const hook=show?(hooked.planet+' at '+hooked.gl+' · '+theme):(hooked.planet+' around '+theme);
+      const hook=(hooked.planet+' at '+hooked.gl+' · '+theme);
       const example=scenarioRWPair(19, hookedName, otherName, theme, 'open_bridge');
       items.push(
         'Potential: '+hookedName+' is more directly hooked by '+hook+', while '+otherName+' may take it in through open centers and relationship empathy—borrowed pressure can look like a personal emergency. '+example
@@ -1791,7 +2006,7 @@ function describePersonShortTimelineEventRW(ev, person){
   const planet=ev.planet;
   const to=ev.to||{};
   const theme=gateThemeName(to.gate)||('gate '+to.gate);
-  const hook=show?(planet+' to '+to.gl+' ('+theme+')'):(planet+' into '+theme);
+  const hook=timelineGateSpanLead(ev, (ev.afterField&&ev.afterField.tz)||'local');
   const centers=[];
   const gi=gateInfo(to.gate);
   if(gi && gi.center && openCentersOf(person).includes(gi.center)) centers.push(gi.center);
@@ -1809,7 +2024,7 @@ function describeInteractionTimelineEventRW(ev, person1, person2){
   const planet=ev.planet;
   const to=ev.to||{};
   const theme=gateThemeName(to.gate)||('gate '+to.gate);
-  const hook=show?(planet+' to '+to.gl+' ('+theme+')'):(planet+' into '+theme);
+  const hook=timelineGateSpanLead(ev, (ev.afterField&&ev.afterField.tz)||'local');
   const who=ev.who||{};
   let bridge='';
   if(who.both) bridge='Both charts can feel this at once, so not-self urgency may mirror.';
@@ -1837,14 +2052,7 @@ function describeTimelineEventRW(ev, reasons, person1, person2, show){
   const themeFrom=gateThemeName(ev.from.gate);
   const gateTo=fmtGateTheme(ev.to.gate, show);
   const gateFrom=fmtGateTheme(ev.from.gate, show);
-  let move;
-  if(ev.gateChanged){
-    move=planet+' leaves '+gateFrom+' and enters '+gateTo+(show?(' · '+ev.from.gl+' → '+ev.to.gl):'');
-  } else {
-    move=show
-      ? (planet+' shifts from '+ev.from.gl+' to '+ev.to.gl+' within '+gateTo)
-      : (planet+' shifts emphasis within '+gateTo);
-  }
+  const move=timelineGateSpanLead(ev, (ev.afterField&&ev.afterField.tz)||'local');
   const sentences=[move+'.'];
   const people=[person1].concat(person2?[person2]:[]);
   let primaryTheme=themeTo;
@@ -2064,7 +2272,7 @@ function narrativePersonShort(person, day, transit){
   for(const t of (day.touches||[]).slice(0,6)){
     if(covered.has(t.transit.gate)) continue;
     const theme=t.gate?.name||gateThemeName(t.transit.gate);
-    const hook=show?(t.planet+' at '+t.transit.gl+' ('+theme+')'):(t.planet+"'s theme around "+theme);
+    const hook=(t.planet+' at '+t.transit.gl+' ('+theme+')');
     const bit=clipInteractionMeaning(t.line, t.gate, 1);
     const example=scenarioSolo((t.transit.gate||1)*13+(t.transit.line||1), person.name, theme, 'line_shift');
     items.push(
@@ -2102,12 +2310,7 @@ function describePersonShortTimelineEvent(ev, person){
   const ch=reasons.find(r=>r.type==='channel');
   const center=reasons.find(r=>r.type==='center');
 
-  let lead;
-  if(ev.gateChanged){
-    lead=planet+' moves into '+gateTo+(show?(' ('+ev.from.gl+' → '+ev.to.gl+')'):'');
-  } else {
-    lead=show?(planet+' shifts '+ev.from.gl+' → '+ev.to.gl+' within '+gateTo):(planet+' shifts emphasis within '+gateTo);
-  }
+  const lead=timelineGateSpanLead(ev, (ev.afterField&&ev.afterField.tz)||'local');
 
   let mechanic='This shift hooks '+person.name+'\'s chart.';
   let kind='line_shift';
@@ -2165,7 +2368,7 @@ function narrativeInteractionsOnly(p1, p2, dyn, transit, day1, day2){
   const bothHooks=dyn.shared_transit_hooks.filter(h=>h.in_a&&h.in_b);
   for(const h of bothHooks.slice(0,3)){
     const theme=h.gate.name||gateThemeName(h.gate.number||h.line.gate);
-    const hook=show?(h.planet+' at '+h.gl+' ('+theme+')'):(h.planet+"'s theme around "+theme);
+    const hook=(h.planet+' at '+h.gl+' ('+theme+')');
     const bit=clipInteractionMeaning(h.line, h.gate, 2);
     const scenes=scenarioPair((h.gate.number||7)*11+h.line.line, p1.name, p2.name, theme, 'same_gate');
     items.push(
@@ -2184,7 +2387,7 @@ function narrativeInteractionsOnly(p1, p2, dyn, transit, day1, day2){
       const hookedName=aOnly.length?p1.name:p2.name;
       const otherName=aOnly.length?p2.name:p1.name;
       const theme=hooked.gate.name||gateThemeName(hooked.line.gate);
-      const hook=show?(hooked.planet+' at '+hooked.gl+' · '+theme):(hooked.planet+' around '+theme);
+      const hook=(hooked.planet+' at '+hooked.gl+' · '+theme);
       const scenes=scenarioPair(19, hookedName, otherName, theme, 'one_sided');
       items.push(
         hookedName+' is more directly hooked by '+hook+', while '+otherName+' meets it mostly through openness and empathy. '+
@@ -2275,12 +2478,7 @@ function describeInteractionTimelineEvent(ev, person1, person2){
   const couple=reasons.some(r=>r.type==='couple')||!!who.couple;
   const both=!!who.both || namesTouched.length>=2;
 
-  let lead;
-  if(ev.gateChanged){
-    lead=planet+' moves into '+gateTo+(show?(' ('+ev.from.gl+' → '+ev.to.gl+')'):'');
-  } else {
-    lead=show?(planet+' shifts '+ev.from.gl+' → '+ev.to.gl+' within '+gateTo):(planet+' shifts emphasis within '+gateTo);
-  }
+  const lead=timelineGateSpanLead(ev, (ev.afterField&&ev.afterField.tz)||'local');
 
   let mechanic;
   if(both){
@@ -2665,6 +2863,8 @@ function makeProseTracker(){
     usedFrames:new Set(),
     usedNgrams:new Set(),
     usedMeanings:new Set(),
+    introducedGateSpans:new Set(),
+    spokenHits:new Set(),
     seq:0,
     relCount:0
   };
@@ -2680,7 +2880,10 @@ const BANNED_FRAGMENTS = [
   'activates a gate already in the design','completes a channel with the chart',
   'can press for a cleaner yes or no before moving on','may color tone and small choices',
   'may land through open','rather than a natal hit','can feel temporarily online',
-  'example:'
+  'example:',
+  'asks for a slower read before reacting',
+  'rather than new definition',
+  'consistent energy amplified rather than new definition'
 ];
 
 const ILLUSTRATION_POOL = [
@@ -2842,7 +3045,7 @@ function themeKeynoteSentence(theme, line, gInfo, channelTheme, tracker, channel
   const options=[];
   if(wantLine && line && title){
     const ord=lineOrdinal(line.line);
-    options.push('In '+gateTheme+', the '+ord+'-line “'+title+'” quality asks for a slower read before reacting');
+    options.push('In '+gateTheme+', the '+ord+'-line “'+title+'” quality favors quieter detail rather than haste');
     options.push('The '+ord+'-line shade of '+gateTheme+' (“'+title+'”) favors precision over push');
     options.push(gateTheme+' in its '+ord+' line leans toward “'+title+'”—useful when the room speeds up');
   } else if(wantLine && line){
@@ -2875,7 +3078,7 @@ function themeKeynoteSentence(theme, line, gInfo, channelTheme, tracker, channel
 }
 
 function planetThemeLead(planet, theme, gl){
-  if(codesOn() && gl) return planet+' at '+gl+' ('+theme+')';
+  if(gl) return planet+' at '+gl+' ('+theme+')';
   return planet+' around '+theme;
 }
 
@@ -2907,7 +3110,7 @@ function leadSentence(shift, person1, person2, tracker, timePrefix){
   let options;
   if(shift.kind==='channel'){
     const ch=channelWhoseLabel(shift, person1, person2);
-    const glBit=(codesOn() && shift.gl)?(' at '+shift.gl):'';
+    const glBit=shift.gl?(' at '+shift.gl):'';
     options=[
       t+planet+glBit+' around '+theme+' completes '+ch+'.',
       t+planet+' closes '+ch+'.',
@@ -3426,8 +3629,69 @@ function verifyHitAgainstChart(person, hit){
   return true;
 }
 
-function describeHitParagraph(person, hit, tracker){
+
+/** Centers involved in a hit (channel → both ends; else gate center). */
+function hitCentersList(hit){
+  const out=[];
+  const raw=(hit.centers && hit.centers.length)?hit.centers
+    :((hit.channelInfo&&hit.channelInfo.centers)||(hit.channel&&hit.channel.info&&hit.channel.info.centers)||[]);
+  if(raw && raw.length){
+    for(const c of raw){ const n=normalizeCenterName(c); if(n) out.push(n); }
+  } else if(hit.gateInfo && hit.gateInfo.center){
+    out.push(normalizeCenterName(hit.gateInfo.center));
+  }
+  const seen=new Set(); const uniq=[];
+  for(const c of out){ if(!seen.has(c)){ seen.add(c); uniq.push(c); } }
+  return uniq;
+}
+function centerIsOpenFor(person, center){
+  return !isCenterDefined(person, center);
+}
+/** Prose options naming both channel centers with defined/open state. */
+function channelCenterEffectOptions(person, hit, theme){
+  const centers=hitCentersList(hit);
+  if(!centers.length) return [];
+  const labeled=centers.map(c=>{
+    if(isCenterDefined(person, c)) return c+' (already defined—amplified)';
+    return c+' (open—temporarily defined during this span)';
+  });
+  const join=labeled.length===2?(labeled[0]+' and '+labeled[1]):labeled.join(', ');
+  const openOnes=centers.filter(c=>centerIsOpenFor(person, c));
+  const definedOnes=centers.filter(c=>isCenterDefined(person, c));
+  const opts=[];
+  if(openOnes.length){
+    opts.push('This completed channel links '+join+', so open '+openOnes.join(' and ')+' becomes temporarily defined while the sky holds the bridge');
+    opts.push('Centers in play: '+join+'. Because '+openOnes.join(' and ')+' '+(openOnes.length>1?'start':'starts')+' open, the completion temporarily defines '+(openOnes.length>1?'them':'it')+' for the span');
+    opts.push('The bridge runs through '+join+'; open '+openOnes[0]+' is newly online for the duration rather than staying undefined');
+    if(definedOnes.length){
+      opts.push(theme+' completes circuitry across '+join+'—defined '+definedOnes.join(' and ')+' is amplified while open '+openOnes.join(' and ')+' is temporarily defined');
+    }
+  } else {
+    opts.push('This completed channel links '+join+'—both already defined, so the transit amplifies established circuitry without adding a new center');
+    opts.push('Centers in play: '+join+' (both defined)—consistent energy amplified, with no new center coming online');
+    opts.push(theme+' feeds defined '+centers.join(' and ')+' as amplification of circuitry that is already reliable');
+  }
+  return opts;
+}
+function singleGateCenterOptions(person, center, theme, personName){
+  if(!center) return [];
+  if(isCenterDefined(person, center)){
+    return [
+      theme+' touches/feeds the defined '+center+' center—consistent energy amplified, with no new center coming online',
+      'In this chart '+theme+' sits in defined '+center+', so the transit amplifies what is already reliable',
+      'Defined '+center+' receives '+theme+' as a feed into established circuitry'
+    ];
+  }
+  return [
+    theme+' lives in the '+center+' center, which is open in this chart (conditioning weather, not a completed-channel definition by itself)',
+    'In this chart '+theme+' sits in open '+center,
+    'Open '+center+' is where '+theme+' operates for '+personName+' under this sky'
+  ];
+}
+
+function describeHitParagraph(person, hit, tracker, transit, meta){
   if(!verifyHitAgainstChart(person, hit)) return '';
+  if(!claimHitSpeech(tracker, person, hit)) return '';
   const theme=prettyTheme((hit.gateInfo&&hit.gateInfo.name)||gateThemeName(hit.gate));
   const center=(hit.gateInfo&&hit.gateInfo.center)||'';
   const planet=planetLabel(hit.planet);
@@ -3451,26 +3715,21 @@ function describeHitParagraph(person, hit, tracker){
     return '';
   }
 
-  const defined=center && isCenterDefined(person, center);
-  const centerOpts=center?(defined?[
-    theme+' touches/feeds the defined '+center+' center—consistent energy amplified rather than new definition',
-    'In this chart '+theme+' sits in defined '+center+', so the transit amplifies what is already reliable',
-    'Defined '+center+' receives '+theme+' as a feed into established circuitry'
-  ]:[
-    theme+' lives in the '+center+' center, which is open in this chart',
-    'In this chart '+theme+' sits in open '+center,
-    'Open '+center+' is where '+theme+' operates for '+person.name+' under this sky'
-  ]):[];
+  const isChannelHit=(hit.kind==='channel_supply' || hit.kind==='channel_em' || (hit.kind==='channel_overlay' && hitCentersList(hit).length>=2));
+  const centerOpts=isChannelHit
+    ? channelCenterEffectOptions(person, hit, theme)
+    : singleGateCenterOptions(person, center, theme, person.name);
 
   let lineBit='';
   const title=cleanLineTitle(hit.lineInfo);
   if(title){
     const ord=lineOrdinal(hit.line);
+    const glRef=gl || (hit.gate+'.'+hit.line);
     const lineOpts=[
-      'The '+ord+'-line “'+title+'” quality asks for a slower read before reacting',
-      'In the '+ord+' line (“'+title+'”), the practical flavor favors precision over push',
-      'Line '+hit.line+' (“'+title+'”) tilts '+theme+' toward restraint rather than reaction',
-      'A '+ord+'-line pass (“'+title+'”) changes how '+theme+' shows up in small choices'
+      'At '+glRef+', the '+ord+'-line “'+title+'” flavor favors precision over push',
+      'Line meaning at '+glRef+' (“'+title+'”) tilts '+theme+' toward restraint rather than reaction',
+      'A '+ord+'-line pass at '+glRef+' (“'+title+'”) changes how '+theme+' shows up in small choices',
+      'In the '+ord+' line of '+glRef+' (“'+title+'”), the practical shade is quieter detail rather than haste'
     ];
     for(const opt of lineOpts){
       const filtered=registerAndFilterSentence(tracker, opt);
@@ -3497,20 +3756,29 @@ function describeHitParagraph(person, hit, tracker){
   }
 
   const ill=nextIllustration(tracker);
-  const leadOpts=[
-    showTransitFieldPositions()
-      ? (planet+' at '+gl+' ('+theme+') is a direct hit for '+person.name)
-      : (planet+' ('+theme+') is a direct hit for '+person.name),
-    showTransitFieldPositions()
-      ? (planet+' at '+gl+' ('+theme+') hooks '+person.name+'’s design')
-      : (planet+' ('+theme+') hooks '+person.name+'’s design'),
-    showTransitFieldPositions()
-      ? ('For '+person.name+', '+planet+' at '+gl+' ('+theme+') is the active contact')
-      : ('For '+person.name+', '+planet+' ('+theme+') is the active contact'),
-    showTransitFieldPositions()
-      ? (planet+' at '+gl+' brings '+theme+' into '+person.name+'’s chart now')
-      : (planet+' brings '+theme+' into '+person.name+'’s chart now')
-  ];
+  const _tz=transitTzOf(transit, meta);
+  const _at=transitAtMs(transit);
+  const _span=spanForPlanetAt(hit.planet, _at, _tz);
+  const _fromUntil=formatFromUntil(_span, _tz);
+  const _introduce=claimGateSpan(tracker, hit.planet, hit.gate);
+  let leadOpts;
+  if(_introduce && _fromUntil){
+    const move=gateMoveClause(hit.planet, hit.gate, theme);
+    leadOpts=[
+      _fromUntil+', '+move+', and for '+person.name+' this is a direct hit',
+      _fromUntil+', '+move+' — it hooks '+person.name+'’s design',
+      _fromUntil+', '+move+', bringing '+theme+' into '+person.name+'’s chart',
+      _fromUntil+', '+move+', and '+person.name+' meets it as active contact'
+    ];
+  } else {
+    const remain=gateRemainClause(hit.planet, hit.gate, theme);
+    leadOpts=[
+      remain+' for '+person.name,
+      'Still in gate '+hit.gate+' ('+theme+'), '+planet+' keeps contacting '+person.name+'’s design',
+      'For '+person.name+', '+remain+' continues to matter',
+      remain+' still colors '+person.name+'’s chart under this sky'
+    ];
+  }
   let lead='';
   const start=tracker.seq % leadOpts.length;
   for(let i=0;i<leadOpts.length;i++){
@@ -3556,14 +3824,16 @@ function describeChannelWeather(person, day, tracker){
     const verb=planetList.length>1?' complete':' completes';
     const verbOverlay=planetList.length>1?' overlay':' overlays';
     const verbJoin=planetList.length>1?' join':' joins';
-    const centers=((item.info&&item.info.centers)||[]).join('–');
+    const centerList=((item.info&&item.info.centers)||[]).map(normalizeCenterName);
+    const centerStates=centerList.map(c=>isCenterDefined(person,c)?(c+' amplified'):(c+' temporarily defined'));
+    const centersBit=centerStates.length?(' ('+centerStates.join('; ')+')'):'';
     let tone;
     if(item.kind==='electromagnetic'){
-      tone=planets+verb+' the channel of '+name+' with '+person.name+'’s hanging side'+(cue?(' — a design of '+cue):'')+(centers?(' (lighting '+centers+')'):'')+'.';
+      tone=planets+verb+' the channel of '+name+' with '+person.name+'’s hanging side'+(cue?(' — a design of '+cue):'')+centersBit+'.';
     } else if(item.kind==='transit_overlay_on_natal_channel'){
-      tone=planets+verbOverlay+' the already-defined channel of '+name+(centers?(' across '+centers):'')+'.';
+      tone=planets+verbOverlay+' the already-defined channel of '+name+centersBit+'.';
     } else {
-      tone=planets+verbJoin+' '+person.name+' in the channel of '+name+(cue?(' (design: '+cue+')'):'')+'.';
+      tone=planets+verbJoin+' '+person.name+' in the channel of '+name+(cue?(' (design: '+cue+')'):'')+centersBit+'.';
     }
     const filtered=registerAndFilterSentence(tracker, tone);
     if(filtered) sentences.push(filtered);
@@ -3676,22 +3946,27 @@ function describeOpenCenterConditioning(person, day, otherPerson, otherDay, tran
   return sentences.join(' ');
 }
 
-function describeCoupleComparison(person1, person2, day1, day2, couple, tracker){
+function describeCoupleComparison(person1, person2, day1, day2, couple, tracker, transit){
   const bits=[];
   const shared=(couple&&couple.shared_transit_hooks)||[];
   const both=shared.filter(h=>h.in_a&&h.in_b);
   const only1=shared.filter(h=>h.in_a&&!h.in_b);
   const only2=shared.filter(h=>h.in_b&&!h.in_a);
+  function hookGatePhrase(h){
+    const gate=(h.gate&&h.gate.number)||+(String(h.gl||'').split('.')[0])||0;
+    const theme=prettyTheme((h.gate&&h.gate.name)||gateThemeName(gate));
+    return planetLabel(h.planet)+' in gate '+gate+' ('+theme+')';
+  }
   if(both.length){
-    const s='Shared hooks under this sky: '+both.map(h=>planetLabel(h.planet)+(showTransitFieldPositions()?(' '+h.gl):'')+' ('+prettyTheme((h.gate&&h.gate.name)||gateThemeName((h.gl||'').split('.')[0]))+')').join('; ')+'.';
+    const s='Shared hooks under this sky include '+both.map(hookGatePhrase).join(', ')+'.';
     bits.push(registerAndFilterSentence(tracker,s)||s);
   }
   if(only1.length){
-    const s=person1.name+'-only hits: '+only1.map(h=>planetLabel(h.planet)+(showTransitFieldPositions()?(' '+h.gl):'')).join(', ')+', while '+person2.name+' may feel them through open centers rather than natal gates.';
+    const s=person1.name+'-only hits include '+only1.map(hookGatePhrase).join(', ')+', while '+person2.name+' may feel them through open centers rather than natal gates.';
     bits.push(registerAndFilterSentence(tracker,s)||s);
   }
   if(only2.length){
-    const s=person2.name+'-only hits: '+only2.map(h=>planetLabel(h.planet)+(showTransitFieldPositions()?(' '+h.gl):'')).join(', ')+', with '+person1.name+' more likely to receive them as conditioning.';
+    const s=person2.name+'-only hits include '+only2.map(hookGatePhrase).join(', ')+', with '+person1.name+' more likely to receive them as conditioning.';
     bits.push(registerAndFilterSentence(tracker,s)||s);
   }
   const electro=(couple&&couple.electromagnetic)||[];
@@ -3720,7 +3995,7 @@ function packHitParagraphs(hitParas){
   return out.slice(0,4);
 }
 
-function renderPersonIndepthSections(person, transit, tracker, otherPerson, otherDay){
+function renderPersonIndepthSections(person, transit, tracker, otherPerson, otherDay, meta){
   const parts=[];
   const pack=collectDirectHits(person, transit);
   const day=pack.day;
@@ -3743,7 +4018,7 @@ function renderPersonIndepthSections(person, transit, tracker, otherPerson, othe
   const hitParas=[];
   for(const hit of pack.hits){
     if(!verifyHitAgainstChart(person, hit)) continue;
-    const p=describeHitParagraph(person, hit, tracker);
+    const p=describeHitParagraph(person, hit, tracker, transit, meta);
     if(p) hitParas.push(p);
   }
   if(!hitParas.length){
@@ -3778,15 +4053,15 @@ function renderIndepthDayHtml(person1, person2, transitRaw, tracker, meta){
 
   // Sections 2-5 first (person sections + comparison), positions LAST
   const otherDayPre=person2?analyzeDay(person2, transit):null;
-  const r1=renderPersonIndepthSections(person1, transit, tracker, person2, otherDayPre);
+  const r1=renderPersonIndepthSections(person1, transit, tracker, person2, otherDayPre, meta);
   parts.push(r1.html);
   let r2=null;
   if(person2){
-    r2=renderPersonIndepthSections(person2, transit, tracker, person1, r1.day);
+    r2=renderPersonIndepthSections(person2, transit, tracker, person1, r1.day, meta);
     parts.push(r2.html);
     const couple=coupleDynamics(person1, person2, transit);
     parts.push('<h3>'+escapeHtml('Between '+person1.name+' and '+person2.name)+'</h3>');
-    parts.push('<p>'+escapeHtml(describeCoupleComparison(person1, person2, r1.day, r2.day, couple, tracker))+'</p>');
+    parts.push('<p>'+escapeHtml(describeCoupleComparison(person1, person2, r1.day, r2.day, couple, tracker, transit))+'</p>');
     if(realWorldOn()){
       parts.push('<h4>'+escapeHtml('How they condition each other under this sky')+'</h4>');
       for(const para of describeExpandedCoupleNotSelf(person1, person2, r1.day, r2.day, couple, tracker)){
@@ -3834,7 +4109,13 @@ function briefTouchExplanation(person, hit){
   if(hit.kind==='channel_supply' || hit.kind==='channel_em'){
     const chInfo = hit.channelInfo || (hit.channel && hit.channel.info) || null;
     const chName = prettyTheme(chInfo ? plainChannelName(chInfo) : ((hit.channelId)||'a channel'));
-    how = name+' gets a temporary complete '+chName+' while '+planet+' holds '+theme+'.';
+    const centers = hitCentersList(hit);
+    let centerBit='';
+    if(centers.length){
+      const bits=centers.map(c=>isCenterDefined(person,c)?(c+' amplified'):(c+' temporarily defined'));
+      centerBit=' ('+bits.join('; ')+')';
+    }
+    how = name+' gets a temporary complete '+chName+centerBit+' while '+planet+' holds '+theme+'.';
   } else if(hit.kind==='channel_overlay'){
     how = planet+' overlays '+name+'’s already-defined '+theme+' circuitry—same gate, louder weather.';
   } else if(isOpen){
@@ -3860,34 +4141,39 @@ function oneBridgeLine(person, day){
     const kind = String(item.kind||'');
     if(kind.indexOf('electromagnetic')>=0 || kind.indexOf('supply')>=0 || kind==='channel_em' || kind==='channel_supply'){
       const chName = prettyTheme(item.info ? plainChannelName(item.info) : (item.channel||'channel'));
-      return name+': temporary '+chName+' channel completes.';
+      const centerList=((item.info&&item.info.centers)||[]).map(normalizeCenterName);
+      const bits=centerList.map(c=>isCenterDefined(person,c)?(c+' amplified'):(c+' temporarily defined'));
+      const cBit=bits.length?(' ('+bits.join('; ')+')'):'';
+      return name+': temporary '+chName+' channel completes'+cBit+'.';
     }
   }
   return '';
 }
 
-function renderOverviewHitItem(person, hit, whenLabel){
+function renderOverviewHitItem(person, hit, whenLabel, transit, meta, tracker){
   if(!verifyHitAgainstChart(person, hit)) return '';
-  const gateNum = +hit.gate || +String(hit.gl||'').split('.')[0] || 0;
-  const theme = prettyTheme((hit.gateInfo&&hit.gateInfo.name)||gateThemeName(gateNum||hit.gate));
-  const lineBits = lineDescriptionBrief(hit.lineInfo);
-  let lineTitle = lineBits.title;
-  if(!lineTitle){
-    const li = lineInfo(gateNum||hit.gate, hit.line);
-    lineTitle = cleanLineTitle(li) || li.title || ('Line '+hit.line);
+  if(!claimHitSpeech(tracker, person, hit)) return '';
+  const gate=+hit.gate || +(String(hit.gl||'').split('.')[0]) || 0;
+  const theme=prettyTheme((hit.gateInfo&&hit.gateInfo.name)||gateThemeName(gate));
+  const planet=planetLabel(hit.planet);
+  const tz=transitTzOf(transit, meta);
+  const at=transitAtMs(transit);
+  const span=spanForPlanetAt(hit.planet, at, tz);
+  const fromUntil=formatFromUntil(span, tz);
+  const introduce=claimGateSpan(tracker, hit.planet, gate);
+  const brief=briefTouchExplanation(person, hit);
+  let sentence;
+  if(introduce && fromUntil){
+    sentence=fromUntil+', '+planet+' moves through gate '+gate+' ('+theme+'): '+brief;
+  } else {
+    sentence=planet+' still in gate '+gate+' ('+theme+'): '+brief;
   }
-  const gl = hit.gl || (gateNum+'.'+hit.line);
-  const planet = planetLabel(hit.planet);
-  const gateLabel = gateNum ? (gateNum+' '+theme) : theme;
-  const when = whenLabel || hit.whenLabel || '';
-  const head = '<span class="ov-gl">'+escapeHtml(planet+' '+gl)+'</span> — '+escapeHtml(gateLabel)+' · '+escapeHtml(lineTitle);
-  const whenBit = when ? (' · <span class="ov-when">'+escapeHtml(when)+'</span>') : '';
-  const brief = briefTouchExplanation(person, hit);
-  return '<li>'+head+whenBit+': '+escapeHtml(brief)+'</li>';
+  return '<li>'+escapeHtml(sentence)+'</li>';
 }
 
-function renderRangeOverviewDayHtml(person1, person2, transitRaw, meta){
+function renderRangeOverviewDayHtml(person1, person2, transitRaw, meta, tracker){
   meta = meta||{};
+  tracker = tracker || makeProseTracker();
   const transit = transitWithoutLights(transitRaw);
   const parts = [];
   const when = transitRaw.display_when || transitRaw.display_date || transitRaw.date || '';
@@ -3899,7 +4185,7 @@ function renderRangeOverviewDayHtml(person1, person2, transitRaw, meta){
     const pack = collectDirectHits(person, transit);
     const items = [];
     for(const hit of (pack.hits||[])){
-      const li = renderOverviewHitItem(person, hit, when);
+      const li = renderOverviewHitItem(person, hit, when, transitRaw, meta, tracker);
       if(li) items.push(li);
     }
     parts.push('<div class="ov-person">'+escapeHtml(firstNameOnly(person.name))+'</div>');
@@ -3941,10 +4227,11 @@ function renderRangeOverviewHtml(person1, person2, transits, meta){
   }
   parts.push('<h2>'+escapeHtml('Transit brief: '+names)+'</h2>');
   parts.push('<p><em>'+escapeHtml(titleDates)+'</em></p>');
-  parts.push('<p><em>'+escapeHtml('Brief descriptions: gate.line, weekday date/time, and short keynotes—not a full narrative reading.')+'</em></p>');
+  parts.push('<p><em>'+escapeHtml('Brief descriptions: gate time spans woven into short keynotes—not a full narrative reading.')+'</em></p>');
   if(omitLightsOn()) parts.push('<p><em>'+escapeHtml('Sun, Earth, and Moon are omitted from this analysis.')+'</em></p>');
 
   const fieldMode = (meta && meta.rangeTransitFieldMode) || rangeTransitFieldMode(transits.length);
+  const ovTracker = makeProseTracker();
   parts.push('<div class="range-overview">');
   for(let ti=0; ti<transits.length; ti++){
     const t = transits[ti];
@@ -3953,8 +4240,9 @@ function renderRangeOverviewHtml(person1, person2, transits, meta){
     else if(fieldMode==='single') includePositions = true;
     parts.push(renderRangeOverviewDayHtml(person1, person2, t, {
       includePositions: includePositions,
-      includeTransitField: includePositions
-    }));
+      includeTransitField: includePositions,
+      tz: (meta && meta.tz) || (t && t.tz) || 'local'
+    }, ovTracker));
   }
   parts.push('</div>');
   return parts.join('\n');
@@ -3998,6 +4286,8 @@ function renderStructuredSnapshotHtml(person1, person2, transits, meta){
       dayTracker.usedNgrams=tracker.usedNgrams;
       dayTracker.usedFrames=tracker.usedFrames;
       dayTracker.usedMeanings=tracker.usedMeanings;
+      dayTracker.introducedGateSpans=tracker.introducedGateSpans;
+      dayTracker.spokenHits=tracker.spokenHits;
       dayTracker.seq=tracker.seq;
       let includePositions=false;
       if(fieldMode==='per-day' || fieldMode==='start-end') includePositions=true;
@@ -4037,7 +4327,7 @@ function renderStructuredTimelineHtml(person1, person2, meta){
 
   parts.push('<h2>'+escapeHtml((realWorldOn()?'Real-world transit timeline: ':'Transit timeline: ')+names)+'</h2>');
   parts.push('<p><em>'+escapeHtml(meta.rangeLabel||'')+'</em></p>');
-  parts.push('<p><em>'+escapeHtml('In-depth day readings with ingress notes—not a one-line event list.')+'</em></p>');
+  parts.push('<p><em>'+escapeHtml('In-depth day readings with gate time spans woven into the prose—not a one-line event list.')+'</em></p>');
   if(omitLightsOn()) parts.push('<p><em>'+escapeHtml('Sun, Earth, and Moon are omitted from this analysis.')+'</em></p>');
 
   const byDay=new Map();
@@ -4054,6 +4344,8 @@ function renderStructuredTimelineHtml(person1, person2, meta){
     dayTracker.usedNgrams=tracker.usedNgrams;
     dayTracker.usedFrames=tracker.usedFrames;
     dayTracker.usedMeanings=tracker.usedMeanings;
+    dayTracker.introducedGateSpans=tracker.introducedGateSpans;
+    dayTracker.spokenHits=tracker.spokenHits;
     dayTracker.seq=tracker.seq;
     const _tlShow = wantTransitFieldSections({includePositions: isRangeWhenActive() ? includeRangeTransitFieldOn() : true});
     parts.push(renderIndepthDayHtml(person1, person2, meta.startField, dayTracker, {
@@ -4080,19 +4372,14 @@ function renderStructuredTimelineHtml(person1, person2, meta){
       continue;
     }
     if(!dayField.display_when) dayField.display_when=day;
-    const _showIngGl = showTransitFieldPositions();
-    const ingressNote=list.length
-      ? ('Significant ingresses: '+list.map(e=>{
-          const t=(String(e.stamp).match(/(\d{1,2}:\d{2}\s*[AP]M)/i)||[''])[0];
-          const glBit=_showIngGl ? (' '+(e.from&&e.from.gl)+'→'+(e.to&&e.to.gl)) : '';
-          return (t?t+' ':'')+planetLabel(e.planet)+glBit;
-        }).join('; ')+'.')
-      : '';
+        const ingressNote='';
     const dayTracker=makeProseTracker();
     dayTracker.usedExamples=tracker.usedExamples;
     dayTracker.usedNgrams=tracker.usedNgrams;
     dayTracker.usedFrames=tracker.usedFrames;
     dayTracker.usedMeanings=tracker.usedMeanings;
+    dayTracker.introducedGateSpans=tracker.introducedGateSpans;
+    dayTracker.spokenHits=tracker.spokenHits;
     dayTracker.seq=tracker.seq;
         const _tlShowDay = wantTransitFieldSections({includePositions: isRangeWhenActive() ? includeRangeTransitFieldOn() : true});
     parts.push(renderIndepthDayHtml(person1, person2, dayField, dayTracker, {
@@ -4252,6 +4539,7 @@ function renderDirectEffectsTimelineHtml(person1, person2, meta){
 }
 
 function renderNarrativeHtml(person1, person2, transits, meta){
+  try{ clearPlanetSpanCache(); }catch(e){}
   return renderStructuredSnapshotHtml(person1, person2, transits, meta||{});
   const parts=[];
   const wantIx=interactionsOnlyOn();
