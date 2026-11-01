@@ -3855,15 +3855,15 @@ function oneBridgeLine(person, day){
 
 function renderOverviewHitItem(person, hit){
   if(!verifyHitAgainstChart(person, hit)) return '';
-  const theme = prettyTheme((hit.gateInfo&&hit.gateInfo.name)||gateThemeName(hit.gate));
+  const gateNum = +hit.gate || +String(hit.gl||'').split('.')[0] || 0;
+  const theme = prettyTheme((hit.gateInfo&&hit.gateInfo.name)||gateThemeName(gateNum||hit.gate));
   const lineBits = lineDescriptionBrief(hit.lineInfo);
   const lineTitle = lineBits.title || ('Line '+hit.line);
-  const gl = hit.gl || (hit.gate+'.'+hit.line);
+  const gl = hit.gl || (gateNum+'.'+hit.line);
   const planet = planetLabel(hit.planet);
-  const showPos = showTransitFieldPositions();
-  const head = showPos
-    ? ('<span class="ov-gl">'+escapeHtml(planet+' '+gl)+'</span> — '+escapeHtml(theme)+' · '+escapeHtml(lineTitle))
-    : (escapeHtml(planet)+' — '+escapeHtml(theme)+' · '+escapeHtml(lineTitle));
+  // Overview always shows planet + gate.line + gate number/name + line title (field checkbox only controls tables).
+  const gateLabel = gateNum ? (gateNum+' '+theme) : theme;
+  const head = '<span class="ov-gl">'+escapeHtml(planet+' '+gl)+'</span> — '+escapeHtml(gateLabel)+' · '+escapeHtml(lineTitle);
   const brief = briefTouchExplanation(person, hit);
   return '<li>'+head+': '+escapeHtml(brief)+'</li>';
 }
