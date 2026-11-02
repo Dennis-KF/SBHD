@@ -820,16 +820,26 @@ ${wPara(footerInner, {align:"center", before:0, after:0})}
 }
 
 function downloadDocx(bytes, filename) {
-  const blob = new Blob([bytes], { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
+  const payload = bytes instanceof ArrayBuffer ? bytes : (bytes && bytes.buffer ? bytes : new Uint8Array(bytes || []));
+  const blob = new Blob([payload], { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
+  if (window.navigator && typeof window.navigator.msSaveOrOpenBlob === "function") {
+    window.navigator.msSaveOrOpenBlob(blob, filename);
+    return;
+  }
+  const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
+  a.href = url;
   a.download = filename;
-  document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  a.rel = "noopener";
+  a.style.display = "none";
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { try { a.remove(); } catch (e) {} URL.revokeObjectURL(url); }, 4000);
 }
 
 /* ===== UI ===== */
 const centerSel = {}; const memberSel = {};
+for (const c of PROGRAM_DATA.centers) centerSel[c] = true;
 let briefOnly = false;
 const typeSel = {}; const circuitSel = {};
 const TYPE_KEYS = ["Generating", "Manifesting", "Projecting"];
@@ -983,9 +993,6 @@ function removeImportedMember(name) {
 }
 
 /* ---- .docx ZIP reader (store + deflate-raw) ---- */
-function docxU16(view, off) { return view.getUint16(off, true); }
-function docxU32(view, off) { return view.getUint32(off, true); }
-
 async function inflateRaw(bytes) {
   if (typeof DecompressionStream === "undefined") {
     throw new Error("This browser cannot decompress .docx (DecompressionStream missing). Try a newer Safari/Chrome.");
@@ -997,18 +1004,21 @@ async function inflateRaw(bytes) {
 }
 
 async function unzipEntries(arrayBuffer) {
+  // Local helpers only — must NOT shadow zipStore's global u16/u32 writers used by buildDocx.
+  function readU16(view, off) { return view.getUint16(off, true); }
+  function readU32(view, off) { return view.getUint32(off, true); }
   const bytes = new Uint8Array(arrayBuffer);
   const view = new DataView(arrayBuffer);
   const files = {};
   let offset = 0;
   while (offset + 30 <= bytes.length) {
-    const sig = docxU32(view, offset);
+    const sig = readU32(view, offset);
     if (sig !== 0x04034b50) break;
-    const method = docxU16(view, offset + 8);
-    const compSize = docxU32(view, offset + 18);
-    const uncompSize = docxU32(view, offset + 22);
-    const nameLen = docxU16(view, offset + 26);
-    const extraLen = docxU16(view, offset + 28);
+    const method = readU16(view, offset + 8);
+    const compSize = readU32(view, offset + 18);
+    const uncompSize = readU32(view, offset + 22);
+    const nameLen = readU16(view, offset + 26);
+    const extraLen = readU16(view, offset + 28);
     const nameBytes = bytes.subarray(offset + 30, offset + 30 + nameLen);
     const name = new TextDecoder("utf-8").decode(nameBytes);
     const dataStart = offset + 30 + nameLen + extraLen;
@@ -1284,7 +1294,7 @@ function renderToggles() {
   for (const c of PROGRAM_DATA.centers) {
     centerSel[c] = !!centerSel[c];
     const lab = document.createElement("label"); lab.className = "chk";
-    lab.innerHTML = `<input type="checkbox" data-c="${c}"> ${c}`;
+    lab.innerHTML = `<input type="checkbox" autocomplete="off" data-c="${c}"> ${c}`;
     lab.querySelector("input").checked = centerSel[c];
     lab.querySelector("input").addEventListener("change", (e) => { centerSel[c] = e.target.checked; updateStatus(); });
     cb.appendChild(lab);
@@ -1385,9 +1395,10 @@ document.getElementById("clearCircuits").onclick = () => {
   updateStatus();
 };
 document.getElementById("reportBtn").onclick = function() {
+  const el = document.getElementById("status");
+  try {
   const sc = selectedCenters(); const sm = selectedMembers();
   const st = selectedTypes(); const sci = selectedCircuits();
-  const el = document.getElementById("status");
   const refMode = sc.length && !sm.length && !st.length && !sci.length;
   const circuitRefMode = !sm.length && (st.length || sci.length);
   if (!sc.length && !sm.length && !st.length && !sci.length) {
@@ -1431,6 +1442,10 @@ document.getElementById("reportBtn").onclick = function() {
   downloadDocx(bytes, filename);
   const pages = Math.max(1, Math.ceil(fitted.words / 500));
   el.textContent = "Downloaded " + filename + " (" + fitted.words + " words, ~" + pages + " pages).";
+  } catch (err) {
+    console.error(err);
+    el.textContent = "Report failed: " + ((err && err.message) ? err.message : String(err));
+  }
 };
 
 (function wireBriefOnly() {
