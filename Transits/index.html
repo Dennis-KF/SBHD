@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta http-equiv="Cache-Control" content="202611020910" />
-  <meta name="ta-build" content="202611020910" />
+  <meta http-equiv="Cache-Control" content="202611021200" />
+  <meta name="ta-build" content="202611021200" />
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -182,6 +182,19 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .quick-load button.quick-sample.active{background:linear-gradient(135deg,#c9a227,#a67c00);color:#111;border:none;font-weight:700;box-shadow:0 0 0 2px rgba(201,162,39,.35)}
 .quick-load button.quick-sample.empty,
 .quick-load button.quick-sample:disabled{opacity:.45;cursor:not-allowed;font-weight:500;color:var(--muted);background:#182232}
+
+.ql-slot{position:relative;min-width:0;width:100%}
+.ql-slot .quick-sample{width:100%}
+.ql-remove{
+  position:absolute;top:-8px;right:-8px;z-index:3;
+  width:30px;height:30px;min-width:30px;min-height:30px;margin:0;padding:0;
+  border-radius:50%;border:1px solid var(--border);background:#3a1f24;color:#ffb4b4;
+  font-size:1.05rem;line-height:1;font-weight:700;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  touch-action:manipulation;-webkit-tap-highlight-color:transparent;
+  box-shadow:0 1px 4px rgba(0,0,0,.35)
+}
+.ql-remove:hover,.ql-remove:focus{background:#5a2a32;color:#fff;outline:2px solid var(--accent2);outline-offset:1px}
 
 </style>
 </head>
@@ -369,9 +382,9 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 </main>
 
 <!-- Data is separate from the UI. Script order matters. Works via file:// on Windows and via https on iPhone/iPad Firefox. -->
-<script src="astronomy.browser.min.js?v=202611020910"></script>
-<script src="data.js?v=202611020910"></script>
-<script src="analyzer.js?v=202611020910"></script>
-<script src="app.js?v=202611020910"></script>
+<script src="astronomy.browser.min.js?v=202611021200"></script>
+<script src="data.js?v=202611021200"></script>
+<script src="analyzer.js?v=202611021200"></script>
+<script src="app.js?v=202611021200"></script>
 </body>
 </html>

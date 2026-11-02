@@ -442,19 +442,166 @@ function parseInput(text){
   if(text.startsWith('{')) return JSON.parse(text);
   return text;
 }
+
+/** Built-in quick-load keys (slots 1–6). Never removable. */
+const BUILTIN_QUICK_KEYS=['dennis','eike','judy','carolyn','milena','teresa'];
+const USER_QUICK_STORAGE_KEY='ta_user_quick_slots_v1';
+const USER_QUICK_SLOT_COUNT=6; // positions 7–12
+
+function safeLocalStorageGet(key){
+  try{ return localStorage.getItem(key); }catch(e){ return null; }
+}
+function safeLocalStorageSet(key, val){
+  try{ localStorage.setItem(key, val); return true; }catch(e){ return false; }
+}
+function safeLocalStorageRemove(key){
+  try{ localStorage.removeItem(key); return true; }catch(e){ return false; }
+}
+function emptyUserSlotArray(){
+  const a=[]; for(let i=0;i<USER_QUICK_SLOT_COUNT;i++) a.push(null); return a;
+}
+/** @returns {Array<null|{key:string,label:string,chart:object}>} length 6 */
+function loadUserQuickSlots(){
+  const raw=safeLocalStorageGet(USER_QUICK_STORAGE_KEY);
+  if(!raw) return emptyUserSlotArray();
+  try{
+    const parsed=JSON.parse(raw);
+    const arr=Array.isArray(parsed)?parsed:(parsed && Array.isArray(parsed.slots)?parsed.slots:null);
+    if(!arr) return emptyUserSlotArray();
+    const out=emptyUserSlotArray();
+    for(let i=0;i<USER_QUICK_SLOT_COUNT;i++){
+      const s=arr[i];
+      if(!s || typeof s!=='object' || !s.chart) { out[i]=null; continue; }
+      const label=String(s.label||s.name||'Saved').trim()||'Saved';
+      const key=String(s.key||('user_'+i+'_'+label)).trim();
+      out[i]={ key:key, label:label, chart:s.chart };
+    }
+    return out;
+  }catch(e){ return emptyUserSlotArray(); }
+}
+function saveUserQuickSlots(slots){
+  const clean=[];
+  for(let i=0;i<USER_QUICK_SLOT_COUNT;i++){
+    const s=slots[i];
+    if(!s || !s.chart){ clean.push(null); continue; }
+    clean.push({ key:s.key, label:s.label, chart:s.chart });
+  }
+  const ok=safeLocalStorageSet(USER_QUICK_STORAGE_KEY, JSON.stringify(clean));
+  if(!ok) status('Could not save quick-load slot (browser storage blocked or full). Chart is still in the input.','err');
+  return ok;
+}
+function findUserQuickSlotByKey(key){
+  if(!key) return null;
+  const slots=loadUserQuickSlots();
+  for(let i=0;i<slots.length;i++){
+    if(slots[i] && slots[i].key===key) return { index:i, slot:slots[i] };
+  }
+  return null;
+}
+function firstNameFromChartOrFile(chart, fallbackName){
+  let nm=(chart && chart.name) ? String(chart.name).trim() : '';
+  if(!nm && fallbackName) nm=String(fallbackName).trim();
+  if(!nm) return 'Saved';
+  return nm.split(/\s+/)[0] || 'Saved';
+}
+function slugUserQuickKey(label){
+  const base=String(label||'saved').toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'');
+  return 'user_'+(base||('s'+Date.now()));
+}
+function builtinKeyForLabel(label){
+  const want=String(label||'').trim().toLowerCase();
+  if(!want) return null;
+  const root=sampleDataRoot();
+  for(const key of BUILTIN_QUICK_KEYS){
+    const lab=sampleButtonLabel(key);
+    if(String(lab).trim().toLowerCase()===want) return key;
+    if(key===want) return key;
+  }
+  return null;
+}
+/**
+ * Persist a successfully parsed upload into the first empty user slot (7–12).
+ * Same first-name among user slots → confirm replace. Built-in name → no custom slot.
+ * Full → message, no overwrite.
+ */
+function rememberUploadedChart(chart, fallbackName){
+  if(!chart || typeof chart!=='object') return { ok:false, reason:'nochart' };
+  const label=firstNameFromChartOrFile(chart, fallbackName);
+  const builtin=builtinKeyForLabel(label);
+  if(builtin){
+    return { ok:true, builtin:true, key:builtin, label:sampleButtonLabel(builtin) };
+  }
+  const slots=loadUserQuickSlots();
+  const chartClone=JSON.parse(JSON.stringify(chart));
+  if(!chartClone.name) chartClone.name=label;
+
+  const dupIdx=slots.findIndex(s=>s && String(s.label).trim().toLowerCase()===label.toLowerCase());
+  if(dupIdx>=0){
+    let replace=true;
+    try{ replace=confirm('A saved quick-load slot named "'+label+'" already exists. Replace it with this chart?'); }catch(e){ replace=true; }
+    if(!replace) return { ok:false, cancelled:true, key:slots[dupIdx].key, label:slots[dupIdx].label };
+    const key=slots[dupIdx].key || slugUserQuickKey(label);
+    slots[dupIdx]={ key:key, label:label, chart:chartClone };
+    saveUserQuickSlots(slots);
+    renderQuickLoadGrids();
+    return { ok:true, key:key, label:label, replaced:true };
+  }
+  const emptyIdx=slots.findIndex(s=>!s);
+  if(emptyIdx<0){
+    status('All 6 custom quick-load slots (positions 7–12) are full. Remove one with × before saving another. The chart is still loaded in the input.','err');
+    return { ok:false, full:true };
+  }
+  let key=slugUserQuickKey(label);
+  // ensure unique among current user keys
+  const used=new Set(slots.filter(Boolean).map(s=>s.key));
+  if(used.has(key)) key=key+'_'+Date.now().toString(36);
+  slots[emptyIdx]={ key:key, label:label, chart:chartClone };
+  saveUserQuickSlots(slots);
+  renderQuickLoadGrids();
+  return { ok:true, key:key, label:label, slotIndex:emptyIdx };
+}
+function removeUserQuickSlot(key){
+  const found=findUserQuickSlotByKey(key);
+  if(!found) return false;
+  if(BUILTIN_QUICK_KEYS.indexOf(key)>=0) return false;
+  const label=found.slot.label||'this chart';
+  let ok=true;
+  try{ ok=confirm('Remove saved chart “'+label+'” from quick load?'); }catch(e){ ok=true; }
+  if(!ok) return false;
+  const slots=loadUserQuickSlots();
+  slots[found.index]=null;
+  saveUserQuickSlots(slots);
+  renderQuickLoadGrids();
+  // clear highlight if this key was active on either grid
+  for(const n of [1,2]){
+    const root=$('quickLoad'+n);
+    if(!root) continue;
+    const active=root.querySelector('button.quick-sample.active');
+    if(active && active.getAttribute('data-sample')===key) clearQuickLoadHighlight(n);
+  }
+  status('Removed “'+label+'” from quick load.','ok');
+  return true;
+}
+
 function sampleDataRoot(){
   return (window.HD_DATA && window.HD_DATA) || (window.DATA && window.DATA) || {};
 }
 function sampleOrderList(){
   const root=sampleDataRoot();
+  let builtins;
   const order=root.sampleOrder;
   if(Array.isArray(order) && order.length){
-    const out=order.slice(0,12);
-    while(out.length<12) out.push(null);
-    return out;
+    builtins=order.slice(0,6);
+    while(builtins.length<6) builtins.push(BUILTIN_QUICK_KEYS[builtins.length]||null);
+  } else {
+    builtins=BUILTIN_QUICK_KEYS.slice();
   }
-  // Fallback if older data.js
-  return ['dennis','eike','judy','carolyn','milena','teresa',null,null,null,null,null,null];
+  // Force built-ins for slots 1–6 even if data.js has extras in later positions
+  for(let i=0;i<6;i++){
+    if(!builtins[i]) builtins[i]=BUILTIN_QUICK_KEYS[i];
+  }
+  const users=loadUserQuickSlots().map(s=>s?s.key:null);
+  return builtins.concat(users);
 }
 function sampleButtonLabel(key){
   if(!key) return 'Empty';
@@ -463,6 +610,12 @@ function sampleButtonLabel(key){
   if(root.samples && root.samples[key] && root.samples[key].name){
     const nm=String(root.samples[key].name).trim().split(/\s+/)[0];
     if(nm) return nm;
+  }
+  const user=findUserQuickSlotByKey(key);
+  if(user && user.slot && user.slot.label) return user.slot.label;
+  if(key.indexOf('user_')===0){
+    const rest=key.slice(5).replace(/_/g,' ');
+    if(rest) return rest.charAt(0).toUpperCase()+rest.slice(1);
   }
   return key.charAt(0).toUpperCase()+key.slice(1);
 }
@@ -474,6 +627,11 @@ function renderQuickLoadGrids(){
     grid.innerHTML='';
     for(let i=0;i<12;i++){
       const key=order[i];
+      const isUserSlot=i>=6;
+      const wrap=document.createElement('div');
+      wrap.className='ql-slot'+(key?'':' empty-slot');
+      wrap.setAttribute('data-index', String(i+1));
+
       const btn=document.createElement('button');
       btn.type='button';
       btn.className='secondary quick-sample'+(key?'':' empty');
@@ -482,17 +640,41 @@ function renderQuickLoadGrids(){
       btn.setAttribute('aria-pressed','false');
       if(key){
         btn.setAttribute('data-sample', key);
-        btn.id='ql'+n+'-'+key;
+        btn.id='ql'+n+'-'+key.replace(/[^a-zA-Z0-9_-]/g,'_');
         btn.textContent=sampleButtonLabel(key);
-        btn.addEventListener('click', ()=>loadSampleInto(n, key));
+        btn.addEventListener('click', (ev)=>{
+          // Ignore if a remove control was the real target
+          if(ev && ev.target && ev.target.closest && ev.target.closest('.ql-remove')) return;
+          loadSampleInto(n, key);
+        });
       } else {
         btn.setAttribute('data-sample','');
         btn.id='ql'+n+'-empty'+(i+1);
         btn.textContent='Empty';
         btn.disabled=true;
-        btn.title='Placeholder — add a sample key in data.js sampleOrder / samples';
+        btn.title=isUserSlot
+          ? 'Empty custom slot — upload a .docx / .json / .txt chart to save here'
+          : 'Placeholder';
       }
-      grid.appendChild(btn);
+      wrap.appendChild(btn);
+
+      // × only on filled user slots (7–12). Built-ins never get ×.
+      if(key && isUserSlot && BUILTIN_QUICK_KEYS.indexOf(key)<0){
+        const rm=document.createElement('button');
+        rm.type='button';
+        rm.className='ql-remove';
+        rm.setAttribute('aria-label', 'Remove '+sampleButtonLabel(key)+' from quick load');
+        rm.title='Remove saved chart';
+        rm.textContent='×';
+        rm.addEventListener('click', (ev)=>{
+          try{ ev.preventDefault(); ev.stopPropagation(); }catch(e){}
+          removeUserQuickSlot(key);
+        });
+        // Prevent touch from also activating the load button underneath
+        rm.addEventListener('pointerdown', (ev)=>{ try{ ev.stopPropagation(); }catch(e){} });
+        wrap.appendChild(rm);
+      }
+      grid.appendChild(wrap);
     }
   }
 }
@@ -507,10 +689,20 @@ function setQuickLoadHighlight(n, sampleKey){
 }
 function clearQuickLoadHighlight(n){ setQuickLoadHighlight(n, null); }
 function loadSampleInto(n, sampleKey){
-  const src=(window.DATA&&DATA.samples&&DATA.samples[sampleKey]) || (window.HD_DATA&&HD_DATA.samples&&HD_DATA.samples[sampleKey]);
-  if(!src){ status('Sample "'+sampleKey+'" not found','err'); return; }
-  const clone=JSON.parse(JSON.stringify(src));
-  setPersonText(n, clone, sampleKey);
+  if(!sampleKey) return;
+  const rootSrc=(window.DATA&&DATA.samples&&DATA.samples[sampleKey]) || (window.HD_DATA&&HD_DATA.samples&&HD_DATA.samples[sampleKey]);
+  if(rootSrc){
+    const clone=JSON.parse(JSON.stringify(rootSrc));
+    setPersonText(n, clone, sampleKey);
+    return;
+  }
+  const user=findUserQuickSlotByKey(sampleKey);
+  if(user && user.slot && user.slot.chart){
+    const clone=JSON.parse(JSON.stringify(user.slot.chart));
+    setPersonText(n, clone, sampleKey);
+    return;
+  }
+  status('Sample "'+sampleKey+'" not found','err');
 }
 function setPersonText(n,obj,sampleKey){
   const ta=$(n===1?'person1':'person2');
@@ -658,19 +850,30 @@ async function handleFile(n,file){
   if(name.endsWith('.json')||name.endsWith('.txt')){
     box.style.display='none';
     const text=await readFileAsText(file);
-    ta.value=JSON.stringify(chartObjectFromLoadedText(text, fallbackName),null,2);
+    const chart=chartObjectFromLoadedText(text, fallbackName);
+    ta.value=JSON.stringify(chart,null,2);
     updateChartStatus(n);
-    clearQuickLoadHighlight(n);
-    status('Loaded '+file.name,'ok'); return;
+    const mem=rememberUploadedChart(chart, fallbackName);
+    if(mem && mem.ok && mem.key) setQuickLoadHighlight(n, mem.key);
+    else clearQuickLoadHighlight(n);
+    if(mem && mem.full){ /* status already set */ }
+    else if(mem && mem.ok && !mem.builtin) status('Loaded '+file.name+' · saved “'+mem.label+'” to quick-load slot '+(mem.replaced?'(updated)':(mem.slotIndex+7))+' (both inputs).','ok');
+    else status('Loaded '+file.name,'ok');
+    return;
   }
   if(name.endsWith('.docx') || (file.type||'')==='application/vnd.openxmlformats-officedocument.wordprocessingml.document'){
     box.style.display='none';
     try{
       const text=await extractDocxText(file);
-      ta.value=JSON.stringify(chartObjectFromLoadedText(text, fallbackName),null,2);
+      const chart=chartObjectFromLoadedText(text, fallbackName);
+      ta.value=JSON.stringify(chart,null,2);
       updateChartStatus(n);
-      clearQuickLoadHighlight(n);
-      status('Loaded '+file.name,'ok');
+      const mem=rememberUploadedChart(chart, fallbackName);
+      if(mem && mem.ok && mem.key) setQuickLoadHighlight(n, mem.key);
+      else clearQuickLoadHighlight(n);
+      if(mem && mem.full){ /* status already set */ }
+      else if(mem && mem.ok && !mem.builtin) status('Loaded '+file.name+' · saved “'+mem.label+'” to quick-load slot '+(mem.replaced?'(updated)':(mem.slotIndex+7))+' (both inputs).','ok');
+      else status('Loaded '+file.name,'ok');
     }catch(e){
       if(e && e.message==='LEGACY_DOC'){
         status('Legacy .doc files are not supported. Please re-save as .docx in Word (File → Save As → Word Document *.docx), then upload again.','err');
