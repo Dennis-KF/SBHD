@@ -364,19 +364,14 @@ function buildCircuitTypeBlocks(data, members, types, circuits, themeWords) {
       key === "Understanding" || key === "Sensing" ? ("Collective Sharing — " + key) :
       ("Tribal Support — " + (key === "Defence" ? "Defense" : key))
     );
-    blocks.push({ kind: "h1", text: title });
-    blocks.push({ kind: "p", text: briefOnly ? firstSentences(intro, 1, 36) : intro });
     const matchChannels = CHANNEL_DATA.channels.filter((ch) => kind === "type" ? ch.type === key : ch.circuit === key);
     const matchIds = new Set(matchChannels.map((c) => c.id));
     const gateSet = new Set();
     for (const ch of matchChannels) { gateSet.add(ch.gates[0]); gateSet.add(ch.gates[1]); }
 
+    // Only members with at least one completed channel in this type/circuit
+    const memberRows = [];
     for (const m of members) {
-      blocks.push({ kind: "h2", text: m });
-      const meta = data.meta[m];
-      if (meta && (meta.type || meta.profile || meta.cross)) {
-        blocks.push({ kind: "p", text: [meta.type, meta.profile, meta.cross].filter(Boolean).join(" • ") });
-      }
       const act = memberActivations(data, m);
       const owned = [];
       for (const id of Object.keys(act.channels)) {
@@ -385,29 +380,41 @@ function buildCircuitTypeBlocks(data, members, types, circuits, themeWords) {
         owned.push({ id, info: act.channels[id], meta: metaCh });
       }
       owned.sort((a, b) => a.info.gates[0] - b.info.gates[0] || a.info.gates[1] - b.info.gates[1]);
-      if (!owned.length) {
-        blocks.push({ kind: "p", text: "No completed " + key + " channels in this chart data." });
-      } else {
-        for (const o of owned) {
-          const [a, b] = o.info.gates;
-          const nm = (o.meta && o.meta.name) || o.info.name || o.id;
-          blocks.push({ kind: "h3", text: "Channel " + a + "-" + b + " — " + nm });
-          blocks.push({ kind: "p", text: formatGateLines(act.gates, a) + "; " + formatGateLines(act.gates, b) + " — " + (o.info.kind || "defined") + "." });
-          if (briefOnly) {
-            const d = ((o.meta && (o.meta.design || o.meta.blurb)) || "").trim();
-            const one = d ? firstSentences(d, 1, 22) : "";
-            if (one) blocks.push({ kind: "p", text: one });
-          } else {
-            blocks.push({ kind: "p", text: channelMeaning(o.meta || { name: nm, design: "" }, o.info.kind) });
-          }
+      if (!owned.length) continue; // omit members with no completed match (no placeholder)
+      memberRows.push({ m, act, owned });
+    }
+    if (!memberRows.length) return; // omit whole section when no selected member matches
+
+    blocks.push({ kind: "h1", text: title });
+    blocks.push({ kind: "p", text: briefOnly ? firstSentences(intro, 1, 36) : intro });
+
+    for (const row of memberRows) {
+      const m = row.m;
+      const act = row.act;
+      const owned = row.owned;
+      blocks.push({ kind: "h2", text: m });
+      const meta = data.meta[m];
+      if (meta && (meta.type || meta.profile || meta.cross)) {
+        blocks.push({ kind: "p", text: [meta.type, meta.profile, meta.cross].filter(Boolean).join(" • ") });
+      }
+      for (const o of owned) {
+        const [a, b] = o.info.gates;
+        const nm = (o.meta && o.meta.name) || o.info.name || o.id;
+        blocks.push({ kind: "h3", text: "Channel " + a + "-" + b + " — " + nm });
+        blocks.push({ kind: "p", text: formatGateLines(act.gates, a) + "; " + formatGateLines(act.gates, b) + " — " + (o.info.kind || "defined") + "." });
+        if (briefOnly) {
+          const d = ((o.meta && (o.meta.design || o.meta.blurb)) || "").trim();
+          const one = d ? firstSentences(d, 1, 22) : "";
+          if (one) blocks.push({ kind: "p", text: one });
+        } else {
+          blocks.push({ kind: "p", text: channelMeaning(o.meta || { name: nm, design: "" }, o.info.kind) });
         }
       }
-      // Hanging gates in this circuit/type
+      // Hanging gates in this circuit/type (only for members who already matched)
       const hanging = [];
       for (const gStr of Object.keys(act.gates)) {
         const g = +gStr;
         if (!gateSet.has(g)) continue;
-        // hanging if no completed matchChannel includes this gate for this member
         const completes = owned.some((o) => o.info.gates[0] === g || o.info.gates[1] === g);
         if (!completes) hanging.push(g);
       }
@@ -578,8 +585,11 @@ function buildReportBlocks(data, centers, members, types, circuits, themeWords, 
     }
   }
   if (hasExtra && hasMembers) {
-    if (hasCenters) blocks.push({ kind: "p", text: "Channel type and circuit sections below are independent of the center selection above." });
-    blocks.push(...buildCircuitTypeBlocks(data, members, types || [], circuits || [], themeWords));
+    const extraBlocks = buildCircuitTypeBlocks(data, members, types || [], circuits || [], themeWords);
+    if (extraBlocks.length) {
+      if (hasCenters) blocks.push({ kind: "p", text: "Channel type and circuit sections below are independent of the center selection above." });
+      blocks.push(...extraBlocks);
+    }
   }
   return blocks;
 }
@@ -897,6 +907,14 @@ function updateStatus() {
   const fitted = fitReportBlocks(PROGRAM_DATA, sc, sm, st, sci);
   const pages = Math.max(1, Math.ceil(fitted.words / 500));
   const tag = briefOnly ? " [brief]" : " [full]";
+  if (!fitted.blocks.length) {
+    if (sm.length && (st.length || sci.length) && !sc.length) {
+      el.textContent = "No matching completed channels for the selected members × type/circuit — nothing to report.";
+    } else {
+      el.textContent = "Nothing to report for this selection.";
+    }
+    return;
+  }
   if (refMode) {
     el.textContent = "Ready: gate reference for " + sc.join(", ") + tag + " — about " + fitted.words + " words (~" + pages + " page" + (pages === 1 ? "" : "s") + ").";
   } else if (circuitRefMode) {
