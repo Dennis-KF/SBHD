@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta http-equiv="Cache-Control" content="202611011430" />
-  <meta name="ta-build" content="202611011430" />
+  <meta http-equiv="Cache-Control" content="202611020910" />
+  <meta name="ta-build" content="202611020910" />
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -246,16 +246,16 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 
     <h2 style="margin-top:1rem">When</h2>
     <div class="mode-toggle" id="whenModeToggle" role="group" aria-label="When">
-      <button type="button" class="secondary active" id="modeSingle" aria-pressed="true">Single day</button>
-      <button type="button" class="secondary" id="modeRange" aria-pressed="false">Date range</button>
+      <button type="button" class="secondary" id="modeSingle" aria-pressed="false">Single day</button>
+      <button type="button" class="secondary active" id="modeRange" aria-pressed="true">Date range</button>
     </div>
 
-        <div id="rangeReportOpts" class="no-print" style="display:none">
+        <div id="rangeReportOpts" class="no-print" style="display:block">
     <label class="check" id="rangeFullDescOpt" style="margin:.35rem 0 .15rem">
-      <input type="checkbox" id="includeRangeFullDesc" />
+      <input type="checkbox" id="includeRangeFullDesc" checked />
       Full descriptions
     </label>
-    <p class="hint" id="rangeFullDescHint" style="margin:.05rem 0 .45rem">Per event: gate.line, weekday date, local AM/PM time, and the full reading—channel completions, other transit interactions, chart touches, and couple comparison when two charts are loaded. Does not add positions tables. Unchecked by default. If neither Full nor Brief is checked, the report uses Full descriptions.</p>
+    <p class="hint" id="rangeFullDescHint" style="margin:.05rem 0 .45rem">Per event: gate.line, weekday date, local AM/PM time, and the full reading—channel completions, other transit interactions, chart touches, and couple comparison when two charts are loaded. Does not add positions tables. Checked by default. Mutually exclusive with Brief descriptions. If neither Full nor Brief is checked, the report uses Full descriptions.</p>
     <label class="check" id="rangeBriefDescOpt" style="margin:.15rem 0 .15rem">
       <input type="checkbox" id="includeRangeBriefDesc" />
       Brief descriptions
@@ -322,10 +322,10 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
       Include gates and lines in description
     </label>
     <label class="check" style="display:flex;align-items:center;gap:.5rem;margin:.35rem 0 .2rem">
-      <input type="checkbox" id="realWorldInfluence" />
+      <input type="checkbox" id="realWorldInfluence" checked />
       Real-World Influence
     </label>
-    <p class="hint" id="realWorldHint" style="margin:.15rem 0 .5rem">When checked, the same report structure focuses on practical potentials—how this sky may amplify not-self patterns at work, home, and in conversation (including how partners condition each other's open centers). Unchecked keeps the usual Human Design educational tone.</p>
+    <p class="hint" id="realWorldHint" style="margin:.15rem 0 .5rem">Checked by default. When on, the same report structure focuses on practical potentials—how this sky may amplify not-self patterns at work, home, and in conversation (including how partners condition each other's open centers). Unchecked keeps the usual Human Design educational tone.</p>
     <label class="check" style="display:flex;align-items:center;gap:.5rem;margin:.35rem 0 .2rem">
       <input type="checkbox" id="moonGateOnly" checked />
       Moon: gate changes only
@@ -348,10 +348,10 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
     <p class="hint" id="omitLightsHint" style="margin:.15rem 0 .5rem">When checked, Sun, Earth, and Moon are excluded entirely from timeline events and from snapshot narrative/interactions. The Moon and Sun/Earth gate-only filters are overridden while this is on. Snapshot raw ephemeris details hide those bodies. Independent of other report settings.</p>
     <div style="margin:.75rem 0 .35rem"><strong>Report mode</strong></div>
     <div class="mode-toggle" id="reportModeToggle" role="group" aria-label="Report mode">
-      <button type="button" class="secondary active" id="reportSnapshot" aria-pressed="true">Snapshot at chosen time</button>
-      <button type="button" class="secondary" id="reportTimeline" aria-pressed="false">Timeline of chart-relevant changes</button>
+      <button type="button" class="secondary" id="reportSnapshot" aria-pressed="false">Snapshot at chosen time</button>
+      <button type="button" class="secondary active" id="reportTimeline" aria-pressed="true">Timeline of chart-relevant changes</button>
     </div>
-    <p class="hint" id="timelineHint" style="display:none;margin:.35rem 0 .5rem">Timeline scans the selected day or range in the chosen timezone (from local midnight to midnight) for gate/line ingresses that touch the entered chart(s).</p>
+    <p class="hint" id="timelineHint" style="display:block;margin:.35rem 0 .5rem">Timeline scans the selected day or range in the chosen timezone (from local midnight to midnight) for gate/line ingresses that touch the entered chart(s). Selected by default.</p>
     <button type="button" id="runBtn">Run transit analysis</button>
     <button type="button" class="secondary" id="loadCouple">Dennis + Eike · Oct 26, 2026 · 3:00 PM ET</button>
     <div class="status" id="status"></div>
@@ -369,9 +369,9 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 </main>
 
 <!-- Data is separate from the UI. Script order matters. Works via file:// on Windows and via https on iPhone/iPad Firefox. -->
-<script src="astronomy.browser.min.js?v=202611011430"></script>
-<script src="data.js?v=202611011430"></script>
-<script src="analyzer.js?v=202611011430"></script>
-<script src="app.js?v=202611011430"></script>
+<script src="astronomy.browser.min.js?v=202611020910"></script>
+<script src="data.js?v=202611020910"></script>
+<script src="analyzer.js?v=202611020910"></script>
+<script src="app.js?v=202611020910"></script>
 </body>
 </html>

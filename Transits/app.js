@@ -1,4 +1,4 @@
-let mode='single'; let reportMode='snapshot';
+let mode='range'; let reportMode='timeline';
 let nowReadingActive=false;
 function pad2boot(n){ n=String(n|0); return n.length<2 ? ('0'+n) : n; }
 /** Local calendar date/time — never toISOString() (that is UTC). */
@@ -12,7 +12,7 @@ function initialLocalToday(){
 }
 let __BOOT_TODAY__=initialLocalToday();
 let startDate=__BOOT_TODAY__.iso;
-let endDate=null; // single-day default; range mode sets both inputs to today
+let endDate=null; // range default: applyBootTodayToInputs sets endDate=today; single clears it
 let calViewYear=__BOOT_TODAY__.y, calViewMonth=__BOOT_TODAY__.m; // left pane month (1-12)
 let rangeNeedsNewStart=true; // first click in range mode always sets start
 let lastHtml='';
