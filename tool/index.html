@@ -62,7 +62,7 @@
 <main>
   <div class="card">
     <h2>How to use</h2>
-    <p class="hint">Turn on centers and/or channel type &amp; circuit toggles, plus members. With members selected, center sections cover only activated gates in those charts. With centers selected and no members (and no type/circuit toggles), Report builds a general center reference: every gate of each selected center, channels, Throat voices, and condensed lines. Channel type and circuit sections stand on their own: with members they list each selected member’s completed channels; with no members they generate a general reference of every channel in each selected type/circuit. The .docx keeps the approved condensed style (title header, centered Page X of Y footer, H1/H2/H3).</p>
+    <p class="hint">Turn on centers and/or channel type &amp; circuit toggles, plus members. With members selected, center sections cover only activated gates in those charts. With centers selected and no members (and no type/circuit toggles), Report builds a general center reference: every gate of each selected center, channels, Throat voices, and condensed lines. Channel type and circuit sections stand on their own, filtered by any selected centers and members: completed member channels that touch selected centers, or a full/filtered general reference when no members are selected. The .docx keeps the approved condensed style (title header, centered Page X of Y footer, H1/H2/H3).</p>
   </div>
   <div class="card">
     <h2>Centers</h2>
@@ -74,7 +74,7 @@
     <div class="row" id="centerBox"></div>
 
     <h2>Channel Types &amp; Circuits</h2>
-    <p class="note">Type and circuit sections are independent of center selection. With members selected they report completed channels for those members; with no members they produce a general reference of every channel in each selected type/circuit. Selecting a center does not filter which channels appear under a type/circuit.</p>
+    <p class="note">Type and circuit sections use center and member selections as filters. With no centers and no members they list every channel in each selected type/circuit. When centers are selected, only channels that touch those centers appear. When members are selected, only completed channels for matching members appear (and must also touch selected centers if any).</p>
     <h3 class="row-label">Channel Type</h3>
     <div class="row" id="typeBox"></div>
     <h3 class="row-label">Individual Empowerment Circuit</h3>
@@ -291,6 +291,23 @@ function normalizeCenterLabel(c) {
   if (/heart/i.test(c)) return "Heart";
   return String(c);
 }
+function channelTouchesCenters(ch, centers) {
+  if (!centers || !centers.length) return true;
+  const want = new Set(centers.map(normalizeCenterLabel));
+  const chCenters = (ch.centers || []).map(normalizeCenterLabel);
+  for (const c of chCenters) if (want.has(c)) return true;
+  // also accept if either gate belongs to a selected center via CENTER_REF
+  const gates = ch.gates || [];
+  for (const g of gates) {
+    const info = CENTER_REF.gates && CENTER_REF.gates[String(g)];
+    if (info && info.center && want.has(normalizeCenterLabel(info.center))) return true;
+  }
+  return false;
+}
+function filterChannelsByCenters(channels, centers) {
+  if (!centers || !centers.length) return channels.slice();
+  return channels.filter(function(ch) { return channelTouchesCenters(ch, centers); });
+}
 function channelThemeForRef(ch, themeWords) {
   let d = (ch.design || "").trim();
   const nm = ch.name || ch.id;
@@ -309,12 +326,13 @@ function circuitRoleForRef(circuitKey) {
   }
   return "Circuit role (" + label + "): " + firstSentences(tip || ("Participates in the " + label + " stream."), 2, 55);
 }
-function buildCircuitTypeReferenceBlocks(types, circuits, themeWords) {
+function buildCircuitTypeReferenceBlocks(types, circuits, themeWords, centers) {
   const blocks = [];
   const typeOrder = ["Generating", "Manifesting", "Projecting"];
   const circuitOrder = ["Knowing", "Centering", "Understanding", "Sensing", "Ego", "Defence"];
   const selectedTypes = typeOrder.filter((t) => types.indexOf(t) >= 0);
   const selectedCircuits = circuitOrder.filter((c) => circuits.indexOf(c) >= 0);
+  const centerFilter = (centers && centers.length) ? centers : null;
 
   function sectionFor(kind, key) {
     const intro = CHANNEL_DATA.intros[key] || "";
@@ -323,11 +341,16 @@ function buildCircuitTypeReferenceBlocks(types, circuits, themeWords) {
       key === "Understanding" || key === "Sensing" ? ("Collective Sharing Reference — " + key) :
       ("Tribal Support Reference — " + (key === "Defence" ? "Defense" : key))
     );
-    const matchChannels = CHANNEL_DATA.channels.filter((ch) => kind === "type" ? ch.type === key : ch.circuit === key)
-      .slice().sort((a, b) => a.gates[0] - b.gates[0] || a.gates[1] - b.gates[1]);
+    let matchChannels = CHANNEL_DATA.channels.filter((ch) => kind === "type" ? ch.type === key : ch.circuit === key);
+    matchChannels = filterChannelsByCenters(matchChannels, centerFilter)
+      .sort((a, b) => a.gates[0] - b.gates[0] || a.gates[1] - b.gates[1]);
+    if (!matchChannels.length) return; // omit empty section when center filter leaves none
     blocks.push({ kind: "h1", text: title });
     blocks.push({ kind: "p", text: briefOnly ? firstSentences(intro, 1, 36) : intro });
-    blocks.push({ kind: "p", text: "General reference for all " + matchChannels.length + " channel" + (matchChannels.length === 1 ? "" : "s") + " in this " + (kind === "type" ? "type" : "circuit") + "." });
+    const scope = centerFilter
+      ? ("touching selected center" + (centerFilter.length > 1 ? "s" : "") + " (" + centerFilter.join(", ") + ")")
+      : ("in this " + (kind === "type" ? "type" : "circuit"));
+    blocks.push({ kind: "p", text: "General reference for " + matchChannels.length + " channel" + (matchChannels.length === 1 ? "" : "s") + " " + scope + "." });
     for (const ch of matchChannels) {
       const [g1, g2] = ch.gates;
       const c1 = normalizeCenterLabel((ch.centers && ch.centers[0]) || "");
@@ -350,12 +373,13 @@ function buildCircuitTypeReferenceBlocks(types, circuits, themeWords) {
   return blocks;
 }
 
-function buildCircuitTypeBlocks(data, members, types, circuits, themeWords) {
+function buildCircuitTypeBlocks(data, members, types, circuits, themeWords, centers) {
   const blocks = [];
   const typeOrder = ["Generating", "Manifesting", "Projecting"];
   const circuitOrder = ["Knowing", "Centering", "Understanding", "Sensing", "Ego", "Defence"];
   const selectedTypes = typeOrder.filter((t) => types.indexOf(t) >= 0);
   const selectedCircuits = circuitOrder.filter((c) => circuits.indexOf(c) >= 0);
+  const centerFilter = (centers && centers.length) ? centers : null;
 
   function sectionFor(kind, key) {
     const intro = CHANNEL_DATA.intros[key] || "";
@@ -364,12 +388,14 @@ function buildCircuitTypeBlocks(data, members, types, circuits, themeWords) {
       key === "Understanding" || key === "Sensing" ? ("Collective Sharing — " + key) :
       ("Tribal Support — " + (key === "Defence" ? "Defense" : key))
     );
-    const matchChannels = CHANNEL_DATA.channels.filter((ch) => kind === "type" ? ch.type === key : ch.circuit === key);
+    let matchChannels = CHANNEL_DATA.channels.filter((ch) => kind === "type" ? ch.type === key : ch.circuit === key);
+    matchChannels = filterChannelsByCenters(matchChannels, centerFilter);
+    if (!matchChannels.length) return; // omit section when no channel touches selected centers
     const matchIds = new Set(matchChannels.map((c) => c.id));
     const gateSet = new Set();
     for (const ch of matchChannels) { gateSet.add(ch.gates[0]); gateSet.add(ch.gates[1]); }
 
-    // Only members with at least one completed channel in this type/circuit
+    // Only members with at least one completed channel in this filtered type/circuit
     const memberRows = [];
     for (const m of members) {
       const act = memberActivations(data, m);
@@ -377,6 +403,7 @@ function buildCircuitTypeBlocks(data, members, types, circuits, themeWords) {
       for (const id of Object.keys(act.channels)) {
         if (!matchIds.has(id)) continue;
         const metaCh = matchChannels.find((c) => c.id === id) || CHANNEL_DATA.channels.find((c) => c.id === id);
+        if (centerFilter && metaCh && !channelTouchesCenters(metaCh, centerFilter)) continue;
         owned.push({ id, info: act.channels[id], meta: metaCh });
       }
       owned.sort((a, b) => a.info.gates[0] - b.info.gates[0] || a.info.gates[1] - b.info.gates[1]);
@@ -533,9 +560,9 @@ function buildReportBlocks(data, centers, members, types, circuits, themeWords, 
     if (hasExtra) {
       if (hasCenters) {
         blocks.push(...buildCenterReferenceBlocks(centers, themeWords, lineWords));
-        blocks.push({ kind: "p", text: "Channel type and circuit reference sections below list every channel in each selected group (independent of the centers above)." });
+        blocks.push({ kind: "p", text: "Channel type and circuit reference sections below include only channels that touch the selected center" + (centers.length > 1 ? "s" : "") + "." });
       }
-      blocks.push(...buildCircuitTypeReferenceBlocks(types || [], circuits || [], themeWords));
+      blocks.push(...buildCircuitTypeReferenceBlocks(types || [], circuits || [], themeWords, hasCenters ? centers : null));
       return blocks;
     }
     return blocks;
@@ -585,9 +612,9 @@ function buildReportBlocks(data, centers, members, types, circuits, themeWords, 
     }
   }
   if (hasExtra && hasMembers) {
-    const extraBlocks = buildCircuitTypeBlocks(data, members, types || [], circuits || [], themeWords);
+    const extraBlocks = buildCircuitTypeBlocks(data, members, types || [], circuits || [], themeWords, hasCenters ? centers : null);
     if (extraBlocks.length) {
-      if (hasCenters) blocks.push({ kind: "p", text: "Channel type and circuit sections below are independent of the center selection above." });
+      if (hasCenters) blocks.push({ kind: "p", text: "Channel type and circuit sections below include only completed channels that touch the selected center" + (centers.length > 1 ? "s" : "") + "." });
       blocks.push(...extraBlocks);
     }
   }
