@@ -69,7 +69,7 @@
     <div class="actions">
       <button type="button" id="allCenters">All centers</button>
       <button type="button" class="quiet" id="clearCenters">Clear centers</button>
-      <label class="chk"><input type="checkbox" id="briefOnly"> Include Brief Descriptions Only (Globally)</label>
+      <label class="chk"><input type="checkbox" id="briefOnly" autocomplete="off"> Include Brief Descriptions Only (Globally)</label>
     </div>
     <div class="row" id="centerBox"></div>
 
@@ -1026,6 +1026,7 @@ document.getElementById("reportBtn").onclick = function() {
   const el = document.getElementById("briefOnly");
   if (!el) return;
   el.checked = !!briefOnly;
+  window.addEventListener("pageshow", function(){ briefOnly = false; el.checked = false; updateStatus && updateStatus(); });
   el.addEventListener("change", function() {
     briefOnly = !!el.checked;
     updateStatus();
