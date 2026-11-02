@@ -52,6 +52,21 @@
   dialog p { margin:0 0 14px; line-height:1.45; font-size:.95rem; }
   dialog .dlg-actions { display:flex; justify-content:flex-end; gap:8px; }
   dialog .dlg-actions button { min-height:44px; min-width:72px; padding:10px 18px; background:var(--accent); color:#fff; border-color:var(--accent); font-weight:600; }
+
+  .member-wrap { display:inline-flex; align-items:center; gap:2px; }
+  button.member-remove {
+    border:1px solid var(--border); background:#fee2e2; color:#9b2c2c; border-radius:50%;
+    width:28px; height:28px; min-width:28px; min-height:28px; font-size:14px; font-weight:700;
+    padding:0; cursor:pointer; line-height:1;
+    -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+  }
+  button.add-member {
+    font:inherit; border-radius:8px; border:1px dashed var(--accent); padding:10px 14px;
+    min-height:44px; cursor:pointer; background:#f0fff4; color:var(--navy); font-weight:600;
+    -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+  }
+  button.add-member:active { opacity:.85; }
+  #importStatus { margin-top:8px; color:#9b2c2c; font-size:.92rem; min-height:1.1em; }
 </style>
 </head>
 <body>
@@ -91,8 +106,11 @@
     <div class="actions">
       <button type="button" id="allMembers">All members</button>
       <button type="button" class="quiet" id="clearMembers">Clear members</button>
+      <button type="button" class="add-member" id="addMemberBtn">+ Add Member (.docx)</button>
+      <input type="file" id="memberFileInput" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" hidden />
     </div>
     <div class="row" id="memberBox"></div>
+    <div id="importStatus"></div>
     <div class="actions">
       <button type="button" class="primary" id="reportBtn">Report — download .docx</button>
     </div>
@@ -819,6 +837,9 @@ const INDIV_KEYS = ["Knowing", "Centering"];
 const COLL_KEYS = ["Understanding", "Sensing"];
 const TRIB_KEYS = ["Ego", "Defence"];
 const TRIB_LABEL = { Ego: "Ego", Defence: "Defense" };
+const IMPORT_LS_KEY = "cep_imported_members_v1";
+const BUILTIN_MEMBERS = PROGRAM_DATA.members.slice();
+let importedMemberNames = [];
 
 function showTip(key) {
   const title = TRIB_LABEL[key] || key;
@@ -878,6 +899,384 @@ function makeToggle(key, label, selMap) {
   return wrap;
 }
 
+function allMemberNames() {
+  return PROGRAM_DATA.members.slice();
+}
+
+function isImportedMember(name) {
+  return importedMemberNames.indexOf(name) >= 0;
+}
+
+function setImportStatus(msg, isError) {
+  const el = document.getElementById("importStatus");
+  if (!el) return;
+  el.textContent = msg || "";
+  el.style.color = isError ? "#9b2c2c" : "var(--muted)";
+}
+
+function saveImportedMembers() {
+  const payload = [];
+  for (const name of importedMemberNames) {
+    const views = {};
+    for (const c of PROGRAM_DATA.centers) {
+      const key = name + "::" + c;
+      if (PROGRAM_DATA.views[key]) views[key] = PROGRAM_DATA.views[key];
+    }
+    payload.push({
+      name,
+      meta: PROGRAM_DATA.meta[name] || {},
+      views
+    });
+  }
+  try {
+    localStorage.setItem(IMPORT_LS_KEY, JSON.stringify(payload));
+  } catch (err) {
+    console.warn("Could not persist imported members", err);
+  }
+}
+
+function clearImportedFromData(name) {
+  importedMemberNames = importedMemberNames.filter((n) => n !== name);
+  PROGRAM_DATA.members = PROGRAM_DATA.members.filter((n) => n !== name);
+  delete PROGRAM_DATA.meta[name];
+  for (const c of PROGRAM_DATA.centers) delete PROGRAM_DATA.views[name + "::" + c];
+  delete memberSel[name];
+}
+
+function applyImportedRecord(rec, selectIt) {
+  const name = rec.name;
+  if (!name) return;
+  if (BUILTIN_MEMBERS.indexOf(name) >= 0) {
+    throw new Error('"' + name + '" is a built-in member. Rename the chart or file and try again.');
+  }
+  // Replace existing import with same name
+  if (PROGRAM_DATA.members.indexOf(name) >= 0) clearImportedFromData(name);
+  PROGRAM_DATA.members.push(name);
+  importedMemberNames.push(name);
+  PROGRAM_DATA.meta[name] = rec.meta || {};
+  for (const [k, v] of Object.entries(rec.views || {})) {
+    PROGRAM_DATA.views[k] = v;
+  }
+  if (selectIt) memberSel[name] = true;
+}
+
+function loadImportedMembers() {
+  importedMemberNames = [];
+  let raw;
+  try { raw = localStorage.getItem(IMPORT_LS_KEY); } catch (e) { raw = null; }
+  if (!raw) return;
+  let list;
+  try { list = JSON.parse(raw); } catch (e) { return; }
+  if (!Array.isArray(list)) return;
+  for (const rec of list) {
+    try { applyImportedRecord(rec, false); } catch (e) { console.warn(e); }
+  }
+}
+
+function removeImportedMember(name) {
+  if (!isImportedMember(name)) return;
+  clearImportedFromData(name);
+  saveImportedMembers();
+  renderToggles();
+  updateStatus();
+  setImportStatus('Removed imported member "' + name + '".', false);
+}
+
+/* ---- .docx ZIP reader (store + deflate-raw) ---- */
+function docxU16(view, off) { return view.getUint16(off, true); }
+function docxU32(view, off) { return view.getUint32(off, true); }
+
+async function inflateRaw(bytes) {
+  if (typeof DecompressionStream === "undefined") {
+    throw new Error("This browser cannot decompress .docx (DecompressionStream missing). Try a newer Safari/Chrome.");
+  }
+  const ds = new DecompressionStream("deflate-raw");
+  const stream = new Blob([bytes]).stream().pipeThrough(ds);
+  const ab = await new Response(stream).arrayBuffer();
+  return new Uint8Array(ab);
+}
+
+async function unzipEntries(arrayBuffer) {
+  const bytes = new Uint8Array(arrayBuffer);
+  const view = new DataView(arrayBuffer);
+  const files = {};
+  let offset = 0;
+  while (offset + 30 <= bytes.length) {
+    const sig = docxU32(view, offset);
+    if (sig !== 0x04034b50) break;
+    const method = docxU16(view, offset + 8);
+    const compSize = docxU32(view, offset + 18);
+    const uncompSize = docxU32(view, offset + 22);
+    const nameLen = docxU16(view, offset + 26);
+    const extraLen = docxU16(view, offset + 28);
+    const nameBytes = bytes.subarray(offset + 30, offset + 30 + nameLen);
+    const name = new TextDecoder("utf-8").decode(nameBytes);
+    const dataStart = offset + 30 + nameLen + extraLen;
+    const dataEnd = dataStart + compSize;
+    if (dataEnd > bytes.length) throw new Error("Corrupt .docx (truncated ZIP entry).");
+    const data = bytes.subarray(dataStart, dataEnd);
+    let out;
+    if (method === 0) out = data.slice();
+    else if (method === 8) out = await inflateRaw(data);
+    else throw new Error("Unsupported ZIP compression method " + method + " in .docx.");
+    files[name] = out;
+    offset = dataEnd;
+  }
+  return files;
+}
+
+async function extractDocxPlainText(arrayBuffer) {
+  const files = await unzipEntries(arrayBuffer);
+  const xmlBytes = files["word/document.xml"];
+  if (!xmlBytes) throw new Error("Not a valid .docx (missing word/document.xml).");
+  const xml = new TextDecoder("utf-8").decode(xmlBytes);
+  // Convert Word XML to roughly plain text: paragraph breaks, then strip tags
+  let text = xml
+    .replace(/<\/w:p>/g, "\n")
+    .replace(/<w:tab\/>/g, "\t")
+    .replace(/<w:br\/>/g, "\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, n) => String.fromCharCode(parseInt(n, 16)));
+  return text;
+}
+
+const PLANET_NAMES = [
+  "North Node", "South Node", "True Node", "Mean Node",
+  "Sun", "Earth", "Moon", "Mercury", "Venus", "Mars",
+  "Jupiter", "Saturn", "Uranus", "Neptune", "Pluto",
+  "NN", "SN", "Node"
+];
+const PLANET_ALIAS = {
+  NN: "North Node", SN: "South Node", "True Node": "North Node", "Mean Node": "North Node", Node: "North Node"
+};
+
+function normalizePlanet(p) {
+  if (!p) return null;
+  const t = p.replace(/\s+/g, " ").trim();
+  if (PLANET_ALIAS[t]) return PLANET_ALIAS[t];
+  return t;
+}
+
+function parseGateLineToken(token) {
+  // HD often writes gate.line or gate.linecolor (e.g. 32.4 or 32.54 → gate 32 line 5).
+  const m = String(token).trim().match(/^(\d{1,2})(?:\.(\d)(\d*)?)?$/);
+  if (!m) return null;
+  const gate = Number(m[1]);
+  if (gate < 1 || gate > 64) return null;
+  const lineNum = m[2] != null ? Number(m[2]) : 1;
+  if (lineNum < 1 || lineNum > 6) return null;
+  const lineKey = gate + "." + lineNum;
+  return { gate, line: lineKey, lineRaw: String(token).trim() };
+}
+
+function parseChartText(text, filename) {
+  const lines = String(text || "").replace(/\r/g, "").split("\n").map((l) => l.replace(/\u00a0/g, " ").trim()).filter((l) => l.length);
+  let name = null;
+  let type = null;
+  let profile = null;
+  let cross = null;
+  let mode = null; // P or D
+  let pendingPlanet = null; // set by "Personality Sun" / "Design Earth" heading lines
+  const personality = [];
+  const design = [];
+
+  const planetAlt = PLANET_NAMES.slice().sort((a, b) => b.length - a.length).map((p) => p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|");
+  const actRe = new RegExp("^(?:(" + planetAlt + ")\\s+)?(\\d{1,2}\\.\\d{1,2}|\\d{1,2})(?:\\s+(Exalted|Detriment|Juxtaposed))?\\s*$", "i");
+  const sidePlanetRe = new RegExp("^(Personality|Design|Conscious|Unconscious)\\s+(" + planetAlt + ")\\s*$", "i");
+  const sidePlanetActRe = new RegExp("^(Personality|Design|Conscious|Unconscious)\\s+(" + planetAlt + ")\\s+(\\d{1,2}\\.\\d{1,2}|\\d{1,2})(?:\\s+(Exalted|Detriment|Juxtaposed))?\\s*$", "i");
+
+  function pushAct(side, planet, token) {
+    const gl = parseGateLineToken(token);
+    if (!gl) return false;
+    const item = { gate: gl.gate, line: gl.line, planets: planet ? [planet] : [] };
+    if (side === "P") personality.push(item);
+    else design.push(item);
+    return true;
+  }
+
+  function sideFromWord(w) {
+    w = String(w || "").toLowerCase();
+    if (w === "personality" || w === "conscious") return "P";
+    if (w === "design" || w === "unconscious") return "D";
+    return null;
+  }
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+
+    if (/^(personality|design)\s+channels\b/i.test(line)) { pendingPlanet = null; mode = null; continue; }
+    if (/^(personality|design)\s+hanging\b/i.test(line)) { pendingPlanet = null; mode = null; continue; }
+    if (/^electromagnetic\s+channels\b/i.test(line)) { pendingPlanet = null; mode = null; continue; }
+    if (/^(rphy|phs)\b/i.test(line)) { pendingPlanet = null; mode = null; continue; }
+    if (/^(definition|variable)\s*:/i.test(line)) { pendingPlanet = null; continue; }
+
+    let m;
+    if ((m = line.match(/^(?:name|member)\s*[:\-–]\s*(.+)$/i))) { name = m[1].trim(); pendingPlanet = null; continue; }
+    if ((m = line.match(/^type\s*[:\-–]\s*(.+)$/i))) { type = m[1].trim(); pendingPlanet = null; continue; }
+    if ((m = line.match(/^profile\s*[:\-–]\s*(.+)$/i))) {
+      profile = m[1].trim().replace(/\s*[\-–—]\s*/g, "/").replace(/\s*\/\s*/g, "/");
+      pendingPlanet = null;
+      continue;
+    }
+    if ((m = line.match(/^(?:(?:incarnation\s+)?cross)\s*[:\-–]\s*(.+)$/i))) { cross = m[1].trim(); pendingPlanet = null; continue; }
+
+    if ((m = line.match(sidePlanetActRe))) {
+      mode = sideFromWord(m[1]);
+      pendingPlanet = null;
+      pushAct(mode, normalizePlanet(m[2]), m[3]);
+      continue;
+    }
+
+    if ((m = line.match(sidePlanetRe))) {
+      mode = sideFromWord(m[1]);
+      pendingPlanet = normalizePlanet(m[2]);
+      continue;
+    }
+
+    if (/^(personality|conscious)$/i.test(line)) { mode = "P"; pendingPlanet = null; continue; }
+    if (/^(design|unconscious)$/i.test(line)) { mode = "D"; pendingPlanet = null; continue; }
+
+    let side = mode;
+    let rest = line;
+    if (/^personality\b/i.test(line) && !sidePlanetRe.test(line) && !sidePlanetActRe.test(line)) {
+      side = "P"; rest = line.replace(/^personality\b[:\-–\s]*/i, "");
+    } else if (/^design\b/i.test(line) && !sidePlanetRe.test(line) && !sidePlanetActRe.test(line)) {
+      side = "D"; rest = line.replace(/^design\b[:\-–\s]*/i, "");
+    }
+
+    if (pendingPlanet && side) {
+      const amPend = rest.match(actRe);
+      if (amPend && !amPend[1]) {
+        pushAct(side, pendingPlanet, amPend[2]);
+        pendingPlanet = null;
+        continue;
+      }
+    }
+
+    if (!side) {
+      if (!name && i === 0 && !/[:\d]/.test(line) && line.length < 80) {
+        name = line;
+      }
+      continue;
+    }
+
+    const am = rest.match(actRe);
+    if (!am) {
+      if (/^(Exalted|Detriment|Juxtaposed)$/i.test(rest)) continue;
+      continue;
+    }
+    const planet = normalizePlanet(am[1]) || pendingPlanet;
+    pendingPlanet = null;
+    pushAct(side, planet, am[2]);
+  }
+
+  if (!name) {
+    const base = String(filename || "Member").replace(/\.docx$/i, "").replace(/[_\-]+/g, " ").trim();
+    name = base || "Member";
+  }
+  name = name.replace(/[\\/:*?"<>|]/g, "").trim() || "Member";
+
+  return { name, type, profile, cross, personality, design };
+}
+
+
+function mergeGateSide(map, gate, side, item) {
+  if (!map[gate]) map[gate] = { P: [], D: [] };
+  const arr = map[gate][side];
+  let found = arr.find((x) => x.line === item.line);
+  if (!found) {
+    found = { line: item.line, planets: [] };
+    arr.push(found);
+  }
+  for (const p of item.planets || []) {
+    if (found.planets.indexOf(p) < 0) found.planets.push(p);
+  }
+}
+
+function channelKindFromSides(ga, gb) {
+  const aP = !!(ga.P && ga.P.length), aD = !!(ga.D && ga.D.length);
+  const bP = !!(gb.P && gb.P.length), bD = !!(gb.D && gb.D.length);
+  if ((aP && !aD && bD && !bP) || (aD && !aP && bP && !bD)) return "Electromagnetic";
+  if ((aP || bP) && (aD || bD)) return "Personality and Design";
+  if (aP || bP) return "Personality";
+  if (aD || bD) return "Design";
+  return "defined";
+}
+
+function buildMemberBundle(parsed) {
+  const gateMap = {};
+  for (const item of parsed.personality) mergeGateSide(gateMap, item.gate, "P", item);
+  for (const item of parsed.design) mergeGateSide(gateMap, item.gate, "D", item);
+  const present = new Set(Object.keys(gateMap).map(Number));
+  if (!present.size) {
+    throw new Error("No Personality/Design gate activations found in that .docx.");
+  }
+
+  // completed channels
+  const channelsByGate = {}; // gate -> {other, name, kind}
+  for (const ch of CHANNEL_DATA.channels) {
+    const [a, b] = ch.gates;
+    if (present.has(a) && present.has(b)) {
+      const kind = channelKindFromSides(gateMap[a], gateMap[b]);
+      const infoA = { other: b, name: ch.name, kind };
+      const infoB = { other: a, name: ch.name, kind };
+      channelsByGate[a] = infoA;
+      channelsByGate[b] = infoB;
+    }
+  }
+
+  const definedCenters = new Set();
+  for (const ch of CHANNEL_DATA.channels) {
+    const [a, b] = ch.gates;
+    if (present.has(a) && present.has(b)) {
+      for (const c of (ch.centers || [])) definedCenters.add(normalizeCenterLabel(c));
+    }
+  }
+
+  const views = {};
+  for (const center of PROGRAM_DATA.centers) {
+    const centerGates = ((CENTER_REF.centers[center] && CENTER_REF.centers[center].gates) || []).slice().sort((x, y) => x - y);
+    const blocks = [];
+    for (const g of centerGates) {
+      if (!gateMap[g]) continue;
+      const block = { g };
+      if (gateMap[g].P.length) block.P = gateMap[g].P.map((x) => ({ line: x.line, planets: x.planets.slice() }));
+      if (gateMap[g].D.length) block.D = gateMap[g].D.map((x) => ({ line: x.line, planets: x.planets.slice() }));
+      if (channelsByGate[g]) block.ch = channelsByGate[g];
+      blocks.push(block);
+    }
+    const status = definedCenters.has(center) ? "defined" : "open";
+    views[parsed.name + "::" + center] = { status, blocks };
+  }
+
+  const meta = {
+    type: parsed.type || "",
+    profile: parsed.profile || "",
+    cross: parsed.cross || "",
+    defined: PROGRAM_DATA.centers.filter((c) => definedCenters.has(c)),
+    note: "Imported from .docx"
+  };
+  return { name: parsed.name, meta, views };
+}
+
+async function importMemberFromDocxFile(file) {
+  const ab = await file.arrayBuffer();
+  const text = await extractDocxPlainText(ab);
+  const parsed = parseChartText(text, file.name || "Member.docx");
+  const bundle = buildMemberBundle(parsed);
+  applyImportedRecord(bundle, true);
+  saveImportedMembers();
+  renderToggles();
+  updateStatus();
+  setImportStatus('Added "' + bundle.name + '" (' + (parsed.personality.length + parsed.design.length) + " activations).", false);
+  return bundle;
+}
+
 function renderToggles() {
   const cb = document.getElementById("centerBox");
   const mb = document.getElementById("memberBox");
@@ -892,11 +1291,28 @@ function renderToggles() {
   }
   for (const m of PROGRAM_DATA.members) {
     memberSel[m] = !!memberSel[m];
+    const wrap = document.createElement("div");
+    wrap.className = "member-wrap";
     const lab = document.createElement("label"); lab.className = "chk";
     lab.innerHTML = `<input type="checkbox" data-m="${m}"> ${m}`;
     lab.querySelector("input").checked = memberSel[m];
     lab.querySelector("input").addEventListener("change", (e) => { memberSel[m] = e.target.checked; updateStatus(); });
-    mb.appendChild(lab);
+    wrap.appendChild(lab);
+    if (isImportedMember(m)) {
+      const rm = document.createElement("button");
+      rm.type = "button";
+      rm.className = "member-remove";
+      rm.setAttribute("aria-label", "Remove " + m);
+      rm.title = "Remove imported member";
+      rm.textContent = "×";
+      rm.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        removeImportedMember(m);
+      });
+      wrap.appendChild(rm);
+    }
+    mb.appendChild(wrap);
   }
   const typeBox = document.getElementById("typeBox");
   const indivBox = document.getElementById("indivBox");
@@ -953,12 +1369,11 @@ function updateStatus() {
     el.textContent = "Ready: " + sm.join(", ") + " × " + sc.concat(extras).join(", ") + tag + " — about " + fitted.words + " words (~" + pages + " page" + (pages === 1 ? "" : "s") + ").";
   }
 }
-function setAll(map, keys, val) { for (const k of keys) map[k] = val; document.getElementById("tipClose").addEventListener("click", (e) => { e.preventDefault(); closeTip(); });
-document.getElementById("tipDialog").addEventListener("click", (e) => {
-  // tap backdrop (dialog itself when clicking outside panel is handled by cancel; also allow Esc)
-  if (e.target === e.currentTarget) closeTip();
-});
-renderToggles(); updateStatus(); }
+function setAll(map, keys, val) {
+  for (const k of keys) map[k] = val;
+  renderToggles();
+  updateStatus();
+}
 document.getElementById("allCenters").onclick = () => setAll(centerSel, PROGRAM_DATA.centers, true);
 document.getElementById("clearCenters").onclick = () => setAll(centerSel, PROGRAM_DATA.centers, false);
 document.getElementById("allMembers").onclick = () => setAll(memberSel, PROGRAM_DATA.members, true);
@@ -966,12 +1381,8 @@ document.getElementById("clearMembers").onclick = () => setAll(memberSel, PROGRA
 document.getElementById("clearCircuits").onclick = () => {
   for (const k of TYPE_KEYS) typeSel[k] = false;
   for (const k of ["Knowing","Centering","Understanding","Sensing","Ego","Defence"]) circuitSel[k] = false;
-  document.getElementById("tipClose").addEventListener("click", (e) => { e.preventDefault(); closeTip(); });
-document.getElementById("tipDialog").addEventListener("click", (e) => {
-  // tap backdrop (dialog itself when clicking outside panel is handled by cancel; also allow Esc)
-  if (e.target === e.currentTarget) closeTip();
-});
-renderToggles(); updateStatus();
+  renderToggles();
+  updateStatus();
 };
 document.getElementById("reportBtn").onclick = function() {
   const sc = selectedCenters(); const sm = selectedMembers();
@@ -1033,13 +1444,43 @@ document.getElementById("reportBtn").onclick = function() {
   });
 })();
 
-window.__CEP = { PROGRAM_DATA, CHANNEL_DATA, CENTER_REF, fitReportBlocks, buildDocx, buildReportBlocks, buildCenterReferenceBlocks, buildCircuitTypeReferenceBlocks, memberActivations, get briefOnly() { return briefOnly; }, set briefOnly(v) { briefOnly = !!v; const el = document.getElementById("briefOnly"); if (el) el.checked = briefOnly; } };
+(function wireImportMember() {
+  const btn = document.getElementById("addMemberBtn");
+  const input = document.getElementById("memberFileInput");
+  if (!btn || !input) return;
+  btn.addEventListener("click", (e) => {
+    e.preventDefault();
+    setImportStatus("", false);
+    input.value = "";
+    input.click();
+  });
+  input.addEventListener("change", async () => {
+    const file = input.files && input.files[0];
+    if (!file) return;
+    try {
+      await importMemberFromDocxFile(file);
+    } catch (err) {
+      console.error(err);
+      setImportStatus((err && err.message) ? err.message : String(err), true);
+    }
+  });
+})();
+
+window.__CEP = {
+  PROGRAM_DATA, CHANNEL_DATA, CENTER_REF, fitReportBlocks, buildDocx, buildReportBlocks,
+  buildCenterReferenceBlocks, buildCircuitTypeReferenceBlocks, memberActivations,
+  parseChartText, buildMemberBundle, extractDocxPlainText, importMemberFromDocxFile,
+  removeImportedMember, saveImportedMembers, loadImportedMembers,
+  get importedMemberNames() { return importedMemberNames.slice(); },
+  get briefOnly() { return briefOnly; },
+  set briefOnly(v) { briefOnly = !!v; const el = document.getElementById("briefOnly"); if (el) el.checked = briefOnly; }
+};
 
 document.getElementById("tipClose").addEventListener("click", (e) => { e.preventDefault(); closeTip(); });
 document.getElementById("tipDialog").addEventListener("click", (e) => {
-  // tap backdrop (dialog itself when clicking outside panel is handled by cancel; also allow Esc)
   if (e.target === e.currentTarget) closeTip();
 });
+loadImportedMembers();
 renderToggles(); updateStatus();
 </script>
 </body>
