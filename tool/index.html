@@ -69,7 +69,7 @@
     <div class="actions">
       <button type="button" id="allCenters">All centers</button>
       <button type="button" class="quiet" id="clearCenters">Clear centers</button>
-      <label class="chk"><input type="checkbox" id="briefOnly" checked> Include Brief Descriptions Only (Globally)</label>
+      <label class="chk"><input type="checkbox" id="briefOnly"> Include Brief Descriptions Only (Globally)</label>
     </div>
     <div class="row" id="centerBox"></div>
 
@@ -812,7 +812,7 @@ function downloadDocx(bytes, filename) {
 
 /* ===== UI ===== */
 const centerSel = {}; const memberSel = {};
-let briefOnly = true;
+let briefOnly = false;
 const typeSel = {}; const circuitSel = {};
 const TYPE_KEYS = ["Generating", "Manifesting", "Projecting"];
 const INDIV_KEYS = ["Knowing", "Centering"];
