@@ -72,13 +72,20 @@
             overflow: visible !important;
             border-bottom: 1px solid var(--color-border, #E2D5C0);
         }
+        nav.hd-nav .max-w-screen-2xl > .flex {
+            align-items: center;
+        }
         nav.hd-nav .desktop-nav-links {
+            flex: 1 1 auto;
+            min-width: 0;
             overflow: visible !important;
             max-height: none !important;
+            position: relative;
+            z-index: 2;
         }
         nav.hd-nav .desktop-nav-links a {
-            flex-shrink: 0;
-            white-space: nowrap;
+            position: relative;
+            z-index: 2;
         }
         nav.hd-nav a {
             cursor: pointer;
@@ -614,6 +621,24 @@
                 if (modal && !modal.classList.contains('hidden')) hideJoinModal();
             }
         });
+
+        function fitAnalyzerHeader() {
+            var bar = document.querySelector('nav.hd-nav .max-w-screen-2xl');
+            if (!bar) return;
+            document.body.style.setProperty('padding-top', Math.ceil(bar.getBoundingClientRect().height) + 'px', 'important');
+        }
+        function releaseAnalyzerPageScroll() {
+            hideJoinModal();
+            if (window.SBHD_ensurePageScrollable) window.SBHD_ensurePageScrollable();
+            fitAnalyzerHeader();
+        }
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', releaseAnalyzerPageScroll);
+        } else {
+            releaseAnalyzerPageScroll();
+        }
+        window.addEventListener('pageshow', releaseAnalyzerPageScroll);
+        window.addEventListener('load', fitAnalyzerHeader);
     </script>
     <script src="../js/mobile-nav.js"></script>
     <script src="../js/anchor-scroll.js"></script>
