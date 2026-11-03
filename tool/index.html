@@ -1853,24 +1853,30 @@ async function runEmailReport() {
     const prep = prepareReportSelection(el);
     if (!prep) return;
     const title = prep.title || "Centers Explanation Report";
-    const plain = blocksToPlainText(prep.fitted.blocks);
-    const docxBytes = buildDocx(prep.fitted.blocks);
     const pdfBytes = buildPdf(prep.fitted.blocks);
-    const docxName = prep.base + ".docx";
     const pdfName = prep.base + ".pdf";
-    const docxBlob = new Blob([docxBytes], { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
     const pdfBlob = new Blob([pdfBytes], { type: "application/pdf" });
+    const words = prep.fitted.words || 0;
+    const summaryLine = "Selection summary: " + (prep.base.replace(/^Report_/, "").replace(/_/g, " ")) + " — about " + words + " words.";
+    const shortShareText = "Centers Explanation report PDF attached.";
+    window.__CEP_LAST_EMAIL_TITLE = title;
+    window.__CEP_LAST_EMAIL_PDF_NAME = pdfName;
+    window.__CEP_LAST_SHARE_PAYLOAD = null;
 
-    const canShareFiles = !!(navigator.share && navigator.canShare);
-    if (canShareFiles) {
+    const pdfFile = new File([pdfBlob], pdfName, { type: "application/pdf" });
+    if (navigator.share && typeof navigator.canShare === "function") {
       try {
-        const files = [
-          new File([docxBlob], docxName, { type: docxBlob.type }),
-          new File([pdfBlob], pdfName, { type: pdfBlob.type })
-        ];
-        if (navigator.canShare({ files })) {
-          await navigator.share({ title: title, text: plain, files });
-          el.textContent = "Shared report files via device share sheet.";
+        if (navigator.canShare({ files: [pdfFile] })) {
+          const payload = { title: title, text: shortShareText, files: [pdfFile] };
+          window.__CEP_LAST_SHARE_PAYLOAD = {
+            title: payload.title,
+            text: payload.text,
+            fileNames: payload.files.map(function(f) { return f.name; }),
+            fileTypes: payload.files.map(function(f) { return f.type; }),
+            fileCount: payload.files.length
+          };
+          await navigator.share(payload);
+          el.textContent = "Shared PDF \"" + pdfName + "\" via device share sheet — choose Mail to send it attached.";
           return;
         }
       } catch (shareErr) {
@@ -1878,32 +1884,23 @@ async function runEmailReport() {
           el.textContent = "Share canceled.";
           return;
         }
-        // fall through to mailto
-        console.warn("navigator.share failed, falling back to mailto", shareErr);
+        console.warn("navigator.share failed, falling back to download + mailto", shareErr);
       }
     }
 
-    window.__CEP_LAST_EMAIL_BODY = plain;
-    window.__CEP_LAST_EMAIL_TITLE = title;
-    const maxBody = 1200;
-    let body = plain;
-    let note = "";
-    if (body.length > maxBody) {
-      body = body.slice(0, maxBody).replace(/\s+\S*$/, "") + "\n\n…";
-      note = "\n\n[Report truncated for email. Download the .docx or PDF from the app and attach the file — email links cannot include attachments.]";
-    } else {
-      note = "\n\n[Tip: download the .docx or PDF from the app if you want to attach the full formatted report — email links cannot include attachments.]";
-    }
-    const mailto = "mailto:?subject=" + encodeURIComponent(title) + "&body=" + encodeURIComponent(body + note);
-    // Expose for tests
+    // Fallback: download PDF then open mailto with attach instructions
+    downloadPdf(pdfBytes, pdfName);
+    const body = "The report PDF (" + pdfName + ") was saved to your Downloads folder — please attach it.\n\n" + summaryLine;
+    window.__CEP_LAST_EMAIL_BODY = body;
+    const mailto = "mailto:?subject=" + encodeURIComponent(title) + "&body=" + encodeURIComponent(body);
     window.__CEP_LAST_MAILTO = mailto;
     const a = document.createElement("a");
     a.href = mailto;
     a.style.display = "none";
     document.body.appendChild(a);
     a.click();
-    setTimeout(() => { try { a.remove(); } catch (e) {} }, 500);
-    el.textContent = "Opened email draft for \"" + title + "\" (attach downloaded file if needed).";
+    setTimeout(function() { try { a.remove(); } catch (e) {} }, 500);
+    el.textContent = "Downloaded \"" + pdfName + "\" and opened an email draft — attach the PDF from Downloads.";
   } catch (err) {
     console.error(err);
     el.textContent = "Email report failed: " + ((err && err.message) ? err.message : String(err));
