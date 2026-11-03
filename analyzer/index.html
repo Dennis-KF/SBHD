@@ -357,6 +357,76 @@
         }
         #analyzer-app button.add-member:active { opacity: .85; }
         #analyzer-app #importStatus { margin-top: 8px; color: #dc2626; font-size: .92rem; min-height: 1.1em; }
+        #reportDisplay {
+            position: fixed;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            top: 72px;
+            z-index: 9000;
+            background: var(--color-cream);
+            display: flex;
+            flex-direction: column;
+        }
+        #reportDisplay[hidden] { display: none !important; }
+        #reportDisplay .report-display-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 12px 16px;
+            background: #fff;
+            border-bottom: 1px solid var(--color-border);
+            flex: 0 0 auto;
+        }
+        #reportDisplay .report-display-bar h2 {
+            margin: 0;
+            font-size: 1.35rem;
+            color: var(--color-navy);
+        }
+        #reportDisplay .report-display-close {
+            flex: 0 0 auto;
+            background: var(--color-navy);
+            color: #fff;
+            border-color: var(--color-navy);
+            font-weight: 600;
+            min-height: 44px;
+        }
+        #reportDisplay .report-display-body {
+            overflow: auto;
+            flex: 1 1 auto;
+            -webkit-overflow-scrolling: touch;
+            padding: 24px 16px 64px;
+        }
+        #reportDisplay .report-display-sheet {
+            max-width: 760px;
+            margin: 0 auto;
+            background: #fff;
+            border: 1px solid var(--color-border);
+            border-radius: 12px;
+            padding: 28px 22px 40px;
+        }
+        #reportDisplay .report-display-sheet h1 {
+            font-size: 1.7rem;
+            line-height: 1.15;
+            margin: 1.15rem 0 0.4rem;
+            color: var(--color-navy);
+        }
+        #reportDisplay .report-display-sheet h1:first-child { margin-top: 0; }
+        #reportDisplay .report-display-sheet h2 {
+            font-size: 1.3rem;
+            margin: 1rem 0 0.35rem;
+            color: var(--color-navy);
+        }
+        #reportDisplay .report-display-sheet h3 {
+            font-size: 1.1rem;
+            margin: 0.85rem 0 0.3rem;
+            color: var(--color-navy);
+        }
+        #reportDisplay .report-display-sheet p {
+            margin: 0 0 0.7rem;
+            line-height: 1.5;
+        }
     </style>
 </head>
 <body class="tail-container bg-[var(--color-cream)] text-[#2C2C2C]">
@@ -469,6 +539,7 @@
       <button type="button" class="primary" id="reportBtn">Report — download .docx</button>
       <button type="button" class="primary" id="reportPdfBtn">Report — download PDF</button>
       <button type="button" class="primary" id="reportEmailBtn">Text Message</button>
+      <button type="button" class="primary" id="reportDisplayBtn">Display Results</button>
     </div>
     <div id="status"></div>
   </div>
@@ -480,6 +551,15 @@
     <button type="button" id="tipClose">OK</button>
   </div>
 </dialog>
+<div id="reportDisplay" hidden>
+  <div class="report-display-bar">
+    <h2 id="reportDisplayTitle">Results</h2>
+    <button type="button" class="report-display-close" id="reportDisplayClose">Close</button>
+  </div>
+  <div class="report-display-body">
+    <div class="report-display-sheet" id="reportDisplayBody"></div>
+  </div>
+</div>
     </div>
 
     <footer class="bg-[var(--color-navy)] text-[var(--color-cream)] py-8">
@@ -2423,9 +2503,63 @@ async function runEmailReport() {
   }
 }
 
+function placeReportDisplay() {
+  const root = document.getElementById("reportDisplay");
+  if (!root || root.hidden) return;
+  const nav = document.querySelector("nav.hd-nav");
+  root.style.top = (nav ? Math.ceil(nav.getBoundingClientRect().height) : 72) + "px";
+}
+function closeReportDisplay() {
+  const root = document.getElementById("reportDisplay");
+  if (root) root.hidden = true;
+  const btn = document.getElementById("reportDisplayBtn");
+  if (btn) btn.focus();
+}
+function renderReportDisplay(blocks, title) {
+  const root = document.getElementById("reportDisplay");
+  const body = document.getElementById("reportDisplayBody");
+  const titleEl = document.getElementById("reportDisplayTitle");
+  if (!root || !body) return;
+  if (titleEl) titleEl.textContent = title || "Results";
+  body.replaceChildren();
+  for (const b of (blocks || [])) {
+    const text = String(blockText(b) || "");
+    if (!text.trim()) continue;
+    const kind = b && b.kind;
+    const tag = kind === "h1" || kind === "h2" || kind === "h3" ? kind : "p";
+    const node = document.createElement(tag);
+    node.textContent = text;
+    body.appendChild(node);
+  }
+  root.hidden = false;
+  placeReportDisplay();
+  const scroller = body.parentElement;
+  if (scroller) scroller.scrollTop = 0;
+}
+function runDisplayReport() {
+  const el = document.getElementById("status");
+  try {
+    const prep = prepareReportSelection(el);
+    if (!prep) return;
+    renderReportDisplay(prep.fitted.blocks, prep.title);
+    const pages = Math.max(1, Math.ceil(prep.fitted.words / 500));
+    el.textContent = "Showing results (" + prep.fitted.words + " words, ~" + pages + " page" + (pages === 1 ? "" : "s") + ").";
+  } catch (err) {
+    console.error(err);
+    el.textContent = "Display failed: " + ((err && err.message) ? err.message : String(err));
+  }
+}
 document.getElementById("reportBtn").onclick = function() { runDocxReport(); };
 document.getElementById("reportPdfBtn").onclick = function() { runPdfReport(); };
 document.getElementById("reportEmailBtn").onclick = function() { runEmailReport(); };
+document.getElementById("reportDisplayBtn").onclick = function() { runDisplayReport(); };
+document.getElementById("reportDisplayClose").onclick = function() { closeReportDisplay(); };
+window.addEventListener("resize", placeReportDisplay);
+document.addEventListener("keydown", function(e) {
+  if (e.key !== "Escape") return;
+  const root = document.getElementById("reportDisplay");
+  if (root && !root.hidden) closeReportDisplay();
+});
 
 (function wireBriefOnly() {
   const el = document.getElementById("briefOnly");
@@ -2466,7 +2600,7 @@ window.__CEP = {
   parseChartText, buildMemberBundle, extractDocxPlainText, importMemberFromDocxFile,
   removeImportedMember, saveImportedMembers, loadImportedMembers,
   prepareReportSelection, blocksToPlainText, reportTitleFromBlocks,
-  runDocxReport, runPdfReport, runEmailReport,
+  runDocxReport, runPdfReport, runEmailReport, runDisplayReport,
   get importedMemberNames() { return importedMemberNames.slice(); },
   get briefOnly() { return briefOnly; },
   set briefOnly(v) { briefOnly = !!v; const el = document.getElementById("briefOnly"); if (el) el.checked = briefOnly; }
