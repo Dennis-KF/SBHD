@@ -1867,7 +1867,7 @@ async function runEmailReport() {
     if (navigator.share && typeof navigator.canShare === "function") {
       try {
         if (navigator.canShare({ files: [pdfFile] })) {
-          const payload = { title: title, text: shortShareText, files: [pdfFile] };
+          const payload = { title: title, files: [pdfFile] };
           window.__CEP_LAST_SHARE_PAYLOAD = {
             title: payload.title,
             text: payload.text,
@@ -1876,7 +1876,7 @@ async function runEmailReport() {
             fileCount: payload.files.length
           };
           await navigator.share(payload);
-          el.textContent = "Shared PDF \"" + pdfName + "\" via device share sheet — choose Mail to send it attached.";
+          el.textContent = "Shared PDF \"" + pdfName + "\" via the share sheet — choose Messages to text it.";
           return;
         }
       } catch (shareErr) {
