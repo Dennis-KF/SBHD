@@ -764,10 +764,11 @@ function wPara(inner, opts) {
 function buildDocx(blocks) {
   const body = [];
   for (const b of blocks) {
-    if (b.kind === "h1") body.push(wPara(wRun(b.text, { size: 32, bold: true, color: "1A365D" }), { before: 200, after: 80 }));
-    else if (b.kind === "h2") body.push(wPara(wRun(b.text, { size: 26, bold: true, color: "2B6CB0" }), { before: 160, after: 60 }));
-    else if (b.kind === "h3") body.push(wPara(wRun(b.text, { size: 24, bold: true, color: "2D3748" }), { before: 120, after: 40 }));
-    else body.push(wPara(wRun(b.text, { size: 22 }), { before: 40, after: 60 }));
+    const t = blockText(b);
+    if (b.kind === "h1") body.push(wPara(wRun(t, { size: 32, bold: true, color: "1A365D" }), { before: 200, after: 80 }));
+    else if (b.kind === "h2") body.push(wPara(wRun(t, { size: 26, bold: true, color: "2B6CB0" }), { before: 160, after: 60 }));
+    else if (b.kind === "h3") body.push(wPara(wRun(t, { size: 24, bold: true, color: "2D3748" }), { before: 120, after: 40 }));
+    else body.push(wPara(wRun(t, { size: 22 }), { before: 40, after: 60 }));
   }
   body.push(`<w:sectPr><w:headerReference w:type="default" r:id="rId2"/><w:footerReference w:type="default" r:id="rId3"/><w:pgSz w:w="12240" w:h="15840"/><w:pgMar w:top="1080" w:right="1080" w:bottom="1080" w:left="1080" w:header="720" w:footer="720"/></w:sectPr>`);
   const documentXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -822,9 +823,14 @@ ${wPara(footerInner, {align:"center", before:0, after:0})}
 }
 
 function downloadBinary(bytes, filename, mime) {
-  const payload = bytes instanceof ArrayBuffer ? bytes : (bytes && bytes.buffer instanceof ArrayBuffer && bytes.byteLength !== undefined
-    ? bytes
-    : new Uint8Array(bytes || []));
+  let payload;
+  if (bytes instanceof ArrayBuffer) {
+    payload = new Uint8Array(bytes);
+  } else if (bytes && bytes.buffer instanceof ArrayBuffer && bytes.byteLength !== undefined) {
+    payload = new Uint8Array(bytes.buffer, bytes.byteOffset || 0, bytes.byteLength);
+  } else {
+    payload = new Uint8Array(bytes || []);
+  }
   const blob = new Blob([payload], { type: mime || "application/octet-stream" });
   if (window.navigator && typeof window.navigator.msSaveOrOpenBlob === "function") {
     window.navigator.msSaveOrOpenBlob(blob, filename);
@@ -858,6 +864,9 @@ const PDF_HELV_WIDTHS = {
   80:667,81:778,82:722,83:667,84:611,85:722,86:667,87:944,88:667,89:667,90:611,91:278,92:278,93:278,94:469,95:556,
   96:333,97:556,98:556,99:500,100:556,101:556,102:278,103:556,104:556,105:222,106:222,107:500,108:222,109:833,110:556,111:556,
   112:556,113:556,114:333,115:500,116:278,117:556,118:500,119:722,120:500,121:500,122:500,123:334,124:260,125:334,126:584,
+  130:222,131:556,132:333,133:1000,134:500,135:500,136:333,137:1000,138:667,139:333,140:1000,
+  145:222,146:222,147:333,148:333,149:350,150:556,151:1000,152:333,153:1000,154:500,155:333,156:944,
+  159:722,
   161:333,162:556,163:556,164:556,165:556,166:260,167:556,168:333,169:737,170:370,171:556,172:584,174:737,175:333,
   176:400,177:584,178:333,179:333,180:333,181:556,182:537,183:278,184:333,185:333,186:365,187:556,188:834,189:834,190:834,191:611,
   192:667,193:667,194:667,195:667,196:667,197:667,198:1000,199:722,200:667,201:667,202:667,203:667,204:278,205:278,206:278,207:278,
@@ -868,13 +877,17 @@ const PDF_HELV_WIDTHS = {
 
 function pdfWinAnsi(ch) {
   const code = ch.charCodeAt(0);
-  if (code === 0x2013 || code === 0x2014) return 45; // – —
-  if (code === 0x2018 || code === 0x2019) return 39; // ‘ ’
-  if (code === 0x201C || code === 0x201D) return 34; // “ ”
-  if (code === 0x2022) return 183; // •
-  if (code === 0x2026) return 46; // … as .
+  if (code === 0x2013) return 0x96; // –
+  if (code === 0x2014) return 0x97; // —
+  if (code === 0x2018) return 0x91; // ‘
+  if (code === 0x2019) return 0x92; // ’
+  if (code === 0x201C) return 0x93; // “
+  if (code === 0x201D) return 0x94; // ”
+  if (code === 0x2022) return 0x95; // •
+  if (code === 0x2026) return 0x85; // …
+  if (code === 0x00B7) return 0xB7; // ·
   if (code === 0x00A0) return 32;
-  if (code >= 32 && code <= 255 && PDF_HELV_WIDTHS[code] != null) return code;
+  if (code >= 32 && code <= 255) return code;
   if (code < 32) return 32;
   return 63; // ?
 }
@@ -934,11 +947,19 @@ function pdfWrapLines(text, fontSize, maxWidth) {
   return lines.length ? lines : [""];
 }
 
+
+function encodePdfLatin1(s) {
+  const str = String(s || "");
+  const out = new Uint8Array(str.length);
+  for (let i = 0; i < str.length; i++) out[i] = str.charCodeAt(i) & 0xff;
+  return out;
+}
+
 function buildPdf(blocks) {
   const pageW = 612, pageH = 792; // Letter
   const marginL = 54, marginR = 54, marginT = 72, marginB = 64;
   const contentW = pageW - marginL - marginR;
-  const title = (blocks && blocks.length && blocks[0].kind === "h1") ? blocks[0].text : "Centers Explanation Report";
+  const title = (blocks && blocks.length && blocks[0].kind === "h1") ? blockText(blocks[0]) : "Centers Explanation Report";
   const headerSize = 9;
   const footerSize = 9;
   const lineGap = 1.25;
@@ -969,7 +990,7 @@ function buildPdf(blocks) {
   for (const b of (blocks || [])) {
     const st = styleFor(b.kind);
     const fontName = st.bold ? "F2" : "F1";
-    const wrapped = pdfWrapLines(b.text || "", st.size, contentW);
+    const wrapped = pdfWrapLines(blockText(b) || "", st.size, contentW);
     const blockH = st.gapBefore + wrapped.length * st.size * lineGap + st.gapAfter;
     ensureSpace(Math.min(blockH, st.size * lineGap + st.gapBefore + 2));
     y -= st.gapBefore;
@@ -1005,7 +1026,7 @@ function buildPdf(blocks) {
   const pageIds = [];
 
   // Placeholder — rebuild as byte stream
-  const encoder = new TextEncoder();
+  const encoder = { encode: encodePdfLatin1 };
   const parts = [];
   function pushStr(s) { parts.push(encoder.encode(s)); }
 
@@ -1134,10 +1155,42 @@ function buildPdf(blocks) {
   return out;
 }
 
+
+function blockText(b) {
+  if (!b) return "";
+  if (typeof b.text === "string" && b.text.length) return b.text;
+  if (typeof b.text === "string") {
+    // empty string is still authoritative when no runs/children
+    if (!b.runs && !b.children && b.content == null) return b.text;
+  }
+  if (Array.isArray(b.runs)) {
+    return b.runs.map(function (r) {
+      if (typeof r === "string") return r;
+      if (!r) return "";
+      if (typeof r.text === "string") return r.text;
+      if (typeof r.t === "string") return r.t;
+      return blockText(r);
+    }).join("");
+  }
+  if (Array.isArray(b.children)) {
+    return b.children.map(blockText).join(b.kind === "table" ? "\n" : "");
+  }
+  if (Array.isArray(b.rows)) {
+    return b.rows.map(function (row) {
+      if (typeof row === "string") return row;
+      if (Array.isArray(row)) return row.map(blockText).join("\t");
+      return blockText(row);
+    }).join("\n");
+  }
+  if (b.content != null) return String(b.content);
+  if (typeof b.text === "string") return b.text;
+  return "";
+}
+
 function blocksToPlainText(blocks) {
   const lines = [];
   for (const b of (blocks || [])) {
-    const t = String(b.text || "").trim();
+    const t = String(blockText(b) || "").trim();
     if (!t) continue;
     if (b.kind === "h1") lines.push(t.toUpperCase(), "");
     else if (b.kind === "h2") lines.push("", t, "");
@@ -1148,7 +1201,7 @@ function blocksToPlainText(blocks) {
 }
 
 function reportTitleFromBlocks(blocks, sc, sm, st, sci) {
-  if (blocks && blocks.length && blocks[0].kind === "h1" && blocks[0].text) return blocks[0].text;
+  if (blocks && blocks.length && blocks[0].kind === "h1" && blockText(blocks[0])) return blockText(blocks[0]);
   if (sc && sc.length === 1) return sc[0] + " Center Activations";
   if (sc && sc.length) return "Centers Explanation Report — " + sc.join(", ");
   const extras = (st || []).concat((sci || []).map(function(k) { return TRIB_LABEL[k] || k; }));
@@ -1816,7 +1869,7 @@ async function runEmailReport() {
           new File([pdfBlob], pdfName, { type: pdfBlob.type })
         ];
         if (navigator.canShare({ files })) {
-          await navigator.share({ title: title, text: title, files });
+          await navigator.share({ title: title, text: plain, files });
           el.textContent = "Shared report files via device share sheet.";
           return;
         }
@@ -1830,6 +1883,8 @@ async function runEmailReport() {
       }
     }
 
+    window.__CEP_LAST_EMAIL_BODY = plain;
+    window.__CEP_LAST_EMAIL_TITLE = title;
     const maxBody = 1200;
     let body = plain;
     let note = "";
@@ -1893,7 +1948,7 @@ document.getElementById("reportEmailBtn").onclick = function() { runEmailReport(
 })();
 
 window.__CEP = {
-  PROGRAM_DATA, CHANNEL_DATA, CENTER_REF, fitReportBlocks, buildDocx, buildPdf, buildReportBlocks,
+  PROGRAM_DATA, CHANNEL_DATA, CENTER_REF, fitReportBlocks, buildDocx, buildPdf, buildReportBlocks, blockText,
   buildCenterReferenceBlocks, buildCircuitTypeReferenceBlocks, memberActivations,
   parseChartText, buildMemberBundle, extractDocxPlainText, importMemberFromDocxFile,
   removeImportedMember, saveImportedMembers, loadImportedMembers,
