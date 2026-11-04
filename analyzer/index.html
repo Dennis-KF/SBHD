@@ -579,6 +579,27 @@
 </div>
     </div>
 
+<script>
+/* Keep the results display (and its Close button) inside the visible part of the screen when shown within the home page */
+(function () {
+  var disp = document.getElementById("reportDisplay");
+  var fe = null; try { fe = window.frameElement; } catch (e) {}
+  if (!disp || !fe || !window.parent) return;
+  var pw = window.parent;
+  function fit() {
+    if (!disp.classList.contains("is-open")) { disp.style.top = ""; disp.style.height = ""; disp.style.bottom = ""; return; }
+    var r = fe.getBoundingClientRect();
+    var navH = 72; try { var n = pw.document.querySelector("nav.hd-nav, nav"); if (n) navH = Math.ceil(n.getBoundingClientRect().height); } catch (e) {}
+    var top = Math.max(0, navH - r.top);
+    var visBottom = Math.min(r.height, pw.innerHeight - r.top);
+    var h = Math.max(200, visBottom - top);
+    disp.style.top = top + "px"; disp.style.bottom = "auto"; disp.style.height = h + "px";
+  }
+  pw.addEventListener("scroll", fit, { passive: true });
+  pw.addEventListener("resize", fit);
+  new MutationObserver(fit).observe(disp, { attributes: true, attributeFilter: ["class", "hidden"] });
+})();
+</script>
     <footer class="bg-[var(--color-navy)] text-[var(--color-cream)] py-8">
         <div class="max-w-6xl mx-auto px-6 text-center text-sm">
             <p class="text-[var(--color-gold)]">&copy; 2026 Santa Barbara Human Design Study Group</p>
