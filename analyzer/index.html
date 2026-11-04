@@ -2139,40 +2139,56 @@ async function unzipEntries(arrayBuffer) {
   function readU32(view, off) { return view.getUint32(off, true); }
   const bytes = new Uint8Array(arrayBuffer);
   const view = new DataView(arrayBuffer);
-  const files = {};
-  let offset = 0;
-  if (bytes.length < 4 || readU32(view, 0) !== 0x04034b50) {
+  if (bytes.length < 22 || readU32(view, 0) !== 0x04034b50) {
     throw new Error("That file is not a valid .docx (Word) file.");
   }
-  let totalInflated = 0;
-  while (offset + 30 <= bytes.length) {
-    const sig = readU32(view, offset);
-    if (sig !== 0x04034b50) break;
-    const method = readU16(view, offset + 8);
-    const compSize = readU32(view, offset + 18);
-    const uncompSize = readU32(view, offset + 22);
-    const nameLen = readU16(view, offset + 26);
-    const extraLen = readU16(view, offset + 28);
-    const nameBytes = bytes.subarray(offset + 30, offset + 30 + nameLen);
-    const name = new TextDecoder("utf-8").decode(nameBytes);
-    const dataStart = offset + 30 + nameLen + extraLen;
-    const dataEnd = dataStart + compSize;
-    if (dataEnd > bytes.length) throw new Error("Corrupt .docx (truncated ZIP entry).");
-    const data = bytes.subarray(dataStart, dataEnd);
-    offset = dataEnd;
-    // Only the chart text is needed; skip every other entry without decompressing it.
-    if (name !== "word/document.xml") continue;
-    if (uncompSize > IMPORT_MAX_INFLATED_BYTES) throw new Error("That .docx is too large to import safely.");
-    let out;
-    if (method === 0) out = data.slice();
-    else if (method === 8) out = await inflateRaw(data);
-    else throw new Error("Unsupported ZIP compression method " + method + " in .docx.");
-    totalInflated += out.length;
-    if (totalInflated > IMPORT_MAX_INFLATED_BYTES) throw new Error("That .docx is too large to import safely.");
-    files[name] = out;
-    break;
+  const isDoc = (n) => n.replace(/\\/g, "/").replace(/^\/+/, "").toLowerCase() === "word/document.xml";
+  // Locate an entry via the central directory (works for Word, Google Docs, Pages and
+  // files whose local headers use data descriptors with zero sizes).
+  let entry = null;
+  let eocd = -1;
+  for (let i = bytes.length - 22; i >= Math.max(0, bytes.length - 65557); i--) {
+    if (readU32(view, i) === 0x06054b50) { eocd = i; break; }
   }
-  return files;
+  if (eocd >= 0) {
+    const count = readU16(view, eocd + 10);
+    let p = readU32(view, eocd + 16);
+    for (let k = 0; k < count && p + 46 <= bytes.length; k++) {
+      if (readU32(view, p) !== 0x02014b50) break;
+      const nameLen = readU16(view, p + 28), extraLen = readU16(view, p + 30), commLen = readU16(view, p + 32);
+      const name = new TextDecoder("utf-8").decode(bytes.subarray(p + 46, p + 46 + nameLen));
+      if (isDoc(name)) {
+        entry = { method: readU16(view, p + 10), compSize: readU32(view, p + 20), uncompSize: readU32(view, p + 24), local: readU32(view, p + 42) };
+        break;
+      }
+      p += 46 + nameLen + extraLen + commLen;
+    }
+  }
+  if (!entry) {
+    // Fallback: walk local headers (simple ZIPs without a readable central directory).
+    let offset = 0;
+    while (offset + 30 <= bytes.length && readU32(view, offset) === 0x04034b50) {
+      const compSize = readU32(view, offset + 18);
+      const nameLen = readU16(view, offset + 26), extraLen = readU16(view, offset + 28);
+      const name = new TextDecoder("utf-8").decode(bytes.subarray(offset + 30, offset + 30 + nameLen));
+      if (isDoc(name)) { entry = { method: readU16(view, offset + 8), compSize, uncompSize: readU32(view, offset + 22), local: offset }; break; }
+      offset += 30 + nameLen + extraLen + compSize;
+    }
+  }
+  if (!entry) return {};
+  const lo = entry.local;
+  if (lo + 30 > bytes.length || readU32(view, lo) !== 0x04034b50) throw new Error("Corrupt .docx (bad ZIP entry).");
+  const dataStart = lo + 30 + readU16(view, lo + 26) + readU16(view, lo + 28);
+  const dataEnd = dataStart + entry.compSize;
+  if (dataEnd > bytes.length) throw new Error("Corrupt .docx (truncated ZIP entry).");
+  if (entry.uncompSize > IMPORT_MAX_INFLATED_BYTES) throw new Error("That .docx is too large to import safely.");
+  const data = bytes.subarray(dataStart, dataEnd);
+  let out;
+  if (entry.method === 0) out = data.slice();
+  else if (entry.method === 8) out = await inflateRaw(data);
+  else throw new Error("Unsupported ZIP compression method " + entry.method + " in .docx.");
+  if (out.length > IMPORT_MAX_INFLATED_BYTES) throw new Error("That .docx is too large to import safely.");
+  return { "word/document.xml": out };
 }
 
 async function extractDocxPlainText(arrayBuffer) {
@@ -2224,7 +2240,30 @@ function parseGateLineToken(token) {
   return { gate, line: lineKey, lineRaw: String(token).trim() };
 }
 
+// Split run-on chart text (one paragraph per person, e.g. "Dennis Type: ... Personality Sun 37.6 ...")
+// into the one-item-per-line form the parser expects.
+function normalizeChartText(text) {
+  const planetAlt = PLANET_NAMES.slice().sort((a, b) => b.length - a.length).join("|");
+  const keyRe = new RegExp("\\s+(?=(?:Type|Cross|Profile|Definition|Variable|Authority|Strategy)\\b\\s*:?|(?:Personality|Design)\\s+(?:" + planetAlt + "|Channels|Hanging)\\b)", "g");
+  return String(text || "").replace(/\r/g, "").split("\n").map((l) => {
+    const hits = (l.match(/\b(?:Personality|Design)\s+[A-Z][a-z]+(?:\s+Node)?\s+\d{1,2}\.\d/g) || []).length;
+    return hits >= 3 ? l.replace(/\u00a0/g, " ").replace(keyRe, "\n") : l;
+  }).join("\n");
+}
+
+// Split a document holding several people (each starting with a name line followed by "Type:").
+function splitChartPeople(text) {
+  const lines = normalizeChartText(text).split("\n").map((l) => l.trim()).filter((l) => l.length);
+  const starts = [];
+  for (let i = 0; i + 1 < lines.length; i++) {
+    if (/^type\s*:/i.test(lines[i + 1]) && !/[:\d]/.test(lines[i]) && lines[i].length < 80) starts.push(i);
+  }
+  if (starts.length < 2) return [lines.join("\n")];
+  return starts.map((st, k) => lines.slice(st, k + 1 < starts.length ? starts[k + 1] : lines.length).join("\n"));
+}
+
 function parseChartText(text, filename) {
+  text = normalizeChartText(text);
   const lines = String(text || "").replace(/\r/g, "").split("\n").map((l) => l.replace(/\u00a0/g, " ").trim()).filter((l) => l.length);
   let name = null;
   let type = null;
@@ -2236,9 +2275,9 @@ function parseChartText(text, filename) {
   const design = [];
 
   const planetAlt = PLANET_NAMES.slice().sort((a, b) => b.length - a.length).map((p) => p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|");
-  const actRe = new RegExp("^(?:(" + planetAlt + ")\\s+)?(\\d{1,2}\\.\\d{1,2}|\\d{1,2})(?:\\s+(Exalted|Detriment|Juxtaposed))?\\s*$", "i");
+  const actRe = new RegExp("^(?:(" + planetAlt + ")\\s+)?(\\d{1,2}\\.\\d{1,2}|\\d{1,2})(?:\\s+(?:in\\s+)?(Exalted|Detriment|Juxtaposed))*\\s*$", "i");
   const sidePlanetRe = new RegExp("^(Personality|Design|Conscious|Unconscious)\\s+(" + planetAlt + ")\\s*$", "i");
-  const sidePlanetActRe = new RegExp("^(Personality|Design|Conscious|Unconscious)\\s+(" + planetAlt + ")\\s+(\\d{1,2}\\.\\d{1,2}|\\d{1,2})(?:\\s+(Exalted|Detriment|Juxtaposed))?\\s*$", "i");
+  const sidePlanetActRe = new RegExp("^(Personality|Design|Conscious|Unconscious)\\s+(" + planetAlt + ")\\s+(\\d{1,2}\\.\\d{1,2}|\\d{1,2})(?:\\s+(?:in\\s+)?(Exalted|Detriment|Juxtaposed))*\\s*$", "i");
 
   function pushAct(side, planet, token) {
     const gl = parseGateLineToken(token);
@@ -2268,7 +2307,7 @@ function parseChartText(text, filename) {
     let m;
     if ((m = line.match(/^(?:name|member)\s*[:\-–]\s*(.+)$/i))) { name = m[1].trim(); pendingPlanet = null; continue; }
     if ((m = line.match(/^type\s*[:\-–]\s*(.+)$/i))) { type = m[1].trim(); pendingPlanet = null; continue; }
-    if ((m = line.match(/^profile\s*[:\-–]\s*(.+)$/i))) {
+    if ((m = line.match(/^profile\s*[:\-–]?\s*(\d.+)$/i))) {
       profile = m[1].trim().replace(/\s*[\-–—]\s*/g, "/").replace(/\s*\/\s*/g, "/");
       pendingPlanet = null;
       continue;
@@ -2309,6 +2348,7 @@ function parseChartText(text, filename) {
     }
 
     if (!side) {
+      if (!name && i === 0 && lines.length > 1 && /^type\s*:/i.test(lines[1]) && line.length < 80) { name = line.replace(/[:\d]/g, "").trim(); continue; }
       if (!name && i === 0 && !/[:\d]/.test(line) && line.length < 80) {
         name = line;
       }
@@ -2416,7 +2456,7 @@ function buildMemberBundle(parsed) {
 
 async function importMemberFromDocxFile(file) {
   if (!file) throw new Error("No file selected.");
-  if (!/\.docx$/i.test(file.name || "")) throw new Error("Please choose a Word chart file ending in .docx.");
+  if (/\.[a-z0-9]{1,5}$/i.test(file.name || "") && !/\.docx$/i.test(file.name)) throw new Error("Please choose a Word chart file (.docx).");
   if (file.size > IMPORT_MAX_FILE_BYTES) {
     const msg = "That file is too large (" + (file.size / 1048576).toFixed(1) + " MB). Chart .docx files must be 5 MB or smaller.";
     try { alert(msg); } catch (e) {}
@@ -2424,6 +2464,25 @@ async function importMemberFromDocxFile(file) {
   }
   const ab = await file.arrayBuffer();
   const text = await extractDocxPlainText(ab);
+  const people = splitChartPeople(text);
+  if (people.length > 1) {
+    const added = [], skipped = [];
+    let last = null;
+    for (const chunk of people) {
+      try {
+        const parsed = parseChartText(chunk, file.name || "Member.docx");
+        const bundle = buildMemberBundle(parsed);
+        applyImportedRecord(bundle, true);
+        added.push(bundle.name); last = bundle;
+      } catch (e) { skipped.push(e && e.message ? e.message : String(e)); }
+    }
+    if (!added.length) throw new Error(skipped[0] || "No charts found in that .docx.");
+    saveImportedMembers();
+    renderToggles();
+    updateStatus();
+    setImportStatus("Added " + added.length + " members: " + added.join(", ") + "." + (skipped.length ? " Skipped " + skipped.length + ": " + skipped.join(" ") : ""), false);
+    return last;
+  }
   const parsed = parseChartText(text, file.name || "Member.docx");
   const bundle = buildMemberBundle(parsed);
   applyImportedRecord(bundle, true);
