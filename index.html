@@ -786,6 +786,11 @@
             <!-- Contemplative closing visual -->
             <div class="mt-2 max-w-4xl mx-auto">
                 <p class="text-center text-sm text-[#666] mt-1 italic">Your experiment begins with gentle self-observation.</p>
+                <div class="text-center mt-4">
+                    <a id="hd-questions-link" href="#report-viewer" class="font-bold hover:underline inline-flex items-center gap-x-2" style="color:#16A34A;font-size:1.35rem;">
+                        Get your Human Design Questions Answered Here <i class="fa-solid fa-arrow-right ml-1"></i>
+                    </a>
+                </div>
             </div>
 
         </div>
@@ -1311,7 +1316,7 @@
                 <h3 class="heading-serif text-2xl md:text-3xl tracking-tight text-[var(--color-navy)] mb-4">About these reports</h3>
                 <div class="space-y-4 text-base md:text-lg text-[#555] leading-relaxed">
                     <p>
-                        These reports are Exclusively for members of the Santa Barbara Human Design Group. If you are interested start by requesting your <a href="javascript:void(0)" onclick="showJoinModal(); return false;" class="font-semibold text-emerald-600 hover:text-emerald-500 underline underline-offset-2">Introductory Reading</a>.
+                        These reports are Exclusively for members of the Santa Barbara Human Design Group. If you are interested start by requesting your <a href="#reading" role="button" onclick="if(typeof showJoinModal==='function'){showJoinModal();return false;}" class="font-semibold text-emerald-600 cursor-pointer hover:text-emerald-500 underline underline-offset-2">Introductory Reading</a>.
                     </p>
                     <p class="about-custom-line">For a deeper, one-of-a-kind analysis of your chart, explore our <a href="#custom-reports" class="font-semibold text-emerald-600 hover:text-emerald-500 underline underline-offset-2">Custom Human Design Reports</a>.</p>
                 </div>
@@ -2590,6 +2595,7 @@
             forceCloseAllModals();
             if (!window.location.hash) window.scrollTo(0, 0);
             if (window.location.hash === '#reading') showJoinModal();
+            window.addEventListener('hashchange', function () { if (window.location.hash === '#reading') showJoinModal(); });
 
             console.log('%c[SBHD] Website ready. Press "h" three times to jump to the Types section.', 'color:#8B7A5E');
         }
