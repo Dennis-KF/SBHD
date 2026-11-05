@@ -1310,7 +1310,12 @@
                         });
                         // Messages from the transit app: open the reading form, or scroll to its question box.
                         var APP_ORIGIN = "https://new-experiment-one.vercel.app";
-                        var askWanted = false, askTimer = null;
+                        var askWanted = false, askTimer = null, askFallback = null, followUntil = 0;
+                        function stopFollow() { followUntil = 0; }
+                        ["wheel", "touchstart", "keydown"].forEach(function (ev) {
+                            window.addEventListener(ev, stopFollow, { passive: true });
+                        });
+                        function makeLive() { frame.classList.add("transit-live"); }
                         window.addEventListener("message", function (event) {
                             if (event.origin !== APP_ORIGIN) return;
                             if (event.source !== frame.contentWindow) return;
@@ -1318,22 +1323,24 @@
                             if (data.type === "showJoinModal") {
                                 if (typeof showJoinModal === "function") showJoinModal();
                                 event.source.postMessage({ type: "showJoinModal", ok: true }, APP_ORIGIN);
-                            } else if (data.type === "transit-ask-position" && askWanted) {
+                            } else if (data.type === "transit-ask-position" && (askWanted || Date.now() < followUntil)) {
                                 var top = Number(data.top);
                                 if (!isFinite(top) || top < 0 || top > 20000) return;
-                                askWanted = false;
-                                if (askTimer) { clearInterval(askTimer); askTimer = null; }
-                                var y = frame.getBoundingClientRect().top + window.pageYOffset + top - 110;
-                                window.scrollTo({ top: Math.max(0, y), behavior: "smooth" });
-                                // Let the first tap go straight into the question box once scrolling stops.
-                                var made = false;
-                                function makeLive() { if (made) return; made = true; frame.classList.add("transit-live"); }
-                                if ("onscrollend" in window) window.addEventListener("scrollend", makeLive, { once: true });
-                                setTimeout(makeLive, 1500);
+                                if (askWanted) {
+                                    askWanted = false;
+                                    followUntil = Date.now() + 30000;
+                                    if (askTimer) { clearInterval(askTimer); askTimer = null; }
+                                    if (askFallback) { clearTimeout(askFallback); askFallback = null; }
+                                }
+                                // Jump straight to the question box, skipping the transit report above it.
+                                var nav = document.querySelector("nav");
+                                var navH = nav ? Math.ceil(nav.getBoundingClientRect().bottom) : 80;
+                                var y = frame.getBoundingClientRect().top + window.pageYOffset + top - navH - 16;
+                                window.scrollTo({ top: Math.max(0, y), behavior: "instant" });
+                                setTimeout(makeLive, 60);
                             }
                         });
                         window.sbhdGoToAsk = function () {
-                            viewer.scrollIntoView({ behavior: "smooth", block: "start" });
                             askWanted = true;
                             var tries = 0;
                             function ask() {
@@ -1344,6 +1351,11 @@
                             if (askTimer) clearInterval(askTimer);
                             askTimer = setInterval(ask, 250);
                             ask();
+                            // If the transit app does not answer, fall back to the top of the transit section.
+                            if (askFallback) clearTimeout(askFallback);
+                            askFallback = setTimeout(function () {
+                                if (askWanted) viewer.scrollIntoView({ behavior: "smooth", block: "start" });
+                            }, 4000);
                             return false;
                         };
                         if (window.location.hash === "#ask") setTimeout(window.sbhdGoToAsk, 800);
