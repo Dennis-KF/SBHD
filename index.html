@@ -787,7 +787,7 @@
             <div class="mt-2 max-w-4xl mx-auto">
                 <p class="text-center text-sm text-[#666] mt-1 italic">Your experiment begins with gentle self-observation.</p>
                 <div class="text-center mt-4">
-                    <a id="hd-questions-link" href="#report-viewer" class="font-bold hover:underline inline-flex items-center gap-x-2" style="color:#16A34A;font-size:1.35rem;">
+                    <a id="hd-questions-link" href="#report-viewer" onclick="return window.sbhdGoToAsk ? window.sbhdGoToAsk() : true;" class="font-bold hover:underline inline-flex items-center gap-x-2" style="color:#16A34A;font-size:1.35rem;">
                         Get your Human Design Questions Answered Here <i class="fa-solid fa-arrow-right ml-1"></i>
                     </a>
                 </div>
@@ -1308,6 +1308,45 @@
                             if (!height || height < 480 || height > 20000) return;
                             frame.style.height = Math.ceil(height) + "px";
                         });
+                        // Messages from the transit app: open the reading form, or scroll to its question box.
+                        var APP_ORIGIN = "https://new-experiment-one.vercel.app";
+                        var askWanted = false, askTimer = null;
+                        window.addEventListener("message", function (event) {
+                            if (event.origin !== APP_ORIGIN) return;
+                            if (event.source !== frame.contentWindow) return;
+                            var data = event.data || {};
+                            if (data.type === "showJoinModal") {
+                                if (typeof showJoinModal === "function") showJoinModal();
+                                event.source.postMessage({ type: "showJoinModal", ok: true }, APP_ORIGIN);
+                            } else if (data.type === "transit-ask-position" && askWanted) {
+                                var top = Number(data.top);
+                                if (!isFinite(top) || top < 0 || top > 20000) return;
+                                askWanted = false;
+                                if (askTimer) { clearInterval(askTimer); askTimer = null; }
+                                var y = frame.getBoundingClientRect().top + window.pageYOffset + top - 110;
+                                window.scrollTo({ top: Math.max(0, y), behavior: "smooth" });
+                                // Let the first tap go straight into the question box once scrolling stops.
+                                var made = false;
+                                function makeLive() { if (made) return; made = true; frame.classList.add("transit-live"); }
+                                if ("onscrollend" in window) window.addEventListener("scrollend", makeLive, { once: true });
+                                setTimeout(makeLive, 1500);
+                            }
+                        });
+                        window.sbhdGoToAsk = function () {
+                            viewer.scrollIntoView({ behavior: "smooth", block: "start" });
+                            askWanted = true;
+                            var tries = 0;
+                            function ask() {
+                                tries += 1;
+                                if (!askWanted || tries > 40) { clearInterval(askTimer); askTimer = null; return; }
+                                try { frame.contentWindow.postMessage({ type: "sbhd-scroll-to-ask" }, APP_ORIGIN); } catch (err) {}
+                            }
+                            if (askTimer) clearInterval(askTimer);
+                            askTimer = setInterval(ask, 250);
+                            ask();
+                            return false;
+                        };
+                        if (window.location.hash === "#ask") setTimeout(window.sbhdGoToAsk, 800);
                     })();
                 </script>
             </div>
