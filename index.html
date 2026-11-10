@@ -586,6 +586,12 @@
       #daily-transit-reports {
         scroll-margin-top: 0;
       }
+      /* Green-link landing only: the fixed menu must not sit above the heading. */
+      html.sbhd-daily-top nav.hd-nav,
+      html.sbhd-daily-top nav.hd-nav * {
+        visibility: hidden !important;
+        pointer-events: none !important;
+      }
 
       .policy-content a {
         color: var(--color-navy);
@@ -2895,6 +2901,7 @@
         (function () {
             var GREEN = 'daily-transit-reports';
             var TRANSIT = 'after-uploaded-daily';
+            var userMoved = false;
             function hashId() {
                 return decodeURIComponent((location.hash || '').replace(/^#/, ''));
             }
@@ -2902,27 +2909,38 @@
                 var nav = document.querySelector('nav.hd-nav');
                 return nav ? nav.getBoundingClientRect().bottom : 0;
             }
+            function showNav() {
+                document.documentElement.classList.remove('sbhd-daily-top');
+            }
             function align() {
                 var id = hashId();
-                var edge = null;
                 if (id === GREEN) {
+                    if (userMoved) return;
                     var heading = document.getElementById(GREEN);
                     if (!heading) return;
-                    edge = heading.getBoundingClientRect().top;
-                } else if (id === TRANSIT) {
-                    var badge = document.getElementById('uploaded-daily');
-                    if (!badge) return;
-                    edge = badge.getBoundingClientRect().bottom;
-                } else {
+                    document.documentElement.classList.add('sbhd-daily-top');
+                    var range = document.createRange();
+                    range.selectNodeContents(heading);
+                    var y = range.getBoundingClientRect().top + window.pageYOffset;
+                    window.scrollTo({ top: Math.max(0, y), behavior: 'instant' });
                     return;
                 }
-                var y = edge + window.pageYOffset - navBottom();
-                window.scrollTo({ top: Math.max(0, y), behavior: 'instant' });
+                showNav();
+                if (id !== TRANSIT) return;
+                var badge = document.getElementById('uploaded-daily');
+                if (!badge) return;
+                var transitY = badge.getBoundingClientRect().bottom + window.pageYOffset - navBottom();
+                window.scrollTo({ top: Math.max(0, transitY), behavior: 'instant' });
             }
             function schedule() {
                 if (hashId() !== GREEN && hashId() !== TRANSIT) return;
                 align();
-                [80, 500, 1200].forEach(function (ms) { setTimeout(align, ms); });
+                [80, 500, 1200, 1700].forEach(function (ms) { setTimeout(align, ms); });
+            }
+            function releaseNav() {
+                if (hashId() !== GREEN) return;
+                userMoved = true;
+                showNav();
             }
             document.addEventListener('click', function (e) {
                 var a = e.target && e.target.closest ? e.target.closest('a[href]') : null;
@@ -2933,9 +2951,13 @@
                 if (hash !== GREEN && hash !== TRANSIT) return;
                 if (href.indexOf('#') !== 0 && href.indexOf('index.html#') !== 0) return;
                 e.preventDefault();
+                if (hash === GREEN) userMoved = false;
                 if (location.hash === '#' + hash) align();
                 else location.hash = hash;
             });
+            window.addEventListener('wheel', releaseNav, { passive: true });
+            window.addEventListener('touchstart', releaseNav, { passive: true });
+            window.addEventListener('keydown', releaseNav);
             window.addEventListener('hashchange', schedule);
             window.addEventListener('pageshow', schedule);
             window.addEventListener('load', schedule);
