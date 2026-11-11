@@ -1051,7 +1051,8 @@ function applyExtraOutput(html, md, person1, person2, extraMeta){
 
 const ASK_ENDPOINT='https://transit-question.vercel.app/api/ask';
 const ASK_MAX=5000;
-const ASK_CONTEXT_CAP=40000;
+const ASK_CONTEXT_CAP=16000;
+const ASK_TIMEOUT_MS=120000;
 let lastGrokQuestion=null;
 let lastGrokAnswerHtml=null;
 let lastHtmlBase=null;
@@ -1102,18 +1103,32 @@ function clipAsk(s, n){
 function clipAskDateOrder(s, n){
   s=String(s==null?'':s).trim();
   if(s.length<=n) return s;
+  const note='\n[truncated to keep the request size reasonable; excerpts from each date kept]';
   const re=/(?=^(?:Sunday|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday), )/m;
   const parts=s.split(re);
-  let out='';
-  for(let i=0;i<parts.length;i++){
-    const next=out+parts[i];
-    if(out && next.length>n){
-      return out.trim()+'\n[truncated to keep the request size reasonable; earlier dates kept]';
+  const pre=parts[0]||'';
+  const days=parts.slice(1);
+  if(!days.length) return clipAsk(s, n);
+  const budget=n-pre.length-note.length;
+  if(budget<400) return clipAsk(s, n);
+  // Keep a prefix of every day so a range question can compare dates, instead of dropping a day that is larger than the remaining cap.
+  const each=Math.max(900, Math.floor(budget/days.length));
+  let out=pre;
+  for(let i=0;i<days.length;i++){
+    const remain=n-out.length-note.length;
+    if(remain<200) break;
+    const take=Math.min(days[i].length, each, remain);
+    let chunk=days[i].slice(0, take);
+    if(take<days[i].length){
+      const cut=Math.max(chunk.lastIndexOf('\n\n'), chunk.lastIndexOf('. '));
+      if(cut>take*0.55) chunk=chunk.slice(0, cut+(chunk[cut]==='.'?1:0));
+      chunk=chunk.replace(/\s+$/,'')+'\n[day truncated]\n';
     }
-    out=next;
+    out+=chunk;
   }
-  return clipAsk(s, n);
+  return out.trim()+note;
 }
+
 function reportTextWithoutChrome(root){
   if(!root) return '';
   const clone=root.cloneNode(true);
@@ -1150,6 +1165,77 @@ function splitExtraOutputText(extraEl){
   }
   return out;
 }
+function glFromVal(val){
+  if(val==null) return '';
+  if(typeof val==='string' || typeof val==='number') return String(val).trim();
+  if(val.gl) return String(val.gl);
+  if(val.gate!=null && val.line!=null) return val.gate+'.'+val.line;
+  return '';
+}
+function activationsBySide(person, side){
+  const order=(window.HD && HD.PLANET_ORDER) || ["Sun","Earth","Moon","NorthNode","SouthNode","Mercury","Venus","Mars","Jupiter","Saturn","Uranus","Neptune","Pluto"];
+  const out={};
+  for(const a of (person.all_planet_activations||[])){
+    const s=a.side||'personality';
+    if(s!==side) continue;
+    const gl=glFromVal(a);
+    if(a.planet && gl) out[a.planet]=gl;
+  }
+  const map=side==='design'?(person.design_planets||{}):(person.planets||{});
+  for(const p of order){
+    if(out[p]) continue;
+    const gl=glFromVal(map[p]);
+    if(gl) out[p]=gl;
+  }
+  const parts=[];
+  const seen=new Set();
+  for(const p of order){
+    if(out[p]){ parts.push(p+' '+out[p]); seen.add(p); }
+  }
+  Object.keys(out).forEach(p=>{ if(!seen.has(p)) parts.push(p+' '+out[p]); });
+  return parts;
+}
+function compactDesignSummary(person){
+  const profile=(window.HD && typeof HD.deriveHdProfile==='function')?HD.deriveHdProfile(person):{};
+  const centerOrder=["Head","Ajna","Throat","G","Heart/Ego","Sacral","Solar Plexus","Spleen","Root"];
+  const rank=c=>{ const i=centerOrder.indexOf(c); return i<0?99:i; };
+  const defined=[...(person.defined_centers||[])].map(String).sort((a,b)=>rank(a)-rank(b)||a.localeCompare(b));
+  const open=(window.HD && typeof HD.openCentersOf==='function'?HD.openCentersOf(person):[]).slice();
+  const channels=(person.natal_channel_list||[]).map(ch=>{
+    const cents=(ch.centers||[]).join('\u2013');
+    const gates=(ch.gates||[]).join('-');
+    return (ch.name||ch.id||'')+(cents?(' ('+cents+')'):'')+(gates?(' '+gates):'');
+  });
+  return {
+    name: firstNameMember(person.name),
+    type: profile.type||'',
+    strategy: profile.strategy||'',
+    authority: profile.authority||'',
+    definition: profile.definition||'',
+    definedCenters: defined,
+    openCenters: open,
+    natalChannels: channels,
+    personalityActivations: activationsBySide(person,'personality'),
+    designActivations: activationsBySide(person,'design')
+  };
+}
+function loadAskPersonFromBox(which){
+  try{
+    const el=$(which===2?'person2':'person1');
+    const raw=el && String(el.value||'').trim();
+    if(!raw) return null;
+    if(!window.HD || typeof HD.loadPerson!=='function') return null;
+    return HD.loadPerson(parseInput(raw)||raw);
+  }catch(e){ return null; }
+}
+function collectAskDesigns(){
+  const out=[];
+  const p1=loadAskPersonFromBox(1);
+  if(p1) out.push(compactDesignSummary(p1));
+  const p2=loadAskPersonFromBox(2);
+  if(p2) out.push(compactDesignSummary(p2));
+  return out;
+}
 function collectAskMembers(){
   const names=[];
   try{
@@ -1179,15 +1265,16 @@ function collectAskContext(){
   // Keep gate/channel/center meaning prose from the generated output so the model is grounded.
   const visible=clipAskDateOrder(reportTextWithoutChrome(report), ASK_CONTEXT_CAP);
   const rangeLabel=(typeof selectionRangeText==='function'?selectionRangeText():'') || ($('ephemNote')&&$('ephemNote').textContent)||'';
+  // Send the shown report once (not duplicated under meanings + regularSummary),
+  // so a full multi-day report stays within a safe payload size.
   const ctx={
     rangeLabel: rangeLabel,
-    timezone: ($('tz')&&$('tz').value)||'',
-    meanings: visible
+    timezone: ($('tz')&&$('tz').value)||''
   };
   if(sections.notSelfLandscape) ctx.landscape=visible;
-  if(sections.betweenMembers && !sections.notSelfLandscape) ctx.between=visible;
-  if(sections.regularReport) ctx.regularSummary=visible;
-  return {sections, context:ctx, members:collectAskMembers(), rangeLabel:rangeLabel};
+  else if(sections.betweenMembers) ctx.between=visible;
+  else ctx.regularSummary=visible;
+  return {sections, context:ctx, members:collectAskMembers(), designs:collectAskDesigns(), rangeLabel:rangeLabel};
 }
 function grokSectionHtml(kind, question, body){
   const q=escapeGrok(question||'');
@@ -1238,13 +1325,22 @@ function setAskStatus(msg, kind){
   const el=$('askGrokStatus');
   if(el) el.textContent=msg||'';
 }
-function friendlyAskError(err, fallback){
-  const s=String(err||fallback||'Something went wrong.');
-  if(/XAI_API_KEY is not set yet/i.test(s) || /key isn'?t set yet/i.test(s) || /not set yet/i.test(s) && /XAI_API_KEY|API key/i.test(s)){
+function friendlyAskError(err, status){
+  const s=String(err||'Something went wrong.');
+  if(/XAI_API_KEY is not set yet/i.test(s) || /key isn'?t set yet/i.test(s) || (/not set yet/i.test(s) && /XAI_API_KEY|API key/i.test(s))){
     return "The Grok API key isn't set yet. Add XAI_API_KEY in the Vercel project Settings → Environment Variables, then redeploy.";
   }
+  if(/took too long|timed out|timeout|FUNCTION_INVOCATION_TIMEOUT|abort/i.test(s) || status===504){
+    return 'The answer took too long. Try a shorter date range or check a section box, then ask again.';
+  }
+  if(status && status!==200){
+    const base=/failed to fetch|networkerror|load failed|offline/i.test(s)
+      ? 'The question service did not respond.'
+      : s.replace(/^Request failed \(HTTP \d+\):\s*/i,'').trim();
+    return 'Request failed (HTTP '+status+'): '+base;
+  }
   if(/failed to fetch|networkerror|load failed|offline/i.test(s)){
-    return 'Could not reach the question service. Check your internet connection and try again.';
+    return 'The question service did not respond (it may have timed out). Try a shorter date range or check a section box, then ask again. If you are offline, reconnect and retry.';
   }
   return s;
 }
@@ -1270,17 +1366,22 @@ async function askGrok(){
   setAskStatus('Asking Grok…');
   if(btn){ btn.setAttribute('data-loading','1'); btn.disabled=true; btn.textContent='Asking…'; }
   const payload=Object.assign({question:lastGrokQuestion}, collectAskContext());
+  const ctrl=(typeof AbortController==='function')?new AbortController():null;
+  const timer=setTimeout(()=>{ try{ if(ctrl) ctrl.abort(); }catch(e){} }, ASK_TIMEOUT_MS);
   try{
     const res=await fetch(ASK_ENDPOINT,{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify(payload)
+      body:JSON.stringify(payload),
+      signal: ctrl?ctrl.signal:undefined
     });
     let data=null;
-    try{ data=await res.json(); }catch(e){ data=null; }
+    let rawText='';
+    try{ rawText=await res.text(); }catch(e){ rawText=''; }
+    try{ data=rawText?JSON.parse(rawText):null; }catch(e){ data=null; }
     if(!res.ok){
-      const raw=(data&&data.error)?String(data.error):('Request failed ('+res.status+').');
-      const msg=friendlyAskError(raw, raw);
+      const raw=(data&&data.error)?String(data.error):(rawText||res.statusText||('Request failed (HTTP '+res.status+').'));
+      const msg=friendlyAskError(raw, res.status);
       lastGrokAnswerHtml=grokSectionHtml('error', lastGrokQuestion, msg);
       lastGrokAnswerText='';
       applyGrokAnswerToReport();
@@ -1300,12 +1401,16 @@ async function askGrok(){
     applyGrokAnswerToReport();
     setAskStatus('Answer added to the report.');
   }catch(e){
-    const msg=friendlyAskError(e&&e.message?e.message:e, 'Could not reach the question service.');
+    const aborted=e && (e.name==='AbortError' || /aborted/i.test(e&&e.message?e.message:''));
+    const msg=aborted
+      ? 'The answer took too long. Try a shorter date range or check a section box, then ask again.'
+      : friendlyAskError(e&&e.message?e.message:e);
     lastGrokAnswerHtml=grokSectionHtml('error', lastGrokQuestion, msg);
     lastGrokAnswerText='';
     applyGrokAnswerToReport();
     setAskStatus(msg);
   }finally{
+    clearTimeout(timer);
     if(btn){ btn.removeAttribute('data-loading'); btn.textContent='Ask'; }
     updateAskGrokCount();
   }
