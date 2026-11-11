@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta http-equiv="Cache-Control" content="202611111630" />
-  <meta name="ta-build" content="202611111630" />
+  <meta http-equiv="Cache-Control" content="202611111645" />
+  <meta name="ta-build" content="202611111645" />
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -109,8 +109,8 @@ button.secondary#nowBtn.active{opacity:1;font-weight:750;background:var(--accent
 
 .ask-answer-actions{display:flex;flex-wrap:wrap;gap:.35rem;margin:.55rem 0 .15rem;align-items:center}
 .ask-answer-actions button{width:auto;margin-top:0;padding:.4rem .7rem;font-size:.82rem}
-.share-menu{display:none;position:fixed;z-index:40;min-width:11.5rem;padding:.35rem;background:var(--panel);border:1px solid var(--border);border-radius:10px;box-shadow:0 10px 28px rgba(0,0,0,.4)}
-.share-menu.open{display:block}
+.share-menu{display:none!important;position:fixed;z-index:40;min-width:11.5rem;padding:.35rem;background:var(--panel);border:1px solid var(--border);border-radius:10px;box-shadow:0 10px 28px rgba(0,0,0,.4);pointer-events:none;left:-9999px;top:-9999px}
+.share-menu.open{display:block!important;pointer-events:auto;left:auto;top:auto}
 .share-menu button{width:100%;margin:0;padding:.55rem .7rem;text-align:left;background:#182232;color:var(--ink);border:1px solid transparent;font-weight:600}
 .share-menu button:hover,.share-menu button:focus-visible{background:#243247;border-color:var(--border)}
 #answerPrintRoot{display:none}
@@ -218,6 +218,9 @@ button,.secondary{touch-action:manipulation;-webkit-tap-highlight-color:transpar
 @media(max-width:600px){
   .label-row{flex-wrap:wrap;gap:.35rem}
   #controls button{width:100%}
+  #controls button.clear-btn,
+  #controls .quick-load button,
+  #controls .ql-remove{width:auto;max-width:100%;min-width:0;flex:1 1 auto}
   #controls button.clear-btn{width:auto;min-width:1.7rem;flex:0 0 auto}
   /* Keep the bottom refine bar usable: long hints stay available on larger screens. */
   #extraOutputOpts > p.hint{display:none}
@@ -231,22 +234,20 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 
 .quick-load{margin:.45rem 0 .35rem;display:block;width:100%;min-width:0;overflow:visible}
 .quick-load-label{display:block;font-size:.75rem;color:var(--muted);margin:0 0 .35rem}
-.quick-load-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.4rem;width:100%;min-width:0;min-height:88px;visibility:visible}
+.quick-load-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.4rem;width:100%;min-width:0;min-height:88px;visibility:visible;align-items:stretch;position:relative;z-index:1}
 @media(max-width:420px){.quick-load-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
-@media(max-width:600px){
-  #controls .quick-load button.quick-sample{width:100%;max-width:100%}
-  #controls .ql-slot{width:auto;max-width:100%}
-}
 .quick-load button.quick-sample{
-  width:100%;min-width:0;min-height:44px;margin-top:0;padding:.45rem .35rem;
-  font-size:.82rem;line-height:1.15;touch-action:manipulation;-webkit-tap-highlight-color:transparent
+  display:block;flex:1 1 auto;width:auto;max-width:100%;min-width:0;min-height:44px;margin-top:0;padding:.45rem .35rem;
+  font-size:.82rem;line-height:1.15;cursor:pointer;position:relative;z-index:1;
+  touch-action:manipulation;-webkit-tap-highlight-color:rgba(201,162,39,.35)
 }
+#controls .quick-load button.quick-sample{width:auto;max-width:100%;flex:1 1 auto}
 .quick-load button.quick-sample.active{background:linear-gradient(135deg,#c9a227,#a67c00);color:#111;border:none;font-weight:700;box-shadow:0 0 0 2px rgba(201,162,39,.35)}
 .quick-load button.quick-sample.empty,
 .quick-load button.quick-sample:disabled{opacity:.45;cursor:not-allowed;font-weight:500;color:var(--muted);background:#182232}
 
-.ql-slot{position:relative;min-width:0;width:100%}
-.ql-slot .quick-sample{width:100%}
+.ql-slot{position:relative;min-width:0;max-width:100%;width:auto;overflow:hidden;display:flex;z-index:1}
+.ql-slot .quick-sample{width:auto;max-width:100%;flex:1 1 auto}
 .ql-remove{
   position:absolute;top:-8px;right:-8px;z-index:3;
   width:30px;height:30px;min-width:30px;min-height:30px;margin:0;padding:0;
@@ -258,10 +259,64 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 }
 .ql-remove:hover,.ql-remove:focus{background:#5a2a32;color:#fff;outline:2px solid var(--accent2);outline-offset:1px}
 
+#taErrorBanner{display:none;position:fixed;top:0;left:0;right:0;z-index:99999;background:#8b1e1e;color:#fff;padding:.75rem 1rem;font-size:.85rem;line-height:1.35;white-space:pre-wrap;word-break:break-word;box-shadow:0 4px 16px rgba(0,0,0,.45)}
+#taErrorBanner.show{display:block}
+#taErrorBanner[hidden]{display:none!important}
+label.check,label.check input{cursor:pointer}
+
+
 </style>
+    <script>
+/* Visible on-page error banner for iOS debugging. ES5, no dependencies. */
+(function(){
+  var queued=[];
+  function paint(msg){
+    try{
+      var el=document.getElementById('taErrorBanner');
+      if(!el){
+        if(!document.body){ queued.push(msg); return; }
+        el=document.createElement('div');
+        el.id='taErrorBanner';
+        el.setAttribute('role','alert');
+        document.body.insertBefore(el, document.body.firstChild);
+      }
+      el.removeAttribute('hidden');
+      if(el.className.indexOf('show')===-1) el.className=(el.className?el.className+' ':'')+'show';
+      el.appendChild(document.createTextNode(msg+'\n'));
+    }catch(e){}
+  }
+  function show(msg){
+    if(document.body) paint(msg);
+    else queued.push(msg);
+  }
+  function flush(){
+    var i;
+    for(i=0;i<queued.length;i++) paint(queued[i]);
+    queued=[];
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', flush);
+  else flush();
+  window.onerror=function(msg,src,line,col,err){
+    var parts=['Error: '+msg];
+    if(src) parts.push(String(src)+(line?(':'+line+(col!==undefined && col!==null?(':'+col):'')):''));
+    if(err && err.stack) parts.push(String(err.stack));
+    show(parts.join('\n'));
+    return false;
+  };
+  if(window.addEventListener){
+    window.addEventListener('unhandledrejection', function(ev){
+      var r=ev && ev.reason;
+      var text='Unhandled promise: ';
+      try{ text += (r && (r.stack || r.message || r)) || r; }catch(e){ text += r; }
+      show(text);
+    });
+  }
+})();
+</script>
     <script data-goatcounter="https://sbhd.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
 </head>
 <body>
+<div id="taErrorBanner" hidden role="alert"></div>
 <header>
   <h1>Human Design Transit Analyzer (Live)</h1>
   <p>Offline-capable ephemeris · True Lunar Node · Plain-language transit stories · data.js separate</p>
@@ -509,11 +564,11 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 </div>
 
 <!-- Data is separate from the UI. Script order matters. Works via file:// on Windows and via https on iPhone/iPad Firefox. -->
-<script src="astronomy.browser.min.js?v=202611111630"></script>
-<script src="data.js?v=202611111630"></script>
+<script src="astronomy.browser.min.js?v=202611111645"></script>
+<script src="data.js?v=202611111645"></script>
 
 <script>
-/* ES5 quick-load bootstrap: show and wire member buttons even if later scripts fail. */
+/* ES5 quick-load + Full/Brief bootstrap: works even if later scripts fail. */
 (function(){
   function byId(id){ return document.getElementById(id); }
   function rootData(){
@@ -521,29 +576,67 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
     if(window.DATA) return window.DATA;
     return {};
   }
-  function loadKey(n, key){
-    if(!key) return;
-    if(typeof loadSampleInto==='function'){ try{ loadSampleInto(n, key); return; }catch(e){} }
+  function hasClass(el, name){
+    return !!(el && (' '+(el.className||'')+' ').indexOf(' '+name+' ')!==-1);
+  }
+  function addClass(el, name){
+    if(!el || hasClass(el, name)) return;
+    el.className = (el.className ? el.className+' ' : '')+name;
+  }
+  function removeClass(el, name){
+    if(!el) return;
+    el.className = (' '+(el.className||'')+' ').replace(' '+name+' ', ' ').replace(/^\s+|\s+$/g,'');
+  }
+  function setHighlight(n, key){
     try{
-      var samples=(rootData().samples)||{};
-      var src=samples[key];
-      var ta=byId(n===1?'person1':'person2');
-      if(src && ta) ta.value=typeof src==='string'?src:JSON.stringify(src,null,2);
+      var grid=byId(n===1?'quickLoadGrid1':'quickLoadGrid2');
+      if(!grid) return;
+      var buttons=grid.getElementsByTagName('button');
+      var i,b,on;
+      for(i=0;i<buttons.length;i++){
+        b=buttons[i];
+        on=!!key && b.getAttribute && b.getAttribute('data-sample')===key;
+        if(on){ addClass(b,'active'); if(b.setAttribute) b.setAttribute('aria-pressed','true'); }
+        else { removeClass(b,'active'); if(b.setAttribute) b.setAttribute('aria-pressed','false'); }
+      }
     }catch(e){}
   }
-  function wire(gridId, n){
-    var grid=byId(gridId);
-    if(!grid || grid.getAttribute('data-ql-wired')) return;
-    grid.setAttribute('data-ql-wired','1');
-    grid.addEventListener('click', function(ev){
+  function loadKey(n, key){
+    if(!key) return;
+    var usedApp=false;
+    if(typeof loadSampleInto==='function'){
+      try{ loadSampleInto(n, key); usedApp=true; }catch(e){ usedApp=false; }
+    }
+    if(!usedApp){
+      try{
+        var samples=(rootData().samples)||{};
+        var src=samples[key];
+        var ta=byId(n===1?'person1':'person2');
+        if(src && ta) ta.value=typeof src==='string'?src:JSON.stringify(src,null,2);
+      }catch(e){}
+    }
+    try{ setHighlight(n, key); }catch(e){}
+  }
+  function onGridEvent(ev, grid, n){
+    try{
       var t=ev.target||ev.srcElement;
+      if(t && t.nodeType===3) t=t.parentNode;
       while(t && t!==grid && !(t.getAttribute && t.getAttribute('data-sample'))) t=t.parentNode;
       if(!t || t===grid) return;
       if(t.disabled) return;
-      if(t.className && String(t.className).indexOf('ql-remove')!==-1) return;
+      if(hasClass(t,'ql-remove')) return;
       var key=t.getAttribute('data-sample');
       if(key) loadKey(n, key);
-    }, false);
+    }catch(e){}
+  }
+  function wireGrid(gridId, n){
+    var grid=byId(gridId);
+    if(!grid || grid.getAttribute('data-ql-wired')) return;
+    grid.setAttribute('data-ql-wired','1');
+    function handler(ev){ onGridEvent(ev, grid, n); }
+    try{ grid.addEventListener('click', handler, false); }catch(e){}
+    try{ grid.addEventListener('touchend', handler, false); }catch(e){}
+    try{ grid.addEventListener('pointerup', handler, false); }catch(e){}
   }
   function fillIfEmpty(gridId, n){
     var grid=byId(gridId);
@@ -561,17 +654,36 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
     }
     grid.innerHTML=html;
   }
+  function wireRangeDesc(){
+    var full=byId('includeRangeFullDesc');
+    var brief=byId('includeRangeBriefDesc');
+    if(!full || !brief) return;
+    if(full.getAttribute('data-boot-wired')) return;
+    try{ full.setAttribute('data-boot-wired','1'); }catch(e){}
+    try{ brief.setAttribute('data-boot-wired','1'); }catch(e){}
+    function onFull(){
+      try{ if(full.checked) brief.checked=false; }catch(e){}
+    }
+    function onBrief(){
+      try{ if(brief.checked) full.checked=false; }catch(e){}
+    }
+    try{ full.addEventListener('change', onFull, false); }catch(e){}
+    try{ full.addEventListener('click', onFull, false); }catch(e){}
+    try{ brief.addEventListener('change', onBrief, false); }catch(e){}
+    try{ brief.addEventListener('click', onBrief, false); }catch(e){}
+  }
   function boot(){
     try{ fillIfEmpty('quickLoadGrid1',1); }catch(e){}
     try{ fillIfEmpty('quickLoadGrid2',2); }catch(e){}
-    try{ wire('quickLoadGrid1',1); }catch(e){}
-    try{ wire('quickLoadGrid2',2); }catch(e){}
+    try{ wireGrid('quickLoadGrid1',1); }catch(e){}
+    try{ wireGrid('quickLoadGrid2',2); }catch(e){}
+    try{ wireRangeDesc(); }catch(e){}
   }
   if(document.readyState==='loading'){ document.addEventListener('DOMContentLoaded', boot); }
   else { boot(); }
 })();
 </script>
-<script src="analyzer.js?v=202611111630"></script>
-<script src="app.js?v=202611111630"></script>
+<script src="analyzer.js?v=202611111645"></script>
+<script src="app.js?v=202611111645"></script>
 </body>
 </html>
