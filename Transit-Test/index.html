@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta http-equiv="Cache-Control" content="202611111545" />
-  <meta name="ta-build" content="202611111545" />
+  <meta http-equiv="Cache-Control" content="202611111630" />
+  <meta name="ta-build" content="202611111630" />
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -229,10 +229,14 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 }
 
 
-.quick-load{margin:.45rem 0 .35rem}
+.quick-load{margin:.45rem 0 .35rem;display:block;width:100%;min-width:0;overflow:visible}
 .quick-load-label{display:block;font-size:.75rem;color:var(--muted);margin:0 0 .35rem}
-.quick-load-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.4rem;width:100%}
+.quick-load-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.4rem;width:100%;min-width:0;min-height:88px;visibility:visible}
 @media(max-width:420px){.quick-load-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:600px){
+  #controls .quick-load button.quick-sample{width:100%;max-width:100%}
+  #controls .ql-slot{width:auto;max-width:100%}
+}
 .quick-load button.quick-sample{
   width:100%;min-width:0;min-height:44px;margin-top:0;padding:.45rem .35rem;
   font-size:.82rem;line-height:1.15;touch-action:manipulation;-webkit-tap-highlight-color:transparent
@@ -280,7 +284,20 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
     </div>
     <div class="quick-load" id="quickLoad1" role="group" aria-label="Quick-load sample for Person 1">
       <span class="quick-load-label">Quick load</span>
-      <div class="quick-load-grid" id="quickLoadGrid1"></div>
+      <div class="quick-load-grid" id="quickLoadGrid1">
+        <div class="ql-slot" data-index="1"><button type="button" class="secondary quick-sample" data-slot="1" data-index="1" data-sample="dennis" id="ql1-dennis" aria-pressed="false">Dennis</button></div>
+        <div class="ql-slot" data-index="2"><button type="button" class="secondary quick-sample" data-slot="1" data-index="2" data-sample="eike" id="ql1-eike" aria-pressed="false">Eike</button></div>
+        <div class="ql-slot" data-index="3"><button type="button" class="secondary quick-sample" data-slot="1" data-index="3" data-sample="judy" id="ql1-judy" aria-pressed="false">Judy</button></div>
+        <div class="ql-slot" data-index="4"><button type="button" class="secondary quick-sample" data-slot="1" data-index="4" data-sample="carolyn" id="ql1-carolyn" aria-pressed="false">Carolyn</button></div>
+        <div class="ql-slot" data-index="5"><button type="button" class="secondary quick-sample" data-slot="1" data-index="5" data-sample="milena" id="ql1-milena" aria-pressed="false">Milena</button></div>
+        <div class="ql-slot" data-index="6"><button type="button" class="secondary quick-sample" data-slot="1" data-index="6" data-sample="teresa" id="ql1-teresa" aria-pressed="false">Teresa</button></div>
+        <div class="ql-slot empty-slot" data-index="7"><button type="button" class="secondary quick-sample empty" data-slot="1" data-index="7" data-sample="" id="ql1-empty7" disabled title="Empty custom slot — upload a .docx / .json / .txt chart to save here">Empty</button></div>
+        <div class="ql-slot empty-slot" data-index="8"><button type="button" class="secondary quick-sample empty" data-slot="1" data-index="8" data-sample="" id="ql1-empty8" disabled title="Empty custom slot — upload a .docx / .json / .txt chart to save here">Empty</button></div>
+        <div class="ql-slot empty-slot" data-index="9"><button type="button" class="secondary quick-sample empty" data-slot="1" data-index="9" data-sample="" id="ql1-empty9" disabled title="Empty custom slot — upload a .docx / .json / .txt chart to save here">Empty</button></div>
+        <div class="ql-slot empty-slot" data-index="10"><button type="button" class="secondary quick-sample empty" data-slot="1" data-index="10" data-sample="" id="ql1-empty10" disabled title="Empty custom slot — upload a .docx / .json / .txt chart to save here">Empty</button></div>
+        <div class="ql-slot empty-slot" data-index="11"><button type="button" class="secondary quick-sample empty" data-slot="1" data-index="11" data-sample="" id="ql1-empty11" disabled title="Empty custom slot — upload a .docx / .json / .txt chart to save here">Empty</button></div>
+        <div class="ql-slot empty-slot" data-index="12"><button type="button" class="secondary quick-sample empty" data-slot="1" data-index="12" data-sample="" id="ql1-empty12" disabled title="Empty custom slot — upload a .docx / .json / .txt chart to save here">Empty</button></div>
+      </div>
     </div>
 
     <div class="png-box" id="pngBox1">
@@ -305,7 +322,20 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
     </div>
     <div class="quick-load" id="quickLoad2" role="group" aria-label="Quick-load sample for Person 2">
       <span class="quick-load-label">Quick load</span>
-      <div class="quick-load-grid" id="quickLoadGrid2"></div>
+      <div class="quick-load-grid" id="quickLoadGrid2">
+        <div class="ql-slot" data-index="1"><button type="button" class="secondary quick-sample" data-slot="2" data-index="1" data-sample="dennis" id="ql2-dennis" aria-pressed="false">Dennis</button></div>
+        <div class="ql-slot" data-index="2"><button type="button" class="secondary quick-sample" data-slot="2" data-index="2" data-sample="eike" id="ql2-eike" aria-pressed="false">Eike</button></div>
+        <div class="ql-slot" data-index="3"><button type="button" class="secondary quick-sample" data-slot="2" data-index="3" data-sample="judy" id="ql2-judy" aria-pressed="false">Judy</button></div>
+        <div class="ql-slot" data-index="4"><button type="button" class="secondary quick-sample" data-slot="2" data-index="4" data-sample="carolyn" id="ql2-carolyn" aria-pressed="false">Carolyn</button></div>
+        <div class="ql-slot" data-index="5"><button type="button" class="secondary quick-sample" data-slot="2" data-index="5" data-sample="milena" id="ql2-milena" aria-pressed="false">Milena</button></div>
+        <div class="ql-slot" data-index="6"><button type="button" class="secondary quick-sample" data-slot="2" data-index="6" data-sample="teresa" id="ql2-teresa" aria-pressed="false">Teresa</button></div>
+        <div class="ql-slot empty-slot" data-index="7"><button type="button" class="secondary quick-sample empty" data-slot="2" data-index="7" data-sample="" id="ql2-empty7" disabled title="Empty custom slot — upload a .docx / .json / .txt chart to save here">Empty</button></div>
+        <div class="ql-slot empty-slot" data-index="8"><button type="button" class="secondary quick-sample empty" data-slot="2" data-index="8" data-sample="" id="ql2-empty8" disabled title="Empty custom slot — upload a .docx / .json / .txt chart to save here">Empty</button></div>
+        <div class="ql-slot empty-slot" data-index="9"><button type="button" class="secondary quick-sample empty" data-slot="2" data-index="9" data-sample="" id="ql2-empty9" disabled title="Empty custom slot — upload a .docx / .json / .txt chart to save here">Empty</button></div>
+        <div class="ql-slot empty-slot" data-index="10"><button type="button" class="secondary quick-sample empty" data-slot="2" data-index="10" data-sample="" id="ql2-empty10" disabled title="Empty custom slot — upload a .docx / .json / .txt chart to save here">Empty</button></div>
+        <div class="ql-slot empty-slot" data-index="11"><button type="button" class="secondary quick-sample empty" data-slot="2" data-index="11" data-sample="" id="ql2-empty11" disabled title="Empty custom slot — upload a .docx / .json / .txt chart to save here">Empty</button></div>
+        <div class="ql-slot empty-slot" data-index="12"><button type="button" class="secondary quick-sample empty" data-slot="2" data-index="12" data-sample="" id="ql2-empty12" disabled title="Empty custom slot — upload a .docx / .json / .txt chart to save here">Empty</button></div>
+      </div>
     </div>
 
     <div class="png-box" id="pngBox2">
@@ -479,9 +509,69 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 </div>
 
 <!-- Data is separate from the UI. Script order matters. Works via file:// on Windows and via https on iPhone/iPad Firefox. -->
-<script src="astronomy.browser.min.js?v=202611111545"></script>
-<script src="data.js?v=202611111545"></script>
-<script src="analyzer.js?v=202611111545"></script>
-<script src="app.js?v=202611111545"></script>
+<script src="astronomy.browser.min.js?v=202611111630"></script>
+<script src="data.js?v=202611111630"></script>
+
+<script>
+/* ES5 quick-load bootstrap: show and wire member buttons even if later scripts fail. */
+(function(){
+  function byId(id){ return document.getElementById(id); }
+  function rootData(){
+    if(window.HD_DATA) return window.HD_DATA;
+    if(window.DATA) return window.DATA;
+    return {};
+  }
+  function loadKey(n, key){
+    if(!key) return;
+    if(typeof loadSampleInto==='function'){ try{ loadSampleInto(n, key); return; }catch(e){} }
+    try{
+      var samples=(rootData().samples)||{};
+      var src=samples[key];
+      var ta=byId(n===1?'person1':'person2');
+      if(src && ta) ta.value=typeof src==='string'?src:JSON.stringify(src,null,2);
+    }catch(e){}
+  }
+  function wire(gridId, n){
+    var grid=byId(gridId);
+    if(!grid || grid.getAttribute('data-ql-wired')) return;
+    grid.setAttribute('data-ql-wired','1');
+    grid.addEventListener('click', function(ev){
+      var t=ev.target||ev.srcElement;
+      while(t && t!==grid && !(t.getAttribute && t.getAttribute('data-sample'))) t=t.parentNode;
+      if(!t || t===grid) return;
+      if(t.disabled) return;
+      if(t.className && String(t.className).indexOf('ql-remove')!==-1) return;
+      var key=t.getAttribute('data-sample');
+      if(key) loadKey(n, key);
+    }, false);
+  }
+  function fillIfEmpty(gridId, n){
+    var grid=byId(gridId);
+    if(!grid) return;
+    if(grid.querySelector && grid.querySelector('button.quick-sample')) return;
+    var keys=['dennis','eike','judy','carolyn','milena','teresa'];
+    var labels=['Dennis','Eike','Judy','Carolyn','Milena','Teresa'];
+    var html='', i, k;
+    for(i=0;i<6;i++){
+      k=keys[i];
+      html+='<div class="ql-slot" data-index="'+(i+1)+'"><button type="button" class="secondary quick-sample" data-slot="'+n+'" data-index="'+(i+1)+'" data-sample="'+k+'" id="ql'+n+'-'+k+'">'+labels[i]+'</button></div>';
+    }
+    for(i=7;i<=12;i++){
+      html+='<div class="ql-slot empty-slot" data-index="'+i+'"><button type="button" class="secondary quick-sample empty" data-slot="'+n+'" data-index="'+i+'" data-sample="" id="ql'+n+'-empty'+i+'" disabled>Empty</button></div>';
+    }
+    grid.innerHTML=html;
+  }
+  function boot(){
+    try{ fillIfEmpty('quickLoadGrid1',1); }catch(e){}
+    try{ fillIfEmpty('quickLoadGrid2',2); }catch(e){}
+    try{ wire('quickLoadGrid1',1); }catch(e){}
+    try{ wire('quickLoadGrid2',2); }catch(e){}
+  }
+  if(document.readyState==='loading'){ document.addEventListener('DOMContentLoaded', boot); }
+  else { boot(); }
+})();
+</script>
+<script src="analyzer.js?v=202611111630"></script>
+<script src="app.js?v=202611111630"></script>
 </body>
 </html>

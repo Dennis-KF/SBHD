@@ -539,7 +539,7 @@ function analyzeDay(person, transit){
   const tplanets=transit.planets;
   const tGates=new Set(Object.values(tplanets).map(p=>p.gate));
   const tByGate={};
-  for(const [pname,p] of Object.entries(tplanets)) (tByGate[p.gate]||=[]).push(pname);
+  for(const [pname,p] of Object.entries(tplanets)) (tByGate[p.gate]=tByGate[p.gate]||[]).push(pname);
   const transitChannels=[];
   for(const [chId,ch] of Object.entries(CHANNELS)){
     const [a,b]=ch.gates;

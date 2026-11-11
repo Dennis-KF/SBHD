@@ -10,10 +10,12 @@ function initialLocalToday(){
   const hm=pad2boot(hh)+':'+pad2boot(mm);
   return {y:y, m:m, d:d, iso:iso, hh:hh, mm:mm, hm:hm};
 }
-let __BOOT_TODAY__=initialLocalToday();
-let startDate=__BOOT_TODAY__.iso;
+let __BOOT_TODAY__;
+try{ __BOOT_TODAY__=initialLocalToday(); }
+catch(e){ __BOOT_TODAY__={y:2026,m:1,d:1,iso:'2026-01-01',hh:12,mm:0,hm:'12:00'}; }
+let startDate=(__BOOT_TODAY__&&__BOOT_TODAY__.iso)||'2026-01-01';
 let endDate=null; // range default: applyBootTodayToInputs sets endDate=today; single clears it
-let calViewYear=__BOOT_TODAY__.y, calViewMonth=__BOOT_TODAY__.m; // left pane month (1-12)
+let calViewYear=(__BOOT_TODAY__&&__BOOT_TODAY__.y)||2026, calViewMonth=(__BOOT_TODAY__&&__BOOT_TODAY__.m)||1; // left pane month (1-12)
 let rangeNeedsNewStart=true; // first click in range mode always sets start
 let lastHtml='';
 let lastMd='';
@@ -620,64 +622,72 @@ function sampleButtonLabel(key){
   return key.charAt(0).toUpperCase()+key.slice(1);
 }
 function renderQuickLoadGrids(){
-  const order=sampleOrderList();
-  for(const n of [1,2]){
-    const grid=$('quickLoadGrid'+n) || ($('quickLoad'+n) && $('quickLoad'+n).querySelector('.quick-load-grid'));
-    if(!grid) continue;
-    grid.innerHTML='';
-    for(let i=0;i<12;i++){
-      const key=order[i];
-      const isUserSlot=i>=6;
-      const wrap=document.createElement('div');
-      wrap.className='ql-slot'+(key?'':' empty-slot');
-      wrap.setAttribute('data-index', String(i+1));
+  try{
+    const order=sampleOrderList();
+    for(let n=1;n<=2;n++){
+      try{
+        const grid=$('quickLoadGrid'+n) || ($('quickLoad'+n) && $('quickLoad'+n).querySelector('.quick-load-grid'));
+        if(!grid) continue;
+        const frag=document.createDocumentFragment();
+        for(let i=0;i<12;i++){
+          const key=order[i];
+          const isUserSlot=i>=6;
+          const wrap=document.createElement('div');
+          wrap.className='ql-slot'+(key?'':' empty-slot');
+          wrap.setAttribute('data-index', String(i+1));
 
-      const btn=document.createElement('button');
-      btn.type='button';
-      btn.className='secondary quick-sample'+(key?'':' empty');
-      btn.setAttribute('data-slot', String(n));
-      btn.setAttribute('data-index', String(i+1));
-      btn.setAttribute('aria-pressed','false');
-      if(key){
-        btn.setAttribute('data-sample', key);
-        btn.id='ql'+n+'-'+key.replace(/[^a-zA-Z0-9_-]/g,'_');
-        btn.textContent=sampleButtonLabel(key);
-        btn.addEventListener('click', (ev)=>{
-          // Ignore if a remove control was the real target
-          if(ev && ev.target && ev.target.closest && ev.target.closest('.ql-remove')) return;
-          loadSampleInto(n, key);
-        });
-      } else {
-        btn.setAttribute('data-sample','');
-        btn.id='ql'+n+'-empty'+(i+1);
-        btn.textContent='Empty';
-        btn.disabled=true;
-        btn.title=isUserSlot
-          ? 'Empty custom slot — upload a .docx / .json / .txt chart to save here'
-          : 'Placeholder';
-      }
-      wrap.appendChild(btn);
+          const btn=document.createElement('button');
+          btn.type='button';
+          btn.className='secondary quick-sample'+(key?'':' empty');
+          btn.setAttribute('data-slot', String(n));
+          btn.setAttribute('data-index', String(i+1));
+          btn.setAttribute('aria-pressed','false');
+          if(key){
+            btn.setAttribute('data-sample', key);
+            btn.id='ql'+n+'-'+String(key).replace(/[^a-zA-Z0-9_-]/g,'_');
+            btn.textContent=sampleButtonLabel(key);
+            btn.addEventListener('click', (ev)=>{
+              if(ev && ev.target && ev.target.closest && ev.target.closest('.ql-remove')) return;
+              try{ if(ev && ev.stopPropagation) ev.stopPropagation(); }catch(e){}
+              try{ loadSampleInto(n, key); }catch(e){ try{ console.error('loadSampleInto', e); }catch(_e){} }
+            });
+          } else {
+            btn.setAttribute('data-sample','');
+            btn.id='ql'+n+'-empty'+(i+1);
+            btn.textContent='Empty';
+            btn.disabled=true;
+            btn.title=isUserSlot
+              ? 'Empty custom slot — upload a .docx / .json / .txt chart to save here'
+              : 'Placeholder';
+          }
+          wrap.appendChild(btn);
 
-      // × only on filled user slots (7–12). Built-ins never get ×.
-      if(key && isUserSlot && BUILTIN_QUICK_KEYS.indexOf(key)<0){
-        const rm=document.createElement('button');
-        rm.type='button';
-        rm.className='ql-remove';
-        rm.setAttribute('aria-label', 'Remove '+sampleButtonLabel(key)+' from quick load');
-        rm.title='Remove saved chart';
-        rm.textContent='×';
-        rm.addEventListener('click', (ev)=>{
-          try{ ev.preventDefault(); ev.stopPropagation(); }catch(e){}
-          removeUserQuickSlot(key);
-        });
-        // Prevent touch from also activating the load button underneath
-        rm.addEventListener('pointerdown', (ev)=>{ try{ ev.stopPropagation(); }catch(e){} });
-        wrap.appendChild(rm);
-      }
-      grid.appendChild(wrap);
+          if(key && isUserSlot && BUILTIN_QUICK_KEYS.indexOf(key)<0){
+            const rm=document.createElement('button');
+            rm.type='button';
+            rm.className='ql-remove';
+            rm.setAttribute('aria-label', 'Remove '+sampleButtonLabel(key)+' from quick load');
+            rm.title='Remove saved chart';
+            rm.textContent='×';
+            rm.addEventListener('click', (ev)=>{
+              try{ ev.preventDefault(); ev.stopPropagation(); }catch(e){}
+              try{ removeUserQuickSlot(key); }catch(e){}
+            });
+            rm.addEventListener('pointerdown', (ev)=>{ try{ ev.stopPropagation(); }catch(e){} });
+            wrap.appendChild(rm);
+          }
+          frag.appendChild(wrap);
+        }
+        // Replace only after the new grid is fully built so a throw cannot leave the grid empty.
+        while(grid.firstChild) grid.removeChild(grid.firstChild);
+        grid.appendChild(frag);
+        grid.setAttribute('data-ready','1');
+        try{ void grid.offsetHeight; }catch(e){}
+      }catch(err){ try{ console.error('renderQuickLoadGrids slot '+n, err); }catch(_e){} }
     }
-  }
+  }catch(err){ try{ console.error('renderQuickLoadGrids', err); }catch(_e){} }
 }
+
 function setQuickLoadHighlight(n, sampleKey){
   const root=$('quickLoad'+n);
   if(!root) return;
@@ -2025,7 +2035,8 @@ function applyBootTodayToInputs(){
   try{ if(typeof updateRangeHint==='function') updateRangeHint(); }catch(e){}
 }
 function wire(){
-  const safe=(label,fn)=>{ try{ fn(); }catch(err){ console.error('wire:'+label, err); try{ status('Init warning ('+label+'): '+(err&&err.message?err.message:err),'err'); }catch(_e){} } };
+  const safe=(label,fn)=>{ try{ fn(); }catch(err){ try{ console.error('wire:'+label, err); }catch(_e){} try{ status('Init warning ('+label+'): '+(err&&err.message?err.message:err),'err'); }catch(_e){} } };
+  safe('quickLoad', renderQuickLoadGrids);
   safe('tz', fillTimezones);
   safe('time12', initTime12Controls);
   safe('today', applyBootTodayToInputs);
@@ -2046,12 +2057,14 @@ function wire(){
   if(cp1) cp1.onclick=()=>clearPerson(1);
   if(cp2) cp2.onclick=()=>clearPerson(2);
   if(cd) cd.onclick=()=>clearDates();
-  renderQuickLoadGrids();
-  ;[1,2].forEach(n=>{
-    const ta=$(n===1?'person1':'person2');
-    if(ta){ ta.addEventListener('input', ()=>clearQuickLoadHighlight(n)); ta.addEventListener('change', ()=>clearQuickLoadHighlight(n)); }
+  safe('quickLoad2', renderQuickLoadGrids);
+  safe('quickLoadInput', ()=>{
+    ;[1,2].forEach(n=>{
+      const ta=$(n===1?'person1':'person2');
+      if(ta){ ta.addEventListener('input', ()=>clearQuickLoadHighlight(n)); ta.addEventListener('change', ()=>clearQuickLoadHighlight(n)); }
+    });
   });
-  const lc=$('loadCouple'); if(lc) lc.onclick=loadCoupleSample;
+  safe('loadCouple', ()=>{ const lc=$('loadCouple'); if(lc) lc.onclick=loadCoupleSample; });
   const rs=$('reportSnapshot'), rt=$('reportTimeline'), th=$('timelineHint');
   function setReportMode(m){
     reportMode=m;
@@ -2090,47 +2103,47 @@ function wire(){
     syncRangeDescFlags();
     if(window.__LAST_TRANSIT__) runAnalysis();
   };
-  syncRangeTransitFieldOpt();
-  syncRangeDescFlags();
-  const ic=$('includeCodes'); if(ic) ic.onchange=()=>{ if(window.__LAST_TRANSIT__) runAnalysis(); };
-  const rwCb=$('realWorldInfluence'); if(rwCb) rwCb.onchange=()=>{ syncExtraOutputOpts(); rerunFromRefine(); };
-  syncExtraOutputOpts();
-  const nsCb=$('notSelfLandscape'); if(nsCb) nsCb.onchange=()=>rerunFromRefine();
-  const bmCb=$('betweenMembers'); if(bmCb) bmCb.onchange=()=>rerunFromRefine();
-  const askBox=$('askGrokBox'); if(askBox) askBox.onchange=()=>syncAskGrokPanel();
-  const askTa=$('askGrokQuestion'); if(askTa){ askTa.addEventListener('input', updateAskGrokCount); askTa.addEventListener('change', updateAskGrokCount); }
-  const askBtn=$('askGrokBtn'); if(askBtn) askBtn.onclick=()=>askGrok();
-  syncAskGrokPanel();
-  const moonCb=$('moonGateOnly'); if(moonCb) moonCb.onchange=()=>{ if(window.__LAST_TRANSIT__) runAnalysis(); };
-  const sunCb=$('sunGateOnly'); if(sunCb) sunCb.onchange=()=>{ if(window.__LAST_TRANSIT__) runAnalysis(); };
-  const allGateCb=$('allGateOnly'); if(allGateCb) allGateCb.onchange=()=>{ syncOmitLightsUI(); if(window.__LAST_TRANSIT__) runAnalysis(); };
-  const omitCb=$('omitLights'); if(omitCb) omitCb.onchange=()=>{ syncOmitLightsUI(); if(window.__LAST_TRANSIT__) runAnalysis(); };
+  safe('rangeFieldOpt', syncRangeTransitFieldOpt);
+  safe('rangeDescFlags', syncRangeDescFlags);
+  safe('codes', ()=>{ const ic=$('includeCodes'); if(ic) ic.onchange=()=>{ if(window.__LAST_TRANSIT__) runAnalysis(); }; });
+  safe('realWorld', ()=>{ const rwCb=$('realWorldInfluence'); if(rwCb) rwCb.onchange=()=>{ syncExtraOutputOpts(); rerunFromRefine(); }; });
+  safe('extraOpts', syncExtraOutputOpts);
+  safe('notSelf', ()=>{ const nsCb=$('notSelfLandscape'); if(nsCb) nsCb.onchange=()=>rerunFromRefine(); });
+  safe('between', ()=>{ const bmCb=$('betweenMembers'); if(bmCb) bmCb.onchange=()=>rerunFromRefine(); });
+  safe('askBox', ()=>{ const askBox=$('askGrokBox'); if(askBox) askBox.onchange=()=>syncAskGrokPanel(); });
+  safe('askTa', ()=>{ const askTa=$('askGrokQuestion'); if(askTa){ askTa.addEventListener('input', updateAskGrokCount); askTa.addEventListener('change', updateAskGrokCount); } });
+  safe('askBtn', ()=>{ const askBtn=$('askGrokBtn'); if(askBtn) askBtn.onclick=()=>askGrok(); });
+  safe('askPanel', syncAskGrokPanel);
+  safe('moonGate', ()=>{ const moonCb=$('moonGateOnly'); if(moonCb) moonCb.onchange=()=>{ if(window.__LAST_TRANSIT__) runAnalysis(); }; });
+  safe('sunGate', ()=>{ const sunCb=$('sunGateOnly'); if(sunCb) sunCb.onchange=()=>{ if(window.__LAST_TRANSIT__) runAnalysis(); }; });
+  safe('allGate', ()=>{ const allGateCb=$('allGateOnly'); if(allGateCb) allGateCb.onchange=()=>{ syncOmitLightsUI(); if(window.__LAST_TRANSIT__) runAnalysis(); }; });
+  safe('omitLights', ()=>{ const omitCb=$('omitLights'); if(omitCb) omitCb.onchange=()=>{ syncOmitLightsUI(); if(window.__LAST_TRANSIT__) runAnalysis(); }; });
   safe('omitUI', syncOmitLightsUI);
   /* syncDirectOnlyUI removed */
   safe('nowBtn', syncNowBtnHighlight);
-  const runBtn=$('runBtn'); if(runBtn) runBtn.onclick=runAnalysis;
-  const nowBtn=$('nowBtn'); if(nowBtn) nowBtn.onclick=setNow;
-  const am1=$('applyMan1'); if(am1) am1.onclick=()=>applyManualGates(1);
-  const am2=$('applyMan2'); if(am2) am2.onclick=()=>applyManualGates(2);
-  const em=$('exportMd'); if(em) em.onclick=exportMd;
-  const eh=$('exportHtml'); if(eh) eh.onclick=exportHtml;
-  const pb=$('printBtn'); if(pb) pb.onclick=()=>printReport();
-  const sh=$('shareBtn'); if(sh) sh.onclick=(ev)=>{ ev.preventDefault(); shareOrFallback('report', ev.currentTarget||sh); };
-  const apb=$('answerPrintBtn'); if(apb) apb.onclick=()=>printAnswerOnly();
-  const asb=$('answerShareBtn'); if(asb) asb.onclick=(ev)=>{ ev.preventDefault(); shareOrFallback('answer', ev.currentTarget||asb); };
-  const sm=$('shareMenu');
-  if(sm){ sm.addEventListener('click', onShareMenuClick); }
-  document.addEventListener('click', function(ev){
-    const menu=$('shareMenu');
-    if(!menu || !menu.classList.contains('open')) return;
-    const t=ev.target;
-    if(menu.contains(t)) return;
-    if(t && (t.id==='shareBtn' || t.id==='answerShareBtn' || (t.closest && (t.closest('#shareBtn')||t.closest('#answerShareBtn'))))) return;
-    closeShareMenu();
+  safe('runBtn', ()=>{ const runBtn=$('runBtn'); if(runBtn) runBtn.onclick=runAnalysis; });
+  safe('nowClick', ()=>{ const nowBtn=$('nowBtn'); if(nowBtn) nowBtn.onclick=setNow; });
+  safe('applyMan', ()=>{ const am1=$('applyMan1'); if(am1) am1.onclick=()=>applyManualGates(1); const am2=$('applyMan2'); if(am2) am2.onclick=()=>applyManualGates(2); });
+  safe('export', ()=>{ const em=$('exportMd'); if(em) em.onclick=exportMd; const eh=$('exportHtml'); if(eh) eh.onclick=exportHtml; });
+  safe('printShare', ()=>{
+    const pb=$('printBtn'); if(pb) pb.onclick=()=>printReport();
+    const sh=$('shareBtn'); if(sh) sh.onclick=(ev)=>{ ev.preventDefault(); shareOrFallback('report', ev.currentTarget||sh); };
+    const apb=$('answerPrintBtn'); if(apb) apb.onclick=()=>printAnswerOnly();
+    const asb=$('answerShareBtn'); if(asb) asb.onclick=(ev)=>{ ev.preventDefault(); shareOrFallback('answer', ev.currentTarget||asb); };
+    const sm=$('shareMenu');
+    if(sm){ sm.addEventListener('click', onShareMenuClick); }
+    document.addEventListener('click', function(ev){
+      const menu=$('shareMenu');
+      if(!menu || !menu.classList.contains('open')) return;
+      const t=ev.target;
+      if(menu.contains(t)) return;
+      if(t && (t.id==='shareBtn' || t.id==='answerShareBtn' || (t.closest && (t.closest('#shareBtn')||t.closest('#answerShareBtn'))))) return;
+      closeShareMenu();
+    });
+    document.addEventListener('keydown', function(ev){ if(ev.key==='Escape') closeShareMenu(); });
+    window.addEventListener('resize', function(){ const menu=$('shareMenu'); if(menu&&menu.classList.contains('open')) closeShareMenu(); });
+    syncAnswerShareButtons();
   });
-  document.addEventListener('keydown', function(ev){ if(ev.key==='Escape') closeShareMenu(); });
-  window.addEventListener('resize', function(){ const menu=$('shareMenu'); if(menu&&menu.classList.contains('open')) closeShareMenu(); });
-  syncAnswerShareButtons();
   safe('whenMode', syncWhenModeHighlight);
   safe('reportMode2', ()=>setReportMode(reportMode));
   safe('calendar', renderCalendar);
@@ -2181,7 +2194,11 @@ window.__TA_SHARE__={
 };
 window.__CAL_TEST__={getState:()=>({mode,startDate,endDate,calViewYear,calViewMonth,label:selectionRangeText(),days:rangeDayCount()}), setMode:(m)=>{mode=m; if(m==='single'){endDate=null; rangeNeedsNewStart=true;} else {endDate=null; rangeNeedsNewStart=true;} renderCalendar();}, pick:onPick, prev:calPrevMonth, next:calNextMonth, render:renderCalendar, applyInputs:applyDateInputsToState, clearPerson, clearDates};
 function bootApp(){
-  wire();
+  try{ if(typeof renderQuickLoadGrids==='function') renderQuickLoadGrids(); }catch(e){ try{ console.error('bootApp quickLoad', e); }catch(_e){} }
+  try{ wire(); }catch(e){
+    try{ console.error('bootApp wire', e); }catch(_e){}
+    try{ if(typeof renderQuickLoadGrids==='function') renderQuickLoadGrids(); }catch(_e){}
+  }
 }
 if(document.readyState==='loading'){ document.addEventListener('DOMContentLoaded', bootApp); }
 else { bootApp(); }
@@ -2194,6 +2211,7 @@ else { bootApp(); }
     root.addEventListener('pageshow', function(ev){
       try{
         applyBootTodayToInputs();
+        if(typeof renderQuickLoadGrids==='function') renderQuickLoadGrids();
         if(typeof renderCalendar==='function') renderCalendar();
       }catch(e){ try{ console.error('pageshow today', e); }catch(_e){} }
     });
