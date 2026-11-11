@@ -5265,10 +5265,116 @@ function describeBetweenDay(p1, p2, transit, tracker, meta){
   return paras.filter(Boolean);
 }
 
+function sectionDayHeading(transit, meta){
+  if(transit && transit.display_when) return transit.display_when;
+  const date=weekdayDateForTransit(transit, meta);
+  const time=transit && transit.display_time;
+  if(date && time) return date+' at '+String(time).replace(/^at\s+/,'');
+  return date || (transit && transit.date) || '';
+}
+function sectionRangeLabel(transits, meta){
+  if(meta && meta.rangeLabel) return meta.rangeLabel;
+  if(meta && meta.timeLabel) return meta.timeLabel;
+  const days=(transits&&transits.length)?transits:[];
+  if(!days.length) return '';
+  if(days.length===1) return days[0].display_when||days[0].display_date||days[0].date||'';
+  const a=days[0].display_date||days[0].date||'';
+  const b=days[days.length-1].display_date||days[days.length-1].date||'';
+  const tm=days[0].display_time||'';
+  return a+(b && b!==a?(' to '+b):'')+(tm?(' · '+tm):'');
+}
+function sectionReportTitle(wantL, wantB, person1, person2){
+  const names=person2?(firstNameOnly(person1.name)+' & '+firstNameOnly(person2.name)):firstNameOnly(person1.name);
+  if(wantL && wantB) return 'Not-Self landscape and Between members: '+names;
+  if(wantL) return 'Not-Self landscape (full chart), day by day: '+names;
+  return 'Between members selected, day by day: '+names;
+}
+function sectionShowPositions(meta, dayCount){
+  // Follow the same transit-field checkbox rules as the regular report.
+  return wantTransitFieldSections(meta||{});
+}
+
+function buildExtraOutputBlocks(person1, person2, transits, meta){
+  const wantL=extraOutputLandscapeOn();
+  const wantB=extraOutputBetweenOn();
+  if(!wantL && !wantB) return [];
+  const days=(transits&&transits.length)?transits.slice():[];
+  const tracker=makeProseTracker();
+  const blocks=[];
+  const people=[person1].concat(person2?[person2]:[]);
+  const names=person2?(firstNameOnly(person1.name)+' & '+firstNameOnly(person2.name)):firstNameOnly(person1.name);
+
+  blocks.push({tag:'h2', text:sectionReportTitle(wantL, wantB, person1, person2)});
+  const range=sectionRangeLabel(days, meta||{});
+  if(range) blocks.push({tag:'p-em', text:range});
+  if(wantL && wantB){
+    blocks.push({tag:'p-em', text:'Potentials only—Not-Self landscape, then how the members condition each other, day by day. Not predictions.'});
+  } else if(wantL){
+    blocks.push({tag:'p-em', text:'Potentials only—how this sky may touch open and undefined centers in the full chart, day by day. Not predictions.'});
+  } else {
+    blocks.push({tag:'p-em', text:'Potentials for how '+names+' condition each other, day by day, and how a given day\'s sky may change that picture. Not predictions.'});
+  }
+  if(typeof omitLightsOn==='function' && omitLightsOn()){
+    blocks.push({tag:'p-em', text:'Sun, Earth, and Moon are omitted from this analysis.'});
+  }
+
+  if(wantL){
+    for(const person of people){
+      const once=profileOnceParagraph(person, tracker);
+      if(once) blocks.push({tag:'p', text:once});
+    }
+  }
+  if(wantB){
+    if(!person2){
+      blocks.push({tag:'p', text:'Select a second member to see a day-by-day summary of the conditioning between them. With one chart loaded, there is no second design to compare.'});
+    } else {
+      const base=describeBetweenBaseline(person1, person2, tracker);
+      if(base) blocks.push({tag:'p', text:base});
+    }
+  }
+
+  if(!days.length){
+    blocks.push({tag:'p', text:'No daily transit field was available to walk this picture day by day.'});
+    return blocks;
+  }
+
+  const showPos=sectionShowPositions(meta||{}, days.length);
+  for(const transit of days){
+    blocks.push({tag:'day-start'});
+    blocks.push({tag:'h3', cls:'ns-day-title', text:sectionDayHeading(transit, meta)});
+    if(wantL){
+      for(const person of people){
+        blocks.push({tag:'h3', cls:'ns-person', text:firstNameOnly(person.name)});
+        const paras=describeNotSelfDayForPerson(person, transit, tracker, meta);
+        for(const para of paras){
+          if(para) blocks.push({tag:'p', text:para});
+        }
+      }
+    }
+    if(wantB && person2){
+      blocks.push({tag:'h3', cls:'ns-between', text:'Between '+firstNameOnly(person1.name)+' and '+firstNameOnly(person2.name)});
+      const paras=describeBetweenDay(person1, person2, transit, tracker, meta);
+      for(const para of paras){
+        if(para) blocks.push({tag:'p', text:para});
+      }
+    }
+    if(showPos){
+      const pos=renderTransitPositionsHtml(transit, {includePositions:true, includeTransitField:true, tz:(meta&&meta.tz)||transit.tz});
+      if(pos) blocks.push({tag:'html', html:pos});
+    }
+    blocks.push({tag:'day-end'});
+  }
+  return blocks;
+}
+
 function extraBlocksToHtml(blocks){
   const parts=['<div class="extra-output">'];
   for(const b of blocks){
-    if(!b || !b.text) continue;
+    if(!b) continue;
+    if(b.tag==='html'){ if(b.html) parts.push(b.html); continue; }
+    if(b.tag==='day-start'){ parts.push('<div class="ns-day">'); continue; }
+    if(b.tag==='day-end'){ parts.push('</div>'); continue; }
+    if(!b.text) continue;
     const tag=b.tag||'p';
     const cls=b.cls?(' class="'+b.cls+'"'):'';
     if(tag==='p-em'){ parts.push('<p><em>'+escapeHtml(b.text)+'</em></p>'); continue; }
@@ -5280,7 +5386,10 @@ function extraBlocksToHtml(blocks){
 function extraBlocksToMarkdown(blocks){
   const lines=[];
   for(const b of blocks){
-    if(!b || !b.text) continue;
+    if(!b) continue;
+    if(b.tag==='day-start'||b.tag==='day-end') continue;
+    if(b.tag==='html') continue;
+    if(!b.text) continue;
     if(b.tag==='h2') lines.push('\n## '+b.text+'\n');
     else if(b.tag==='h3') lines.push('\n### '+b.text+'\n');
     else if(b.tag==='h4' || b.cls==='ns-person') lines.push('\n**'+b.text+'**\n');
@@ -5290,85 +5399,14 @@ function extraBlocksToMarkdown(blocks){
   return lines.join('');
 }
 
-function buildExtraOutputBlocks(person1, person2, transits, meta){
-  const wantL=extraOutputLandscapeOn();
-  const wantB=extraOutputBetweenOn();
-  if(!wantL && !wantB) return [];
-  const days=(transits&&transits.length)?transits.slice():[];
-  const tracker=makeProseTracker();
-  const blocks=[];
-  const people=[person1].concat(person2?[person2]:[]);
-
-  if(wantL){
-    blocks.push({tag:'h2', text:'Not-Self landscape (full chart), day by day'});
-    blocks.push({tag:'p-em', text:'Potentials only—how this sky may touch open and undefined centers in the full chart. Not predictions.'});
-    for(const person of people){
-      blocks.push({tag:'h3', cls:'ns-person', text:firstNameOnly(person.name)});
-      const once=profileOnceParagraph(person, tracker);
-      if(once) blocks.push({tag:'p', text:once});
-      if(!days.length){
-        blocks.push({tag:'p', text:'No daily transit field was available to walk this landscape day by day.'});
-        continue;
-      }
-      for(const transit of days){
-        blocks.push({tag:'h3', cls:'ns-day-title', text:weekdayDateForTransit(transit, meta)});
-        const paras=describeNotSelfDayForPerson(person, transit, tracker, meta);
-        for(const para of paras){
-          if(para) blocks.push({tag:'p', cls:'ns-day', text:para});
-        }
-      }
-    }
-  }
-
-  if(wantB){
-    blocks.push({tag:'h2', text:'Between members selected, day by day'});
-    if(!person2){
-      blocks.push({tag:'p', text:'Select a second member to see a day-by-day summary of the conditioning between them. With one chart loaded, there is no second design to compare.'});
-    } else {
-      blocks.push({tag:'p-em', text:'Potentials for how '+firstNameOnly(person1.name)+' and '+firstNameOnly(person2.name)+' condition each other, and how a given day\'s sky may change that picture. Not predictions.'});
-      const base=describeBetweenBaseline(person1, person2, tracker);
-      if(base) blocks.push({tag:'p', text:base});
-      if(!days.length){
-        blocks.push({tag:'p', text:'No daily transit field was available to show how the sky changes that baseline.'});
-      } else {
-        for(const transit of days){
-          blocks.push({tag:'h3', cls:'ns-day-title', text:weekdayDateForTransit(transit, meta)});
-          const paras=describeBetweenDay(person1, person2, transit, tracker, meta);
-          for(const para of paras){
-            if(para) blocks.push({tag:'p', cls:'ns-day', text:para});
-          }
-        }
-      }
-    }
-  }
-  return blocks;
-}
-
-function insertExtraBeforeTrailingPositions(html, extraHtml){
-  if(!html) return extraHtml||'';
-  if(!extraHtml) return html;
-  const n=(html.match(/class="transit-positions"/g)||[]).length;
-  if(n<=1){
-    const idxPos=html.lastIndexOf('<div class="transit-positions">');
-    const idxTech=html.lastIndexOf('<div class="tech">');
-    let idx=-1;
-    if(idxPos>=0 && (idxTech<0 || idxPos<idxTech)) idx=idxPos;
-    else if(idxTech>=0 && idxPos<0) idx=idxTech;
-    if(idx>0) return html.slice(0,idx)+extraHtml+'\n'+html.slice(idx);
-  }
-  return html+'\n'+extraHtml;
-}
-
 function appendExtraOutputSections(html, md, person1, person2, transits, meta){
   if(!extraOutputWanted()) return {html:html, md:md};
   const blocks=buildExtraOutputBlocks(person1, person2, transits, meta||{});
   if(!blocks.length) return {html:html, md:md};
   const extraHtml=extraBlocksToHtml(blocks);
   const extraMd=extraBlocksToMarkdown(blocks);
-  return {
-    html:insertExtraBeforeTrailingPositions(html||'', extraHtml),
-    md:(md||'')+extraMd
-  };
+  // Checked section boxes replace the regular report (do not append onto it).
+  return {html:extraHtml, md:extraMd};
 }
 
 window.HD = {

@@ -999,6 +999,20 @@ function enforceRangeDescMutualExclusion(changedId){
 }
 
 
+function rerunFromRefine(){
+  if(!window.__LAST_TRANSIT__) return;
+  const wrap=$('reportWrap');
+  const opts=$('extraOutputOpts');
+  try{ if(typeof runAnalysis==='function') runAnalysis(); }
+  finally{
+    try{
+      if(wrap) wrap.scrollTop=0;
+      if(opts && opts.style && opts.style.display!=='none'){
+        opts.scrollIntoView({block:'end', inline:'nearest'});
+      }
+    }catch(e){}
+  }
+}
 function extraOutputOptsShouldShow(){
   try{ return !!document.getElementById('realWorldInfluence')?.checked; }catch(e){ return false; }
 }
@@ -1085,6 +1099,21 @@ function clipAsk(s, n){
   if(s.length<=n) return s;
   return s.slice(0,n)+'\n[truncated to keep the request size reasonable]';
 }
+function clipAskDateOrder(s, n){
+  s=String(s==null?'':s).trim();
+  if(s.length<=n) return s;
+  const re=/(?=^(?:Sunday|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday), )/m;
+  const parts=s.split(re);
+  let out='';
+  for(let i=0;i<parts.length;i++){
+    const next=out+parts[i];
+    if(out && next.length>n){
+      return out.trim()+'\n[truncated to keep the request size reasonable; earlier dates kept]';
+    }
+    out=next;
+  }
+  return clipAsk(s, n);
+}
 function reportTextWithoutChrome(root){
   if(!root) return '';
   const clone=root.cloneNode(true);
@@ -1141,26 +1170,24 @@ function collectAskMembers(){
 function collectAskContext(){
   const want=extraOutputRequested();
   const report=$('report');
-  const extra=report?report.querySelector('.extra-output'):null;
-  const parts=splitExtraOutputText(extra);
   const sections={
     notSelfLandscape:!!want.landscape,
     betweenMembers:!!want.between,
     regularReport:!(want.landscape||want.between)
   };
+  // Context is the text currently shown: checked sections only, or the full regular report if none are checked.
+  // Keep gate/channel/center meaning prose from the generated output so the model is grounded.
+  const visible=clipAskDateOrder(reportTextWithoutChrome(report), ASK_CONTEXT_CAP);
+  const rangeLabel=(typeof selectionRangeText==='function'?selectionRangeText():'') || ($('ephemNote')&&$('ephemNote').textContent)||'';
   const ctx={
-    rangeLabel: (typeof selectionRangeText==='function'?selectionRangeText():'') || ($('ephemNote')&&$('ephemNote').textContent)||'',
-    timezone: ($('tz')&&$('tz').value)||''
+    rangeLabel: rangeLabel,
+    timezone: ($('tz')&&$('tz').value)||'',
+    meanings: visible
   };
-  if(sections.notSelfLandscape) ctx.landscape=clipAsk(parts.landscape, ASK_CONTEXT_CAP);
-  if(sections.betweenMembers) ctx.between=clipAsk(parts.between, ASK_CONTEXT_CAP);
-  if(sections.regularReport) ctx.regularSummary=clipAsk(reportTextWithoutChrome(report), ASK_CONTEXT_CAP);
-  // Always include a compact meanings/chart note only from already-rendered report text (no source names).
-  if(!sections.regularReport){
-    const summary=clipAsk(reportTextWithoutChrome(report), 12000);
-    if(summary) ctx.meanings=summary;
-  }
-  return {sections, context:ctx, members:collectAskMembers()};
+  if(sections.notSelfLandscape) ctx.landscape=visible;
+  if(sections.betweenMembers && !sections.notSelfLandscape) ctx.between=visible;
+  if(sections.regularReport) ctx.regularSummary=visible;
+  return {sections, context:ctx, members:collectAskMembers(), rangeLabel:rangeLabel};
 }
 function grokSectionHtml(kind, question, body){
   const q=escapeGrok(question||'');
@@ -1592,10 +1619,10 @@ function wire(){
   syncRangeTransitFieldOpt();
   syncRangeDescFlags();
   const ic=$('includeCodes'); if(ic) ic.onchange=()=>{ if(window.__LAST_TRANSIT__) runAnalysis(); };
-  const rwCb=$('realWorldInfluence'); if(rwCb) rwCb.onchange=()=>{ syncExtraOutputOpts(); if(window.__LAST_TRANSIT__) runAnalysis(); };
+  const rwCb=$('realWorldInfluence'); if(rwCb) rwCb.onchange=()=>{ syncExtraOutputOpts(); rerunFromRefine(); };
   syncExtraOutputOpts();
-  const nsCb=$('notSelfLandscape'); if(nsCb) nsCb.onchange=()=>{ if(window.__LAST_TRANSIT__) runAnalysis(); };
-  const bmCb=$('betweenMembers'); if(bmCb) bmCb.onchange=()=>{ if(window.__LAST_TRANSIT__) runAnalysis(); };
+  const nsCb=$('notSelfLandscape'); if(nsCb) nsCb.onchange=()=>rerunFromRefine();
+  const bmCb=$('betweenMembers'); if(bmCb) bmCb.onchange=()=>rerunFromRefine();
   const askBox=$('askGrokBox'); if(askBox) askBox.onchange=()=>syncAskGrokPanel();
   const askTa=$('askGrokQuestion'); if(askTa){ askTa.addEventListener('input', updateAskGrokCount); askTa.addEventListener('change', updateAskGrokCount); }
   const askBtn=$('askGrokBtn'); if(askBtn) askBtn.onclick=()=>askGrok();

@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta http-equiv="Cache-Control" content="202611111145" />
-  <meta name="ta-build" content="202611111145" />
+  <meta http-equiv="Cache-Control" content="202611111245" />
+  <meta name="ta-build" content="202611111245" />
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -81,7 +81,9 @@ button.secondary#nowBtn.active{opacity:1;font-weight:750;background:var(--accent
 #report .transit-positions th{color:#d7c27a;font-weight:650}
 #report .transit-positions tr:last-child td{border-bottom:none}
 #report .transit-positions td.gl{font-variant-numeric:tabular-nums;white-space:nowrap}
-#reportWrap{max-height:calc(100vh - 150px);overflow:auto}
+#storyPanel{display:flex;flex-direction:column;min-height:0;max-height:calc(100vh - 5rem)}
+#storyPanel .toolbar,#storyPanel > h2{flex:0 0 auto}
+#reportWrap{flex:1 1 auto;min-height:8rem;max-height:none;overflow:auto}
 #report{line-height:1.65;font-size:.95rem}
 #report h2{color:var(--accent);font-size:1.15rem;margin:1.2rem 0 .5rem}
 #report h3{color:#d7c27a;font-size:1.02rem;margin:1rem 0 .4rem}
@@ -98,10 +100,12 @@ button.secondary#nowBtn.active{opacity:1;font-weight:750;background:var(--accent
 #report .extra-output .ns-person{margin:.55rem 0 .25rem;font-weight:650;color:var(--accent)}
 #report .extra-output .ns-day{margin:0 0 1.05rem;padding:0 0 .7rem;border-bottom:1px solid var(--border)}
 #report .extra-output .ns-day:last-child{border-bottom:none}
-#extraOutputOpts{margin:.15rem 0 .8rem}
+#extraOutputOpts{flex:0 0 auto;margin:.65rem 0 0;padding:.75rem 0 0;border-top:1px solid var(--border);background:var(--panel)}
 #extraOutputOpts .check input{margin-top:.2rem}
+#extraOutputOpts .hint{max-width:100%}
 #askGrokPanel{margin:.4rem 0 .15rem}
-#askGrokQuestion{width:100%;min-height:5.6rem;resize:vertical}
+#askGrokQuestion{width:100%;min-height:5.6rem;resize:vertical;max-width:100%;box-sizing:border-box}
+.ask-grok-actions{display:flex;align-items:center;gap:.6rem;margin-top:.35rem;flex-wrap:wrap}
 #askGrokCount.warn{color:#c45c5c;font-weight:650}
 #report .grok-answer{margin:1.3rem 0 1rem;padding-top:.35rem;border-top:1px solid var(--border)}
 #report .grok-answer .grok-q{color:var(--muted);font-size:.95rem}
@@ -135,6 +139,7 @@ button.secondary#nowBtn.active{opacity:1;font-weight:750;background:var(--accent
   header,#controls,.toolbar,.banner,#cdnBanner,.status,.no-print{ display:none!important; }
   main{ display:block!important; padding:0!important; margin:0!important; max-width:none!important; }
   .panel{ box-shadow:none!important; border:none!important; background:#fff!important; padding:0!important; margin:0!important; }
+  #storyPanel{ display:block!important; max-height:none!important; height:auto!important; }
   #reportWrap{ max-height:none!important; overflow:visible!important; height:auto!important; }
   #report{ display:block!important; color:#000!important; font-size:11pt; line-height:1.5; max-height:none!important; overflow:visible!important; }
   #report h2,#report h3,#report h4{ color:#000!important; page-break-after:avoid; break-after:avoid; margin:0.9em 0 0.35em; }
@@ -179,10 +184,24 @@ button,.secondary{touch-action:manipulation;-webkit-tap-highlight-color:transpar
   .row > div{width:100%}
   .row3{grid-template-columns:1fr}
   input[type=file]{padding:.65rem;font-size:15px}
+  main,.panel,#storyPanel,#reportWrap,#extraOutputOpts,#controls{min-width:0;max-width:100%;box-sizing:border-box}
+  #storyPanel{max-height:none}
+  #reportWrap{max-height:calc(100vh - 16rem)}
+  #extraOutputOpts{
+    position:sticky;bottom:0;z-index:6;
+    margin-left:-.85rem;margin-right:-.85rem;margin-bottom:-.85rem;
+    padding:.7rem .85rem max(.65rem, env(safe-area-inset-bottom));
+    box-shadow:0 -8px 22px rgba(0,0,0,.28);
+  }
 }
 @media(max-width:600px){
   .label-row{flex-wrap:wrap;gap:.35rem}
   #controls button{width:100%}
+  #controls button.clear-btn{width:auto;min-width:1.7rem;flex:0 0 auto}
+  /* Keep the bottom refine bar usable: long hints stay available on larger screens. */
+  #extraOutputOpts > p.hint{display:none}
+  #askGrokBtn{min-width:5.5rem}
+  #askGrokQuestion{min-height:5.5rem}
 }
 button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{
   outline:2px solid var(--accent2);outline-offset:2px
@@ -388,48 +407,48 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
     <div class="status" id="status"></div>
   </section>
 
-  <section class="panel">
+  <section class="panel" id="storyPanel">
     <div class="toolbar">
       <button type="button" class="secondary" id="exportMd">Export .md</button>
       <button type="button" class="secondary" id="exportHtml">Export .html</button>
       <button type="button" class="secondary no-print" id="printBtn" title="Print or save the report as PDF">Print / Save as PDF</button>
     </div>
-    <div id="extraOutputOpts" class="no-print" style="display:none;margin:.15rem 0 .8rem">
-      <div style="margin:.1rem 0 .35rem"><strong>Output</strong></div>
+    <h2>Story</h2>
+    <div id="reportWrap"><div id="report">Load the ephemeris, choose people and a time, then run analysis. The report reads as plain-language paragraphs; technical gate lists stay folded at the bottom.</div></div>
+    <div id="extraOutputOpts" class="no-print" style="display:none">
+      <div style="margin:.1rem 0 .35rem"><strong>Refine output</strong></div>
       <label class="check" style="display:flex;align-items:flex-start;gap:.5rem;margin:.25rem 0 .1rem">
         <input type="checkbox" id="notSelfLandscape" />
         Not-Self landscape (full chart), day by day
       </label>
-      <p class="hint" id="notSelfLandscapeHint" style="margin:.05rem 0 .45rem">Unchecked by default. When on, the report adds a day-by-day not-self landscape of the full chart for each selected member. Type, Strategy, and Authority are restated once, then each day shows how that day's transits touch open or undefined centers, with gate time spans woven into the prose. Shown only while Real-World Influence is checked. Hidden or unchecked, it does not change the main report.</p>
+      <p class="hint" id="notSelfLandscapeHint" style="margin:.05rem 0 .45rem">Unchecked by default. When on, the report above shows only the Not-Self landscape, date by date, not the full regular report. Type, Strategy, and Authority are restated once, then each day (weekday date, local AM/PM times, gate time spans in the prose) shows how that day's transits touch open or undefined centers. Shown only while Real-World Influence is checked.</p>
       <label class="check" style="display:flex;align-items:flex-start;gap:.5rem;margin:.15rem 0 .1rem">
         <input type="checkbox" id="betweenMembers" />
         Between members selected, day by day
       </label>
-      <p class="hint" id="betweenMembersHint" style="margin:.05rem 0 .35rem">Unchecked by default. When two members are selected, the report adds a day-by-day summary of how they condition each other—electromagnetic, companionship, and dominance channels, and which open centers each fills in the other—plus how that day's transits change it. If only one member is selected, a short note appears instead. Shown only while Real-World Influence is checked. Hidden or unchecked, it does not change the main report.</p>
+      <p class="hint" id="betweenMembersHint" style="margin:.05rem 0 .35rem">Unchecked by default. When on, the report above shows only the Between members section, date by date, not the full regular report. With two members selected, each day (weekday date, local AM/PM times, gate time spans in the prose) describes how they condition each other—electromagnetic, companionship, and dominance channels, and which open centers each fills in the other—plus how that day's transits change it. If only one member is selected, a short note appears instead. Shown only while Real-World Influence is checked.</p>
       <label class="check" style="display:flex;align-items:flex-start;gap:.5rem;margin:.15rem 0 .1rem">
         <input type="checkbox" id="askGrokBox" />
         Ask a question about Advantages and Difficulties
       </label>
-      <p class="hint" id="askGrokHint" style="margin:.05rem 0 .35rem">Unchecked by default. When on, a question box appears. Send a question about advantages and difficulties based on the checked sections (Not-Self landscape and/or Between members), or a summary of the regular report if neither is checked. The answer is added to the report so it prints and saves as PDF. Shown only while Real-World Influence is checked. If this box is unchecked, the report is unchanged.</p>
+      <p class="hint" id="askGrokHint" style="margin:.05rem 0 .35rem">Unchecked by default. When on, a question box appears. The question is answered from the checked sections' output (or the full regular report if neither section is checked). The date range and member names are included. The answer is added under its heading in the report above so it prints and saves as PDF. Shown only while Real-World Influence is checked.</p>
       <div id="askGrokPanel" class="no-print" style="display:none">
         <label for="askGrokQuestion">Your question</label>
         <textarea id="askGrokQuestion" rows="4" placeholder="Ask about advantages and difficulties in the selected output…"></textarea>
-        <div style="display:flex;align-items:center;gap:.6rem;margin-top:.35rem;flex-wrap:wrap">
+        <div class="ask-grok-actions">
           <span id="askGrokCount" class="hint" style="margin:0">0/5000</span>
           <button type="button" class="secondary" id="askGrokBtn" disabled>Ask</button>
           <span id="askGrokStatus" class="hint" style="margin:0"></span>
         </div>
       </div>
     </div>
-    <h2>Story</h2>
-    <div id="reportWrap"><div id="report">Load the ephemeris, choose people and a time, then run analysis. The report reads as plain-language paragraphs; technical gate lists stay folded at the bottom.</div></div>
   </section>
 </main>
 
 <!-- Data is separate from the UI. Script order matters. Works via file:// on Windows and via https on iPhone/iPad Firefox. -->
-<script src="astronomy.browser.min.js?v=202611111145"></script>
-<script src="data.js?v=202611111145"></script>
-<script src="analyzer.js?v=202611111145"></script>
-<script src="app.js?v=202611111145"></script>
+<script src="astronomy.browser.min.js?v=202611111245"></script>
+<script src="data.js?v=202611111245"></script>
+<script src="analyzer.js?v=202611111245"></script>
+<script src="app.js?v=202611111245"></script>
 </body>
 </html>
