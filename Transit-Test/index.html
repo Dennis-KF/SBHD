@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta http-equiv="Cache-Control" content="202611111245" />
-  <meta name="ta-build" content="202611111245" />
+  <meta http-equiv="Cache-Control" content="202611111320" />
+  <meta name="ta-build" content="202611111320" />
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -23,8 +23,10 @@ body{margin:0;font-family:"Segoe UI",system-ui,sans-serif;background:linear-grad
 header{padding:1.1rem 1.4rem;border-bottom:1px solid var(--border);background:rgba(26,35,50,.92);position:sticky;top:0;z-index:5}
 header h1{margin:0;font-size:1.2rem}
 header p{margin:.3rem 0 0;color:var(--muted);font-size:.88rem}
-main{display:grid;grid-template-columns:400px 1fr;gap:1rem;padding:1rem;max-width:1480px;margin:0 auto}
-@media(max-width:1000px){main{grid-template-columns:1fr}}
+main{display:flex;flex-direction:column;align-items:stretch;gap:1rem;padding:1rem 1.5rem 2rem;max-width:none;width:100%;margin:0 auto;box-sizing:border-box}
+#controls{width:100%;max-width:52rem}
+#storyPanel{display:block;width:100%;max-width:none;max-height:none;height:auto;overflow:visible}
+@media(min-width:1200px){main{padding:1.15rem 2rem 2.25rem}}
 .panel{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:1rem;box-shadow:0 8px 24px rgba(0,0,0,.25)}
 .panel h2{margin:0 0 .7rem;font-size:.98rem;color:var(--accent)}
 label{display:block;font-size:.78rem;color:var(--muted);margin:.55rem 0 .22rem}
@@ -81,10 +83,8 @@ button.secondary#nowBtn.active{opacity:1;font-weight:750;background:var(--accent
 #report .transit-positions th{color:#d7c27a;font-weight:650}
 #report .transit-positions tr:last-child td{border-bottom:none}
 #report .transit-positions td.gl{font-variant-numeric:tabular-nums;white-space:nowrap}
-#storyPanel{display:flex;flex-direction:column;min-height:0;max-height:calc(100vh - 5rem)}
-#storyPanel .toolbar,#storyPanel > h2{flex:0 0 auto}
-#reportWrap{flex:1 1 auto;min-height:8rem;max-height:none;overflow:auto}
-#report{line-height:1.65;font-size:.95rem}
+#reportWrap{max-height:none;height:auto;min-height:0;overflow:visible}
+#report{line-height:1.65;font-size:.95rem;max-height:none;height:auto;overflow:visible}
 #report h2{color:var(--accent);font-size:1.15rem;margin:1.2rem 0 .5rem}
 #report h3{color:#d7c27a;font-size:1.02rem;margin:1rem 0 .4rem}
 #report p{margin:0 0 .85rem;color:var(--ink)}
@@ -100,7 +100,7 @@ button.secondary#nowBtn.active{opacity:1;font-weight:750;background:var(--accent
 #report .extra-output .ns-person{margin:.55rem 0 .25rem;font-weight:650;color:var(--accent)}
 #report .extra-output .ns-day{margin:0 0 1.05rem;padding:0 0 .7rem;border-bottom:1px solid var(--border)}
 #report .extra-output .ns-day:last-child{border-bottom:none}
-#extraOutputOpts{flex:0 0 auto;margin:.65rem 0 0;padding:.75rem 0 0;border-top:1px solid var(--border);background:var(--panel)}
+#extraOutputOpts{margin:.65rem 0 0;padding:.75rem 0 0;border-top:1px solid var(--border);background:var(--panel);position:static;max-height:none;overflow:visible}
 #extraOutputOpts .check input{margin-top:.2rem}
 #extraOutputOpts .hint{max-width:100%}
 #askGrokPanel{margin:.4rem 0 .15rem}
@@ -178,21 +178,15 @@ button,.secondary{touch-action:manipulation;-webkit-tap-highlight-color:transpar
 @media(max-width:1000px){
   header{padding:.85rem 1rem}
   header h1{font-size:1.05rem}
-  main{padding:.65rem;gap:.75rem}
+  main{padding:.75rem 1rem 1.5rem;gap:.75rem}
   .panel{padding:.85rem}
   .row{display:flex;flex-direction:column;gap:.5rem}
   .row > div{width:100%}
   .row3{grid-template-columns:1fr}
   input[type=file]{padding:.65rem;font-size:15px}
-  main,.panel,#storyPanel,#reportWrap,#extraOutputOpts,#controls{min-width:0;max-width:100%;box-sizing:border-box}
-  #storyPanel{max-height:none}
-  #reportWrap{max-height:calc(100vh - 16rem)}
-  #extraOutputOpts{
-    position:sticky;bottom:0;z-index:6;
-    margin-left:-.85rem;margin-right:-.85rem;margin-bottom:-.85rem;
-    padding:.7rem .85rem max(.65rem, env(safe-area-inset-bottom));
-    box-shadow:0 -8px 22px rgba(0,0,0,.28);
-  }
+  main,.panel,#storyPanel,#reportWrap,#extraOutputOpts,#controls,#report{min-width:0;max-width:100%;box-sizing:border-box}
+  #storyPanel,#reportWrap,#report,#extraOutputOpts{max-height:none;height:auto;overflow:visible;position:static}
+  #extraOutputOpts{margin:.65rem 0 0;padding:.75rem 0 max(.5rem, env(safe-area-inset-bottom));box-shadow:none}
 }
 @media(max-width:600px){
   .label-row{flex-wrap:wrap;gap:.35rem}
@@ -446,9 +440,9 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 </main>
 
 <!-- Data is separate from the UI. Script order matters. Works via file:// on Windows and via https on iPhone/iPad Firefox. -->
-<script src="astronomy.browser.min.js?v=202611111245"></script>
-<script src="data.js?v=202611111245"></script>
-<script src="analyzer.js?v=202611111245"></script>
-<script src="app.js?v=202611111245"></script>
+<script src="astronomy.browser.min.js?v=202611111320"></script>
+<script src="data.js?v=202611111320"></script>
+<script src="analyzer.js?v=202611111320"></script>
+<script src="app.js?v=202611111320"></script>
 </body>
 </html>
