@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta http-equiv="Cache-Control" content="202611021200" />
-  <meta name="ta-build" content="202611021200" />
+  <meta http-equiv="Cache-Control" content="202611111145" />
+  <meta name="ta-build" content="202611111145" />
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -94,6 +94,18 @@ button.secondary#nowBtn.active{opacity:1;font-weight:750;background:var(--accent
 #report .transit-positions{margin:.25rem 0 .9rem}
 #report .tech{margin-top:1.2rem;border-top:1px solid var(--border);padding-top:.8rem}
 #report details.tech summary{cursor:pointer;color:var(--muted);font-size:.9rem;margin-bottom:.5rem}
+#report .extra-output{margin:1.3rem 0 1rem;padding-top:.35rem;border-top:1px solid var(--border)}
+#report .extra-output .ns-person{margin:.55rem 0 .25rem;font-weight:650;color:var(--accent)}
+#report .extra-output .ns-day{margin:0 0 1.05rem;padding:0 0 .7rem;border-bottom:1px solid var(--border)}
+#report .extra-output .ns-day:last-child{border-bottom:none}
+#extraOutputOpts{margin:.15rem 0 .8rem}
+#extraOutputOpts .check input{margin-top:.2rem}
+#askGrokPanel{margin:.4rem 0 .15rem}
+#askGrokQuestion{width:100%;min-height:5.6rem;resize:vertical}
+#askGrokCount.warn{color:#c45c5c;font-weight:650}
+#report .grok-answer{margin:1.3rem 0 1rem;padding-top:.35rem;border-top:1px solid var(--border)}
+#report .grok-answer .grok-q{color:var(--muted);font-size:.95rem}
+#report .grok-answer.grok-loading p,#report .grok-answer.grok-error p{color:var(--muted)}
 #report .tech pre{white-space:pre-wrap;font-size:.78rem;color:var(--muted);line-height:1.45;background:#121a26;padding:.75rem;border-radius:8px;border:1px solid var(--border)}
 .status{font-size:.78rem;color:var(--muted);min-height:1.1em;margin-top:.35rem}
 .status.ok{color:var(--ok)}.status.err{color:var(--err)}
@@ -139,6 +151,12 @@ button.secondary#nowBtn.active{opacity:1;font-weight:750;background:var(--accent
   #report .transit-positions th,#report .transit-positions td{ color:#000!important; border-bottom:1px solid #ddd; padding:0.25rem 0.4rem; }
   #report details.tech{ display:none!important; }
   #report a{ color:#000; text-decoration:none; }
+  #report .extra-output{ border-top:1px solid #ccc!important; margin:1.1em 0 0.8em; }
+  #report .extra-output .ns-person{ color:#000!important; font-weight:700; }
+  #report .extra-output .ns-day{ border-bottom:1px solid #ccc!important; page-break-inside:avoid; break-inside:avoid; margin:0 0 0.9em; padding:0 0 0.6em; }
+  #extraOutputOpts{ display:none!important; }
+  #report .grok-answer{ border-top:1px solid #ccc!important; margin:1.1em 0 0.8em; page-break-inside:avoid; break-inside:avoid; }
+  #askGrokPanel{ display:none!important; }
 }
 
 
@@ -197,7 +215,6 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .ql-remove:hover,.ql-remove:focus{background:#5a2a32;color:#fff;outline:2px solid var(--accent2);outline-offset:1px}
 
 </style>
-    <script data-goatcounter="https://sbhd.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
 </head>
 <body>
 <header>
@@ -377,15 +394,42 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
       <button type="button" class="secondary" id="exportHtml">Export .html</button>
       <button type="button" class="secondary no-print" id="printBtn" title="Print or save the report as PDF">Print / Save as PDF</button>
     </div>
+    <div id="extraOutputOpts" class="no-print" style="display:none;margin:.15rem 0 .8rem">
+      <div style="margin:.1rem 0 .35rem"><strong>Output</strong></div>
+      <label class="check" style="display:flex;align-items:flex-start;gap:.5rem;margin:.25rem 0 .1rem">
+        <input type="checkbox" id="notSelfLandscape" />
+        Not-Self landscape (full chart), day by day
+      </label>
+      <p class="hint" id="notSelfLandscapeHint" style="margin:.05rem 0 .45rem">Unchecked by default. When on, the report adds a day-by-day not-self landscape of the full chart for each selected member. Type, Strategy, and Authority are restated once, then each day shows how that day's transits touch open or undefined centers, with gate time spans woven into the prose. Shown only while Real-World Influence is checked. Hidden or unchecked, it does not change the main report.</p>
+      <label class="check" style="display:flex;align-items:flex-start;gap:.5rem;margin:.15rem 0 .1rem">
+        <input type="checkbox" id="betweenMembers" />
+        Between members selected, day by day
+      </label>
+      <p class="hint" id="betweenMembersHint" style="margin:.05rem 0 .35rem">Unchecked by default. When two members are selected, the report adds a day-by-day summary of how they condition each other—electromagnetic, companionship, and dominance channels, and which open centers each fills in the other—plus how that day's transits change it. If only one member is selected, a short note appears instead. Shown only while Real-World Influence is checked. Hidden or unchecked, it does not change the main report.</p>
+      <label class="check" style="display:flex;align-items:flex-start;gap:.5rem;margin:.15rem 0 .1rem">
+        <input type="checkbox" id="askGrokBox" />
+        Ask a question about Advantages and Difficulties
+      </label>
+      <p class="hint" id="askGrokHint" style="margin:.05rem 0 .35rem">Unchecked by default. When on, a question box appears. Send a question about advantages and difficulties based on the checked sections (Not-Self landscape and/or Between members), or a summary of the regular report if neither is checked. The answer is added to the report so it prints and saves as PDF. Shown only while Real-World Influence is checked. If this box is unchecked, the report is unchanged.</p>
+      <div id="askGrokPanel" class="no-print" style="display:none">
+        <label for="askGrokQuestion">Your question</label>
+        <textarea id="askGrokQuestion" rows="4" placeholder="Ask about advantages and difficulties in the selected output…"></textarea>
+        <div style="display:flex;align-items:center;gap:.6rem;margin-top:.35rem;flex-wrap:wrap">
+          <span id="askGrokCount" class="hint" style="margin:0">0/5000</span>
+          <button type="button" class="secondary" id="askGrokBtn" disabled>Ask</button>
+          <span id="askGrokStatus" class="hint" style="margin:0"></span>
+        </div>
+      </div>
+    </div>
     <h2>Story</h2>
     <div id="reportWrap"><div id="report">Load the ephemeris, choose people and a time, then run analysis. The report reads as plain-language paragraphs; technical gate lists stay folded at the bottom.</div></div>
   </section>
 </main>
 
 <!-- Data is separate from the UI. Script order matters. Works via file:// on Windows and via https on iPhone/iPad Firefox. -->
-<script src="astronomy.browser.min.js?v=202611021200"></script>
-<script src="data.js?v=202611021200"></script>
-<script src="analyzer.js?v=202611021200"></script>
-<script src="app.js?v=202611021200"></script>
+<script src="astronomy.browser.min.js?v=202611111145"></script>
+<script src="data.js?v=202611111145"></script>
+<script src="analyzer.js?v=202611111145"></script>
+<script src="app.js?v=202611111145"></script>
 </body>
 </html>

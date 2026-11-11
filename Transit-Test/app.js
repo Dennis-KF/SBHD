@@ -998,6 +998,292 @@ function enforceRangeDescMutualExclusion(changedId){
   if(changedId==='includeRangeBriefDesc' && brief.checked) full.checked=false;
 }
 
+
+function extraOutputOptsShouldShow(){
+  try{ return !!document.getElementById('realWorldInfluence')?.checked; }catch(e){ return false; }
+}
+function syncExtraOutputOpts(){
+  const wrap=$('extraOutputOpts');
+  if(!wrap) return;
+  const on=extraOutputOptsShouldShow();
+  wrap.style.display=on?'block':'none';
+  if(on) wrap.removeAttribute('hidden');
+  else wrap.setAttribute('hidden','hidden');
+  if(typeof syncAskGrokPanel==='function') syncAskGrokPanel();
+}
+function extraOutputRequested(){
+  if(!extraOutputOptsShouldShow()) return {landscape:false, between:false};
+  return {
+    landscape: !!($('notSelfLandscape')&&$('notSelfLandscape').checked),
+    between: !!($('betweenMembers')&&$('betweenMembers').checked)
+  };
+}
+function applyExtraOutput(html, md, person1, person2, extraMeta){
+  const want=extraOutputRequested();
+  if(!want.landscape && !want.between) return {html:html, md:md};
+  if(!window.HD || typeof HD.appendExtraOutputSections!=='function') return {html:html, md:md};
+  let transits=extraMeta && extraMeta.dayTransits;
+  if(!transits || !transits.length){
+    try{ transits=buildTransitsForSelection(window.Astronomy); }catch(e){ transits=[]; }
+  }
+  try{
+    return HD.appendExtraOutputSections(html, md, person1, person2, transits, extraMeta||{});
+  }catch(e){
+    console.error('extra output', e);
+    return {html:html, md:md};
+  }
+}
+
+
+const ASK_ENDPOINT='https://transit-question.vercel.app/api/ask';
+const ASK_MAX=5000;
+const ASK_CONTEXT_CAP=40000;
+let lastGrokQuestion=null;
+let lastGrokAnswerHtml=null;
+let lastHtmlBase=null;
+
+function askGrokBoxOn(){
+  try{
+    if(!extraOutputOptsShouldShow()) return false;
+    const wrap=$('extraOutputOpts');
+    if(wrap){
+      const hidden=(wrap.getAttribute('hidden')!=null) || (wrap.style && wrap.style.display==='none');
+      if(hidden) return false;
+    }
+    const box=$('askGrokBox');
+    return !!(box && box.checked);
+  }catch(e){ return false; }
+}
+function updateAskGrokCount(){
+  const ta=$('askGrokQuestion');
+  const c=$('askGrokCount');
+  const n=(ta && ta.value) ? ta.value.length : 0;
+  if(c){
+    c.textContent=n+'/'+ASK_MAX+(n>ASK_MAX?' — too long':'');
+    if(n>ASK_MAX) c.classList.add('warn'); else c.classList.remove('warn');
+  }
+  const btn=$('askGrokBtn');
+  if(btn && btn.getAttribute('data-loading')!=='1'){
+    btn.disabled = (n===0 || n>ASK_MAX);
+  }
+}
+function syncAskGrokPanel(){
+  const panel=$('askGrokPanel');
+  if(panel) panel.style.display=askGrokBoxOn()?'block':'none';
+  updateAskGrokCount();
+  applyGrokAnswerToReport();
+}
+function escapeGrok(s){
+  return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function firstNameMember(n){
+  const s=String(n==null?'':n).trim();
+  return s?s.split(/\s+/)[0]:'';
+}
+function clipAsk(s, n){
+  s=String(s==null?'':s);
+  if(s.length<=n) return s;
+  return s.slice(0,n)+'\n[truncated to keep the request size reasonable]';
+}
+function reportTextWithoutChrome(root){
+  if(!root) return '';
+  const clone=root.cloneNode(true);
+  clone.querySelectorAll('.tech, .transit-positions, .grok-answer, #timelineEventsJson, pre[style]').forEach(el=>el.remove());
+  return (clone.innerText||clone.textContent||'').replace(/\s+\n/g,'\n').replace(/\n{3,}/g,'\n\n').trim();
+}
+function splitExtraOutputText(extraEl){
+  const out={landscape:'', between:''};
+  if(!extraEl) return out;
+  let mode='';
+  const buf={landscape:[], between:[]};
+  function walk(node){
+    if(node.nodeType!==1) return;
+    const tag=(node.tagName||'').toLowerCase();
+    if(tag==='h2'){
+      const t=(node.textContent||'').trim();
+      if(/Not-Self landscape/i.test(t)) mode='landscape';
+      else if(/Between members/i.test(t)) mode='between';
+    }
+    if((tag==='h2'||tag==='h3'||tag==='p'||tag==='em') && mode && buf[mode]){
+      const t=(node.innerText||node.textContent||'').trim();
+      if(t) buf[mode].push(t);
+    }
+    if(tag!=='h2' && tag!=='h3' && tag!=='p'){
+      for(const ch of node.children||[]) walk(ch);
+    }
+  }
+  for(const ch of extraEl.children||[]) walk(ch);
+  out.landscape=buf.landscape.join('\n\n');
+  out.between=buf.between.join('\n\n');
+  if(!out.landscape && !out.between){
+    const all=(extraEl.innerText||'').trim();
+    out.landscape=all;
+  }
+  return out;
+}
+function collectAskMembers(){
+  const names=[];
+  try{
+    const p1=parseInput($('person1')&&$('person1').value);
+    const n1=firstNameMember(p1&&p1.name);
+    if(n1) names.push(n1);
+  }catch(e){}
+  try{
+    const raw=$('person2')&&$('person2').value.trim();
+    if(raw){
+      const p2=parseInput(raw);
+      const n2=firstNameMember(p2&&p2.name);
+      if(n2) names.push(n2);
+    }
+  }catch(e){}
+  return names;
+}
+function collectAskContext(){
+  const want=extraOutputRequested();
+  const report=$('report');
+  const extra=report?report.querySelector('.extra-output'):null;
+  const parts=splitExtraOutputText(extra);
+  const sections={
+    notSelfLandscape:!!want.landscape,
+    betweenMembers:!!want.between,
+    regularReport:!(want.landscape||want.between)
+  };
+  const ctx={
+    rangeLabel: (typeof selectionRangeText==='function'?selectionRangeText():'') || ($('ephemNote')&&$('ephemNote').textContent)||'',
+    timezone: ($('tz')&&$('tz').value)||''
+  };
+  if(sections.notSelfLandscape) ctx.landscape=clipAsk(parts.landscape, ASK_CONTEXT_CAP);
+  if(sections.betweenMembers) ctx.between=clipAsk(parts.between, ASK_CONTEXT_CAP);
+  if(sections.regularReport) ctx.regularSummary=clipAsk(reportTextWithoutChrome(report), ASK_CONTEXT_CAP);
+  // Always include a compact meanings/chart note only from already-rendered report text (no source names).
+  if(!sections.regularReport){
+    const summary=clipAsk(reportTextWithoutChrome(report), 12000);
+    if(summary) ctx.meanings=summary;
+  }
+  return {sections, context:ctx, members:collectAskMembers()};
+}
+function grokSectionHtml(kind, question, body){
+  const q=escapeGrok(question||'');
+  let inner;
+  if(kind==='loading'){
+    inner='<p><em>Asking Grok…</em></p>';
+  } else if(kind==='error'){
+    inner='<p>'+escapeGrok(body||'Something went wrong.')+'</p>';
+  } else {
+    const paras=String(body||'').split(/\n{2,}/).map(s=>s.trim()).filter(Boolean);
+    inner=(q?'<p class="grok-q"><em>Asked: '+q+'</em></p>':'') + paras.map(p=>'<p>'+escapeGrok(p).replace(/\n/g,'<br>')+'</p>').join('\n');
+  }
+  const cls='grok-answer'+(kind==='loading'?' grok-loading':'')+(kind==='error'?' grok-error':'');
+  return '<div class="'+cls+'"><h2>Question — Advantages and Difficulties</h2>\n'+inner+'</div>';
+}
+function stripGrokFromHtml(html){
+  return String(html||'').replace(/<div class="grok-answer[\s\S]*?<\/div>\s*$/i,'').replace(/<div class="grok-answer[\s\S]*?<\/div>/gi,'');
+}
+function setReportHtml(html){
+  const wrap=$('report');
+  if(wrap) wrap.innerHTML=html;
+}
+function applyGrokAnswerToReport(){
+  const wrap=$('report');
+  if(!wrap) return;
+  const base = lastHtmlBase != null ? lastHtmlBase : stripGrokFromHtml(wrap.innerHTML);
+  if(!askGrokBoxOn() || !lastGrokAnswerHtml){
+    if(wrap.innerHTML!==base) wrap.innerHTML=base;
+    if(typeof lastHtml!=='undefined' && lastHtmlBase!=null) lastHtml=lastHtmlBase;
+    return;
+  }
+  const next=stripGrokFromHtml(base)+'\n'+lastGrokAnswerHtml;
+  wrap.innerHTML=next;
+  if(typeof lastHtml!=='undefined') lastHtml=next;
+  if(typeof lastMd!=='undefined' && lastGrokQuestion){
+    const mdBase=String(lastMd||'').replace(/\n## Question — Advantages and Difficulties[\s\S]*$/,'');
+    lastMd=mdBase+'\n\n## Question — Advantages and Difficulties\n\n*Asked: '+lastGrokQuestion+'*\n\n'+(lastGrokAnswerText||'')+'\n';
+  }
+}
+let lastGrokAnswerText='';
+function rememberReportBase(){
+  const wrap=$('report');
+  lastHtmlBase = wrap ? stripGrokFromHtml(wrap.innerHTML) : '';
+  if(typeof lastHtml!=='undefined') lastHtml=lastHtmlBase;
+}
+
+function setAskStatus(msg, kind){
+  const el=$('askGrokStatus');
+  if(el) el.textContent=msg||'';
+}
+function friendlyAskError(err, fallback){
+  const s=String(err||fallback||'Something went wrong.');
+  if(/XAI_API_KEY is not set yet/i.test(s) || /key isn'?t set yet/i.test(s) || /not set yet/i.test(s) && /XAI_API_KEY|API key/i.test(s)){
+    return "The Grok API key isn't set yet. Add XAI_API_KEY in the Vercel project Settings → Environment Variables, then redeploy.";
+  }
+  if(/failed to fetch|networkerror|load failed|offline/i.test(s)){
+    return 'Could not reach the question service. Check your internet connection and try again.';
+  }
+  return s;
+}
+async function askGrok(){
+  const ta=$('askGrokQuestion');
+  const question=ta?ta.value:'';
+  const btn=$('askGrokBtn');
+  if(!question.trim()){ setAskStatus('Please enter a question.'); return; }
+  if(question.length>ASK_MAX){ setAskStatus('Question is too long (max 5000 characters).'); return; }
+  if(!window.__LAST_TRANSIT__ && !($('report')&&/Transit|Real-world|Not-Self|Story/.test($('report').innerText||''))){
+    // still allow if a report is present
+  }
+  const report=$('report');
+  if(!report || !(report.textContent||'').trim() || /Load the ephemeris/.test(report.textContent||'')){
+    setAskStatus('Run an analysis first, then ask a question.');
+    return;
+  }
+  rememberReportBase();
+  lastGrokQuestion=question.trim();
+  lastGrokAnswerText='';
+  lastGrokAnswerHtml=grokSectionHtml('loading', lastGrokQuestion, '');
+  applyGrokAnswerToReport();
+  setAskStatus('Asking Grok…');
+  if(btn){ btn.setAttribute('data-loading','1'); btn.disabled=true; btn.textContent='Asking…'; }
+  const payload=Object.assign({question:lastGrokQuestion}, collectAskContext());
+  try{
+    const res=await fetch(ASK_ENDPOINT,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(payload)
+    });
+    let data=null;
+    try{ data=await res.json(); }catch(e){ data=null; }
+    if(!res.ok){
+      const raw=(data&&data.error)?String(data.error):('Request failed ('+res.status+').');
+      const msg=friendlyAskError(raw, raw);
+      lastGrokAnswerHtml=grokSectionHtml('error', lastGrokQuestion, msg);
+      lastGrokAnswerText='';
+      applyGrokAnswerToReport();
+      setAskStatus(msg);
+      return;
+    }
+    const answer=(data&&data.answer)?String(data.answer).trim():'';
+    if(!answer){
+      const msg='Grok returned an empty answer. Please try again.';
+      lastGrokAnswerHtml=grokSectionHtml('error', lastGrokQuestion, msg);
+      applyGrokAnswerToReport();
+      setAskStatus(msg);
+      return;
+    }
+    lastGrokAnswerText=answer;
+    lastGrokAnswerHtml=grokSectionHtml('ok', lastGrokQuestion, answer);
+    applyGrokAnswerToReport();
+    setAskStatus('Answer added to the report.');
+  }catch(e){
+    const msg=friendlyAskError(e&&e.message?e.message:e, 'Could not reach the question service.');
+    lastGrokAnswerHtml=grokSectionHtml('error', lastGrokQuestion, msg);
+    lastGrokAnswerText='';
+    applyGrokAnswerToReport();
+    setAskStatus(msg);
+  }finally{
+    if(btn){ btn.removeAttribute('data-loading'); btn.textContent='Ask'; }
+    updateAskGrokCount();
+  }
+}
+
 function runAnalysis(){
   try{
     if(!engReady || !window.Astronomy){ status('Ephemeris library not loaded','err'); return; }
@@ -1069,7 +1355,8 @@ function runAnalysis(){
           rangeTransitFieldMode: includeTF ? 'per-day' : 'omit'};
         lastHtml=HD.renderNarrativeHtml(person1, person2, dayTransits, ovMeta);
         lastMd=HD.renderNarrativeMarkdown(person1, person2, dayTransits, ovMeta);
-        $('report').innerHTML=lastHtml;
+        { const _x=applyExtraOutput(lastHtml, lastMd, person1, person2, Object.assign({}, ovMeta, {dayTransits:dayTransits})); lastHtml=_x.html; lastMd=_x.md; }
+        $('report').innerHTML=lastHtml; rememberReportBase(); applyGrokAnswerToReport();
         $('ephemNote').textContent = 'Brief descriptions · '+dayTransits.length+' days · '+rangeLabel+(includeTF?' · transit field/day':'');
         status('Done — overview · '+dayTransits.length+' days','ok');
         window.__LAST_REPORT_MD__ = lastMd;
@@ -1079,6 +1366,7 @@ function runAnalysis(){
       }
       const meta={events:found.events, moonSkipped:found.moonSkipped, rawCount:found.rawCount, rangeLabel, tzLabel, tz, startField, includeTransitField:includeTF, includePositions:includeTF, rangeOverview:false};
       lastHtml=renderTimelineHtml(person1, person2, meta);
+      { const _x=applyExtraOutput(lastHtml, lastHtml, person1, person2, Object.assign({}, meta, {dayTransits:buildTransitsForSelection(window.Astronomy)})); lastHtml=_x.html; }
       lastMd = lastHtml
         .replace(/<script[\s\S]*?<\/script>/gi,'')
         .replace(/<h2>/gi,'# ').replace(/<\/h2>/gi,'\n')
@@ -1091,7 +1379,7 @@ function runAnalysis(){
         .replace(/<\/pre><\/details><\/div>/gi,'\n```\n</details>\n')
         .replace(/<[^>]+>/g,'')
         .replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"');
-      $('report').innerHTML=lastHtml;
+      $('report').innerHTML=lastHtml; rememberReportBase(); applyGrokAnswerToReport();
       let _shownN=found.events.length;
       if(interactionsOnlyOn() && person2){
         _shownN=found.events.filter(e=>isInteractionTimelineEvent(e, person1, person2)).length;
@@ -1124,7 +1412,8 @@ function runAnalysis(){
     }
     lastHtml=HD.renderNarrativeHtml(person1, person2, transits, snapMeta);
     lastMd=HD.renderNarrativeMarkdown(person1, person2, transits, snapMeta);
-    $('report').innerHTML=lastHtml;
+    { const _x=applyExtraOutput(lastHtml, lastMd, person1, person2, Object.assign({}, snapMeta, {dayTransits:transits})); lastHtml=_x.html; lastMd=_x.md; }
+    $('report').innerHTML=lastHtml; rememberReportBase(); applyGrokAnswerToReport();
     const field=transits[0];
     if(mode==='range' && includeOverview){
       $('ephemNote').textContent = 'Brief descriptions · '+transits.length+' day'+(transits.length===1?'':'s')+' @ '+timeLabel+(includeTF?' · transit field/day':'');
@@ -1303,7 +1592,14 @@ function wire(){
   syncRangeTransitFieldOpt();
   syncRangeDescFlags();
   const ic=$('includeCodes'); if(ic) ic.onchange=()=>{ if(window.__LAST_TRANSIT__) runAnalysis(); };
-  const rwCb=$('realWorldInfluence'); if(rwCb) rwCb.onchange=()=>{ if(window.__LAST_TRANSIT__) runAnalysis(); };
+  const rwCb=$('realWorldInfluence'); if(rwCb) rwCb.onchange=()=>{ syncExtraOutputOpts(); if(window.__LAST_TRANSIT__) runAnalysis(); };
+  syncExtraOutputOpts();
+  const nsCb=$('notSelfLandscape'); if(nsCb) nsCb.onchange=()=>{ if(window.__LAST_TRANSIT__) runAnalysis(); };
+  const bmCb=$('betweenMembers'); if(bmCb) bmCb.onchange=()=>{ if(window.__LAST_TRANSIT__) runAnalysis(); };
+  const askBox=$('askGrokBox'); if(askBox) askBox.onchange=()=>syncAskGrokPanel();
+  const askTa=$('askGrokQuestion'); if(askTa){ askTa.addEventListener('input', updateAskGrokCount); askTa.addEventListener('change', updateAskGrokCount); }
+  const askBtn=$('askGrokBtn'); if(askBtn) askBtn.onclick=()=>askGrok();
+  syncAskGrokPanel();
   const moonCb=$('moonGateOnly'); if(moonCb) moonCb.onchange=()=>{ if(window.__LAST_TRANSIT__) runAnalysis(); };
   const sunCb=$('sunGateOnly'); if(sunCb) sunCb.onchange=()=>{ if(window.__LAST_TRANSIT__) runAnalysis(); };
   const allGateCb=$('allGateOnly'); if(allGateCb) allGateCb.onchange=()=>{ syncOmitLightsUI(); if(window.__LAST_TRANSIT__) runAnalysis(); };

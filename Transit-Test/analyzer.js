@@ -4959,10 +4959,423 @@ function describeExpandedCoupleNotSelf(person1, person2, day1, day2, couple, tra
 }
 
 
+function extraOutputLandscapeOn(){
+  try{
+    if(!realWorldOn()) return false;
+    const wrap=document.getElementById('extraOutputOpts');
+    if(wrap){
+      const hidden=(wrap.getAttribute('hidden')!=null) || (wrap.style && wrap.style.display==='none');
+      if(hidden) return false;
+    }
+    const box=document.getElementById('notSelfLandscape');
+    return !!(box && box.checked);
+  }catch(e){ return false; }
+}
+function extraOutputBetweenOn(){
+  try{
+    if(!realWorldOn()) return false;
+    const wrap=document.getElementById('extraOutputOpts');
+    if(wrap){
+      const hidden=(wrap.getAttribute('hidden')!=null) || (wrap.style && wrap.style.display==='none');
+      if(hidden) return false;
+    }
+    const box=document.getElementById('betweenMembers');
+    return !!(box && box.checked);
+  }catch(e){ return false; }
+}
+function extraOutputWanted(){ return extraOutputLandscapeOn() || extraOutputBetweenOn(); }
+
+function extraStripSources(s){
+  return String(s||'').replace(/\b(LCN|TCRI|Ra\s*Uru\s*Hu|Rave\s+I\s*Ching|Black\s+Book)\b/gi,' ').replace(/\s+/g,' ').trim();
+}
+function extraFilt(tracker, s){
+  s=extraStripSources(s).replace(/\s+/g,' ').trim();
+  if(!s) return '';
+  if(typeof registerAndFilterSentence==='function'){
+    const f=registerAndFilterSentence(tracker, s);
+    return f||s;
+  }
+  return s;
+}
+function weekdayDateForTransit(transit, meta){
+  if(transit && transit.display_date) return transit.display_date;
+  const tz=transitTzOf(transit, meta);
+  const ms=transitAtMs(transit);
+  try{
+    let zone='UTC';
+    try{ zone=(typeof resolveTzId==='function')?resolveTzId(tz||'local'):(tz&&tz!=='local'?tz:(Intl.DateTimeFormat().resolvedOptions().timeZone||'UTC')); }catch(e){}
+    const parts=new Intl.DateTimeFormat('en-US',{timeZone:zone, weekday:'long', year:'numeric', month:'short', day:'numeric'}).formatToParts(new Date(ms));
+    const get=t=>(parts.find(p=>p.type===t)||{}).value||'';
+    return get('weekday')+', '+get('month')+' '+get('day')+', '+get('year');
+  }catch(e){
+    return (transit && (transit.date||transit.display_when)) || '';
+  }
+}
+function extraChLabel(ch){
+  const theme=prettyTheme(plainChannelName(ch));
+  const centers=((ch&&ch.centers)||[]).map(normalizeCenterName);
+  return theme+(centers.length?(' ('+centers.join('–')+')'):'');
+}
+function spanLeadForPlanetGate(planet, gate, transit, meta, tracker){
+  const theme=prettyTheme(gateThemeName(gate));
+  const tz=transitTzOf(transit, meta);
+  const at=transitAtMs(transit);
+  const span=spanForPlanetAt(planet, at, tz);
+  if(tracker && !claimGateSpan(tracker, planet, gate)){
+    return gateRemainClause(planet, gate, theme);
+  }
+  const fromUntil=formatFromUntil(span, tz);
+  const move=gateMoveClause(planet, gate, theme);
+  return fromUntil ? (fromUntil+', '+move) : move;
+}
+
+function profileOnceParagraph(person, tracker){
+  const name=firstNameOnly(person.name);
+  const profile=deriveHdProfile(person);
+  const open=openCentersOf(person);
+  const defSorted=[...new Set([...(person.defined_centers||[])].map(normalizeCenterName))].sort();
+  let s=name+' is a '+profile.type+' with Strategy "'+profile.strategy+'" and '+profile.authority+' Authority';
+  if(profile.definition && profile.definition!=='No Definition') s+=' ('+profile.definition+' definition)';
+  s+='.';
+  if(open.length) s+=' Open / undefined centers: '+open.join(', ')+'.';
+  else s+=' This chart does not leave a center open.';
+  if(defSorted.length) s+=' Defined centers: '+defSorted.join(', ')+'.';
+  if(profile.signature) s+=' The Type not-self signature to watch is '+profile.signature+(profile.theme?(' — '+profile.theme):'')+'.';
+  s+=' The notes below are potentials for how a given day may touch that landscape, not a forecast of events.';
+  return extraFilt(tracker, s);
+}
+
+function describeNotSelfDayForPerson(person, transit, tracker, meta){
+  const name=firstNameOnly(person.name);
+  const sky=transitWithoutLights(transit);
+  const day=analyzeDay(person, sky);
+  const paras=[];
+  const openSet=new Set(openCentersOf(person));
+  const coveredCenters=new Set();
+
+  for(const item of (day.completed_channels||[])){
+    const centers=((item.info&&item.info.centers)||[]).map(normalizeCenterName);
+    const planets=item.transit_planets||[];
+    const tGates=item.transit_gates||[];
+    const theme=prettyTheme(plainChannelName(item.info));
+    const leads=[];
+    const n=Math.max(planets.length, tGates.length);
+    for(let i=0;i<n;i++){
+      const p=planets[i]||planets[0];
+      const g=tGates[i]||tGates[0];
+      if(p && g) leads.push(spanLeadForPlanetGate(p, g, transit, meta, tracker));
+    }
+    const hit={centers:centers, channelInfo:item.info, kind:item.kind==='electromagnetic'?'channel_em':(item.kind==='transit_overlay_on_natal_channel'?'channel_overlay':'channel_supply')};
+    const centerOpts=channelCenterEffectOptions(person, hit, theme);
+    let centerBit='';
+    if(centerOpts.length){
+      centerBit=extraFilt(tracker, centerOpts[(tracker.seq||0)%centerOpts.length]);
+      centerBit=centerBit.replace(/\.$/,'');
+    }
+    const openHit=centers.filter(c=>centerIsOpenFor(person,c));
+    const nsBits=[];
+    for(const c of openHit){
+      const info=centerNotSelfInfo(c);
+      if(info && info.not_self_theme) nsBits.push('open '+c+' may lean toward '+info.not_self_theme);
+    }
+    let s=leads.length ? leads[0] : (name+' meets a completed channel of '+theme);
+    if(leads.length>1) s+='; '+leads.slice(1).join('; ');
+    s+=', completing the channel of '+theme+' with '+name+'\'s chart.';
+    if(centerBit) s+=' '+centerBit+'.';
+    if(nsBits.length) s+=' As a potential, '+nsBits.join('; ')+'.';
+    if(openHit[0]){
+      const ex=freshOpenCenterExample(person, openHit[0], tracker, (tracker.seq||0)+openHit[0].length);
+      if(ex) s+=' '+ex;
+    }
+    paras.push(extraFilt(tracker, s));
+    for(const c of centers) coveredCenters.add(c);
+  }
+
+  const tplanets=sky.planets||{};
+  const byOpenCenter={};
+  for(const pname of Object.keys(tplanets)){
+    const p=tplanets[pname];
+    if(!p) continue;
+    const gi=gateInfo(p.gate);
+    const c=gi && normalizeCenterName(gi.center);
+    if(!c || !openSet.has(c)) continue;
+    if(coveredCenters.has(c)) continue;
+    (byOpenCenter[c]||(byOpenCenter[c]=[])).push({planet:pname, gate:p.gate, theme:prettyTheme((gi&&gi.name)||gateThemeName(p.gate))});
+  }
+  const conditioned=openCentersConditioned(person, sky, day);
+  const seenOpen=new Set();
+  for(const raw of conditioned.concat(Object.keys(byOpenCenter))){
+    const c=normalizeCenterName(raw);
+    if(!c || seenOpen.has(c) || coveredCenters.has(c) || !openSet.has(c)) continue;
+    seenOpen.add(c);
+    const info=centerNotSelfInfo(c);
+    const hooks=byOpenCenter[c]||[];
+    let s;
+    if(hooks.length){
+      const leads=hooks.slice(0,3).map(h=>spanLeadForPlanetGate(h.planet, h.gate, transit, meta, tracker));
+      s=leads[0];
+      if(leads.length>1) s+=', while '+leads.slice(1).join(', ');
+      s+=' — this weather sits in '+name+'\'s open '+c+' center (conditioning, not a completed-channel definition by itself).';
+    } else {
+      s='On this day the sky also brushes '+name+'\'s open '+c+' center.';
+    }
+    if(info && info.not_self_theme) s+=' A potential not-self theme is '+info.not_self_theme+'.';
+    if(info && info.not_self_question) s+=' A useful check: '+info.not_self_question;
+    const ex=freshOpenCenterExample(person, c, tracker, (tracker.seq||0)+c.length+3);
+    if(ex) s+=' '+ex;
+    paras.push(extraFilt(tracker, s));
+    coveredCenters.add(c);
+  }
+
+  const touchedDefined=transitCentersTouched(sky).map(normalizeCenterName).filter(c=>c && isCenterDefined(person,c) && !coveredCenters.has(c));
+  const uniqDef=[];
+  const seenDef=new Set();
+  for(const c of touchedDefined){ if(!seenDef.has(c)){ seenDef.add(c); uniqDef.push(c); } }
+  if(uniqDef.length){
+    const s='Defined '+uniqDef.join(' and ')+' in '+name+'\'s chart can be amplified under this sky, as established circuitry rather than a new center coming online.';
+    paras.push(extraFilt(tracker, s));
+  }
+
+  if(!paras.length){
+    paras.push(extraFilt(tracker, 'On this day the sky does not form a loud hook into '+name+'\'s open centers. The full-chart not-self landscape still sits in the background; treat urgency as borrowed weather and stay with Strategy and Authority.'));
+  }
+  return paras.filter(Boolean);
+}
+
+function conditionCentersFromTo(fromPerson, toPerson){
+  const open=new Set(openCentersOf(toPerson));
+  const out=[];
+  const seen=new Set();
+  for(const raw of (fromPerson.defined_centers||[])){
+    const c=normalizeCenterName(raw);
+    if(!c || seen.has(c)) continue;
+    if(open.has(c) || (c==='Heart/Ego' && (open.has('Heart')||open.has('Ego')))){
+      seen.add(c); out.push(c);
+    }
+  }
+  return out;
+}
+
+function describeBetweenBaseline(p1, p2, tracker){
+  const n1=firstNameOnly(p1.name), n2=firstNameOnly(p2.name);
+  const dyn=coupleDynamics(p1, p2, {planets:{}});
+  const electro=dyn.electromagnetic||[];
+  const comp=dyn.companionship||[];
+  const dom=dyn.compromise||[];
+  let s=n1+' and '+n2+' condition each other through the channels they already form together.';
+  function list(arr, label){
+    if(!arr.length) return '';
+    return ' '+label+' channels: '+arr.map(extraChLabel).join('; ')+'.';
+  }
+  s+=list(electro,'Electromagnetic');
+  s+=list(comp,'Companionship');
+  s+=list(dom,'Dominance');
+  if(!electro.length && !comp.length && !dom.length){
+    s+=' They do not currently form electromagnetic, companionship, or dominance channels from the activations entered.';
+  }
+  const fill2=conditionCentersFromTo(p1,p2);
+  const fill1=conditionCentersFromTo(p2,p1);
+  if(fill2.length) s+=' '+n1+'\'s defined '+fill2.join(', ')+' can condition '+n2+' where those centers are open.';
+  if(fill1.length) s+=' '+n2+'\'s defined '+fill1.join(', ')+' can condition '+n1+' where those centers are open.';
+  s+=' The notes below are potentials for how a given day\'s sky may change that baseline.';
+  return extraFilt(tracker, s);
+}
+
+function relationKindForChannel(dyn, chId){
+  const id=chId && (chId.id||chId);
+  const has=(arr)=>((arr||[]).some(c=>(c.id||c)===id));
+  if(has(dyn.electromagnetic)) return 'electromagnetic';
+  if(has(dyn.companionship)) return 'companionship';
+  if(has(dyn.compromise)) return 'dominance';
+  return 'relationship';
+}
+
+function describeBetweenDay(p1, p2, transit, tracker, meta){
+  const n1=firstNameOnly(p1.name), n2=firstNameOnly(p2.name);
+  const sky=transitWithoutLights(transit);
+  const dyn=coupleDynamics(p1, p2, sky);
+  const day1=analyzeDay(p1, sky);
+  const day2=analyzeDay(p2, sky);
+  const paras=[];
+  const amplified=dyn.transit_amplified_channels||[];
+  if(amplified.length){
+    const bits=amplified.map(c=>{
+      const kind=relationKindForChannel(dyn, c);
+      const planets=[];
+      const tGates=new Set(Object.values(sky.planets||{}).map(p=>p.gate));
+      const gates=(c.gates||[]);
+      for(const [pname,p] of Object.entries(sky.planets||{})){
+        if(gates.indexOf(p.gate)>=0) planets.push({planet:pname, gate:p.gate});
+      }
+      const leads=planets.slice(0,2).map(h=>spanLeadForPlanetGate(h.planet, h.gate, transit, meta, tracker));
+      const lead=leads.length?leads[0]+', ':'';
+      return lead+'the '+kind+' channel of '+extraChLabel(c)+' between them is lit by this sky';
+    });
+    paras.push(extraFilt(tracker, bits.join('. ')+'. That can make already-familiar chemistry or dominance feel louder for the day, without rewriting the natal bond.'));
+  }
+
+  function tempBridges(ampPerson, openPerson, day){
+    const out=[];
+    const open=new Set(openCentersOf(openPerson));
+    for(const item of (day.completed_channels||[])){
+      const centers=((item.info&&item.info.centers)||[]).map(normalizeCenterName);
+      for(const c of centers){
+        if(!open.has(c)) continue;
+        const planets=item.transit_planets||[];
+        const tGates=item.transit_gates||[];
+        const p=planets[0], g=tGates[0];
+        const lead=(p&&g)?spanLeadForPlanetGate(p,g,transit,meta,tracker)+', ':'';
+        const theme=prettyTheme(plainChannelName(item.info));
+        const info=centerNotSelfInfo(c);
+        const ampName=firstNameOnly(ampPerson.name);
+        const openName=firstNameOnly(openPerson.name);
+        const ampOpen=centerIsOpenFor(ampPerson, c);
+        let s=lead+'a completed channel of '+theme;
+        if(ampOpen){
+          s+=' can temporarily define '+c+' for '+ampName+' while that center stays open in '+openName+'.';
+        } else {
+          s+=' amplifies '+ampName+'\'s already defined '+c+', which can condition '+openName+'\'s open '+c+' while the sky holds the bridge.';
+        }
+        if(ampOpen){
+          s+=' '+ampName+' may therefore condition '+openName+'\'s open '+c+' more strongly while the sky holds the bridge.';
+        }
+        if(info && info.not_self_theme) s+=' A potential theme for '+openName+' is '+info.not_self_theme+'.';
+        out.push(extraFilt(tracker, s));
+      }
+    }
+    return out;
+  }
+  paras.push.apply(paras, tempBridges(p1,p2,day1).slice(0,3));
+  paras.push.apply(paras, tempBridges(p2,p1,day2).slice(0,3));
+
+  const hooks=dyn.shared_transit_hooks||[];
+  const both=hooks.filter(h=>h.in_a && h.in_b);
+  if(both.length){
+    const bits=both.slice(0,3).map(h=>{
+      const theme=prettyTheme((h.gate&&h.gate.name)||gateThemeName((h.gate&&h.gate.number)||h.gate));
+      const gNum=(h.gate&&(h.gate.number||h.gate))||(h.gl?+(String(h.gl).split('.')[0]):0);
+      return spanLeadForPlanetGate(h.planet, gNum, transit, meta, tracker)+' lands in both charts on '+theme;
+    });
+    paras.push(extraFilt(tracker, bits.filter(Boolean).join('; ')+'. Shared hooks can raise the same pressure on both sides at once; volume is weather, not a verdict on the relationship.'));
+  }
+
+  if(!paras.length){
+    paras.push(extraFilt(tracker, 'This day does not sharply retune the natal conditioning between '+n1+' and '+n2+'. The electromagnetic, companionship, and dominance picture described above remains the baseline; stay with each person\'s Strategy and Authority when a shared decision gets loud.'));
+  }
+  return paras.filter(Boolean);
+}
+
+function extraBlocksToHtml(blocks){
+  const parts=['<div class="extra-output">'];
+  for(const b of blocks){
+    if(!b || !b.text) continue;
+    const tag=b.tag||'p';
+    const cls=b.cls?(' class="'+b.cls+'"'):'';
+    if(tag==='p-em'){ parts.push('<p><em>'+escapeHtml(b.text)+'</em></p>'); continue; }
+    parts.push('<'+tag+cls+'>'+escapeHtml(b.text)+'</'+tag+'>');
+  }
+  parts.push('</div>');
+  return parts.join('\n');
+}
+function extraBlocksToMarkdown(blocks){
+  const lines=[];
+  for(const b of blocks){
+    if(!b || !b.text) continue;
+    if(b.tag==='h2') lines.push('\n## '+b.text+'\n');
+    else if(b.tag==='h3') lines.push('\n### '+b.text+'\n');
+    else if(b.tag==='h4' || b.cls==='ns-person') lines.push('\n**'+b.text+'**\n');
+    else if(b.tag==='p-em') lines.push('\n*'+b.text+'*\n');
+    else lines.push('\n'+b.text+'\n');
+  }
+  return lines.join('');
+}
+
+function buildExtraOutputBlocks(person1, person2, transits, meta){
+  const wantL=extraOutputLandscapeOn();
+  const wantB=extraOutputBetweenOn();
+  if(!wantL && !wantB) return [];
+  const days=(transits&&transits.length)?transits.slice():[];
+  const tracker=makeProseTracker();
+  const blocks=[];
+  const people=[person1].concat(person2?[person2]:[]);
+
+  if(wantL){
+    blocks.push({tag:'h2', text:'Not-Self landscape (full chart), day by day'});
+    blocks.push({tag:'p-em', text:'Potentials only—how this sky may touch open and undefined centers in the full chart. Not predictions.'});
+    for(const person of people){
+      blocks.push({tag:'h3', cls:'ns-person', text:firstNameOnly(person.name)});
+      const once=profileOnceParagraph(person, tracker);
+      if(once) blocks.push({tag:'p', text:once});
+      if(!days.length){
+        blocks.push({tag:'p', text:'No daily transit field was available to walk this landscape day by day.'});
+        continue;
+      }
+      for(const transit of days){
+        blocks.push({tag:'h3', cls:'ns-day-title', text:weekdayDateForTransit(transit, meta)});
+        const paras=describeNotSelfDayForPerson(person, transit, tracker, meta);
+        for(const para of paras){
+          if(para) blocks.push({tag:'p', cls:'ns-day', text:para});
+        }
+      }
+    }
+  }
+
+  if(wantB){
+    blocks.push({tag:'h2', text:'Between members selected, day by day'});
+    if(!person2){
+      blocks.push({tag:'p', text:'Select a second member to see a day-by-day summary of the conditioning between them. With one chart loaded, there is no second design to compare.'});
+    } else {
+      blocks.push({tag:'p-em', text:'Potentials for how '+firstNameOnly(person1.name)+' and '+firstNameOnly(person2.name)+' condition each other, and how a given day\'s sky may change that picture. Not predictions.'});
+      const base=describeBetweenBaseline(person1, person2, tracker);
+      if(base) blocks.push({tag:'p', text:base});
+      if(!days.length){
+        blocks.push({tag:'p', text:'No daily transit field was available to show how the sky changes that baseline.'});
+      } else {
+        for(const transit of days){
+          blocks.push({tag:'h3', cls:'ns-day-title', text:weekdayDateForTransit(transit, meta)});
+          const paras=describeBetweenDay(person1, person2, transit, tracker, meta);
+          for(const para of paras){
+            if(para) blocks.push({tag:'p', cls:'ns-day', text:para});
+          }
+        }
+      }
+    }
+  }
+  return blocks;
+}
+
+function insertExtraBeforeTrailingPositions(html, extraHtml){
+  if(!html) return extraHtml||'';
+  if(!extraHtml) return html;
+  const n=(html.match(/class="transit-positions"/g)||[]).length;
+  if(n<=1){
+    const idxPos=html.lastIndexOf('<div class="transit-positions">');
+    const idxTech=html.lastIndexOf('<div class="tech">');
+    let idx=-1;
+    if(idxPos>=0 && (idxTech<0 || idxPos<idxTech)) idx=idxPos;
+    else if(idxTech>=0 && idxPos<0) idx=idxTech;
+    if(idx>0) return html.slice(0,idx)+extraHtml+'\n'+html.slice(idx);
+  }
+  return html+'\n'+extraHtml;
+}
+
+function appendExtraOutputSections(html, md, person1, person2, transits, meta){
+  if(!extraOutputWanted()) return {html:html, md:md};
+  const blocks=buildExtraOutputBlocks(person1, person2, transits, meta||{});
+  if(!blocks.length) return {html:html, md:md};
+  const extraHtml=extraBlocksToHtml(blocks);
+  const extraMd=extraBlocksToMarkdown(blocks);
+  return {
+    html:insertExtraBeforeTrailingPositions(html||'', extraHtml),
+    md:(md||'')+extraMd
+  };
+}
+
 window.HD = {
   PLANET_ORDER, lonToGateLine, computeTransitField, loadPerson, parseChartText, parseGl,
   analyzeDay, coupleDynamics, renderNarrativeHtml, renderNarrativeMarkdown, dateRangeList,
   trueNodeLon, meanNodeLon, GATE41_START, WHEEL,
   coerceChartObject, deepCloneChart, chartLoadedSummary, validateNatalOrStop, formatActivationList,
-  openCentersOf, isCenterDefined, deriveHdProfile, describeExpandedNotSelf, describeExpandedCoupleNotSelf
+  openCentersOf, isCenterDefined, deriveHdProfile, describeExpandedNotSelf, describeExpandedCoupleNotSelf,
+  appendExtraOutputSections, extraOutputWanted, extraOutputLandscapeOn, extraOutputBetweenOn
 };
