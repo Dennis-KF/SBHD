@@ -1100,10 +1100,100 @@ function clipAsk(s, n){
   if(s.length<=n) return s;
   return s.slice(0,n)+'\n[truncated to keep the request size reasonable]';
 }
-function clipAskDateOrder(s, n){
+function escapeClipRe(s){
+  return String(s||'').replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+}
+function clipToBudget(text, take){
+  text=String(text==null?'':text);
+  if(take<=0) return '';
+  if(text.length<=take) return text;
+  let chunk=text.slice(0, take);
+  const cut=Math.max(chunk.lastIndexOf('\n\n'), chunk.lastIndexOf('. '));
+  if(cut>take*0.55) chunk=chunk.slice(0, cut+(chunk[cut]==='.'?1:0));
+  return chunk.replace(/\s+$/,'')+'\n[truncated]\n';
+}
+function inferClipMemberNames(s, names){
+  const out=[];
+  const seen={};
+  (names||[]).forEach(function(n){
+    const t=String(n||'').trim().split(/\s+/)[0];
+    if(t && !seen[t]){ seen[t]=1; out.push(t); }
+  });
+  if(out.length) return out;
+  const head=String(s||'').split('\n').slice(0,12).join('\n');
+  const m=head.match(/:\s*([^\n]+)/);
+  if(m){
+    String(m[1]).split(/\s*(?:&|and|,)\s*/i).forEach(function(part){
+      const t=part.trim().split(/\s+/)[0];
+      if(t && /^[A-Z][A-Za-z'’\-]+$/.test(t) && !seen[t]){ seen[t]=1; out.push(t); }
+    });
+  }
+  return out;
+}
+function splitNamedBlocks(text, names){
+  text=String(text==null?'':text);
+  const labels=(names||[]).filter(Boolean);
+  let head;
+  if(labels.length){
+    head='(?:'+labels.map(escapeClipRe).join('|')+'|Together|Between\\s+[^\\n]+)';
+  }else{
+    head='(?:Together|Between\\s+[^\\n]+)';
+  }
+  const re=new RegExp('(?=^'+head+'\\s*$)','m');
+  const parts=text.split(re);
+  if(parts.length<=1) return {intro:text, blocks:[]};
+  const intro=parts[0]||'';
+  const blocks=parts.slice(1).map(function(p){
+    const line=(p.split(/\n/,1)[0]||'').trim();
+    const isMember=labels.some(function(n){ return line===n; });
+    return {heading:line, isMember:isMember, text:p};
+  });
+  return {intro:intro, blocks:blocks};
+}
+function allocateByLength(lengths, budget){
+  const n=lengths.length;
+  const sizes=new Array(n).fill(0);
+  if(n===0 || budget<=0) return sizes;
+  const left=lengths.map(function(len,i){ return {i:i, left:Math.max(0,len)}; });
+  let remain=budget;
+  while(remain>0){
+    const open=left.filter(function(x){ return x.left>0; });
+    if(!open.length) break;
+    const slice=Math.max(1, Math.floor(remain/open.length));
+    for(let k=0;k<open.length && remain>0;k++){
+      const give=Math.min(open[k].left, slice, remain);
+      sizes[open[k].i]+=give;
+      open[k].left-=give;
+      remain-=give;
+    }
+  }
+  return sizes;
+}
+function clipDayEqualMembers(dayText, budget, names){
+  dayText=String(dayText==null?'':dayText);
+  if(dayText.length<=budget) return dayText;
+  const parsed=splitNamedBlocks(dayText, names);
+  if(!parsed.blocks.length) return clipToBudget(dayText, budget);
+  const intro=parsed.intro||'';
+  const introCap=Math.min(intro.length, Math.max(80, Math.floor(budget*0.15)));
+  const introOut=intro.length<=introCap?intro:clipToBudget(intro, introCap);
+  let remain=budget-introOut.length;
+  if(remain<200) return clipToBudget(dayText, budget);
+  const sizes=allocateByLength(parsed.blocks.map(function(b){ return b.text.length; }), remain);
+  let out=introOut;
+  for(let i=0;i<parsed.blocks.length;i++){
+    const left=budget-out.length;
+    if(left<40) break;
+    const take=Math.min(parsed.blocks[i].text.length, sizes[i], left);
+    out+=clipToBudget(parsed.blocks[i].text, take);
+  }
+  return out;
+}
+function clipAskDateOrder(s, n, memberNames){
   s=String(s==null?'':s).trim();
   if(s.length<=n) return s;
-  const note='\n[truncated to keep the request size reasonable; excerpts from each date kept]';
+  const names=inferClipMemberNames(s, memberNames);
+  const note='\n[truncated to keep the request size reasonable; excerpts from each date and member kept]';
   const re=/(?=^(?:Sunday|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday), )/m;
   const parts=s.split(re);
   const pre=parts[0]||'';
@@ -1111,24 +1201,20 @@ function clipAskDateOrder(s, n){
   if(!days.length) return clipAsk(s, n);
   const budget=n-pre.length-note.length;
   if(budget<400) return clipAsk(s, n);
-  // Keep a prefix of every day so a range question can compare dates, instead of dropping a day that is larger than the remaining cap.
-  const each=Math.max(900, Math.floor(budget/days.length));
+  const daySizes=allocateByLength(days.map(function(d){ return d.length; }), budget);
   let out=pre;
   for(let i=0;i<days.length;i++){
     const remain=n-out.length-note.length;
     if(remain<200) break;
-    const take=Math.min(days[i].length, each, remain);
-    let chunk=days[i].slice(0, take);
-    if(take<days[i].length){
-      const cut=Math.max(chunk.lastIndexOf('\n\n'), chunk.lastIndexOf('. '));
-      if(cut>take*0.55) chunk=chunk.slice(0, cut+(chunk[cut]==='.'?1:0));
-      chunk=chunk.replace(/\s+$/,'')+'\n[day truncated]\n';
-    }
+    const take=Math.min(days[i].length, daySizes[i], remain);
+    const chunk=clipDayEqualMembers(days[i], take, names);
     out+=chunk;
+    if(chunk.length<days[i].length && !/\[(?:day )?truncated\]\s*$/.test(chunk)){
+      out+='\n[day truncated]\n';
+    }
   }
   return out.trim()+note;
 }
-
 function reportTextWithoutChrome(root){
   if(!root) return '';
   const clone=root.cloneNode(true);
@@ -1263,7 +1349,7 @@ function collectAskContext(){
   };
   // Context is the text currently shown: checked sections only, or the full regular report if none are checked.
   // Keep gate/channel/center meaning prose from the generated output so the model is grounded.
-  const visible=clipAskDateOrder(reportTextWithoutChrome(report), ASK_CONTEXT_CAP);
+  const visible=clipAskDateOrder(reportTextWithoutChrome(report), ASK_CONTEXT_CAP, collectAskMembers());
   const rangeLabel=(typeof selectionRangeText==='function'?selectionRangeText():'') || ($('ephemNote')&&$('ephemNote').textContent)||'';
   // Send the shown report once (not duplicated under meanings + regularSummary),
   // so a full multi-day report stays within a safe payload size.
@@ -1299,11 +1385,15 @@ function setReportHtml(html){
 }
 function applyGrokAnswerToReport(){
   const wrap=$('report');
-  if(!wrap) return;
+  if(!wrap){
+    if(typeof syncAnswerShareButtons==='function') syncAnswerShareButtons();
+    return;
+  }
   const base = lastHtmlBase != null ? lastHtmlBase : stripGrokFromHtml(wrap.innerHTML);
   if(!askGrokBoxOn() || !lastGrokAnswerHtml){
     if(wrap.innerHTML!==base) wrap.innerHTML=base;
     if(typeof lastHtml!=='undefined' && lastHtmlBase!=null) lastHtml=lastHtmlBase;
+    if(typeof syncAnswerShareButtons==='function') syncAnswerShareButtons();
     return;
   }
   const next=stripGrokFromHtml(base)+'\n'+lastGrokAnswerHtml;
@@ -1313,6 +1403,7 @@ function applyGrokAnswerToReport(){
     const mdBase=String(lastMd||'').replace(/\n## Question — Advantages and Difficulties[\s\S]*$/,'');
     lastMd=mdBase+'\n\n## Question — Advantages and Difficulties\n\n*Asked: '+lastGrokQuestion+'*\n\n'+(lastGrokAnswerText||'')+'\n';
   }
+  if(typeof syncAnswerShareButtons==='function') syncAnswerShareButtons();
 }
 let lastGrokAnswerText='';
 function rememberReportBase(){
@@ -1413,6 +1504,7 @@ async function askGrok(){
     clearTimeout(timer);
     if(btn){ btn.removeAttribute('data-loading'); btn.textContent='Ask'; }
     updateAskGrokCount();
+    if(typeof syncAnswerShareButtons==='function') syncAnswerShareButtons();
   }
 }
 
@@ -1628,6 +1720,283 @@ function loadAstronomy(){
 }
 
 
+const MAILTO_SAFE=2000;
+const SMS_SAFE=2000;
+let shareMenuKind='report';
+
+function hasSuccessfulGrokAnswer(){
+  return !!(lastGrokAnswerText && String(lastGrokAnswerText).trim() && lastGrokAnswerHtml && !/grok-error|grok-loading/.test(lastGrokAnswerHtml));
+}
+function syncAnswerShareButtons(){
+  const row=$('askAnswerActions');
+  const pb=$('answerPrintBtn');
+  const sb=$('answerShareBtn');
+  const on=hasSuccessfulGrokAnswer();
+  if(row){
+    if(on) row.removeAttribute('hidden');
+    else row.setAttribute('hidden','');
+  }
+  if(pb) pb.disabled=!on;
+  if(sb) sb.disabled=!on;
+}
+function reportPlainText(opts){
+  opts=opts||{};
+  const root=$('report');
+  if(!root) return '';
+  const clone=root.cloneNode(true);
+  clone.querySelectorAll('.tech, .transit-positions, #timelineEventsJson, pre[style]').forEach(function(el){ el.remove(); });
+  if(!opts.includeAnswer){
+    clone.querySelectorAll('.grok-answer').forEach(function(el){ el.remove(); });
+  }
+  return (clone.innerText||clone.textContent||'').replace(/\s+\n/g,'\n').replace(/\n{3,}/g,'\n\n').trim();
+}
+function currentReportTitle(){
+  const members=collectAskMembers();
+  const range=(typeof selectionRangeText==='function'?selectionRangeText():'')||'';
+  const who=members.length?members.join(' & '):'Transit report';
+  return range?('Transit report: '+who+' — '+range):('Transit report: '+who);
+}
+function buildAnswerHeaderText(){
+  const q=lastGrokQuestion||'';
+  const members=collectAskMembers();
+  const range=(typeof selectionRangeText==='function'?selectionRangeText():'')||'';
+  const lines=['Question — Advantages and Difficulties'];
+  if(q) lines.push('Question: '+q);
+  if(members.length) lines.push('Members: '+members.join(', '));
+  if(range) lines.push('Date range: '+range);
+  return lines.join('\n');
+}
+function answerShareText(){
+  return (buildAnswerHeaderText()+'\n\n'+(lastGrokAnswerText||'')).trim();
+}
+function answerPrintModel(){
+  return {
+    title:'Question — Advantages and Difficulties',
+    question:lastGrokQuestion||'',
+    members:collectAskMembers(),
+    range:(typeof selectionRangeText==='function'?selectionRangeText():'')||'',
+    answer:lastGrokAnswerText||''
+  };
+}
+function answerPrintInnerHtml(model){
+  model=model||answerPrintModel();
+  const paras=String(model.answer||'').split(/\n{2,}/).map(function(s){ return s.trim(); }).filter(Boolean);
+  const meta=[];
+  if(model.question) meta.push('<p class="answer-meta"><strong>Question:</strong> '+escapeGrok(model.question)+'</p>');
+  if(model.members && model.members.length) meta.push('<p class="answer-meta"><strong>Members:</strong> '+escapeGrok(model.members.join(', '))+'</p>');
+  if(model.range) meta.push('<p class="answer-meta"><strong>Date range:</strong> '+escapeGrok(model.range)+'</p>');
+  const body=paras.map(function(p){ return '<p>'+escapeGrok(p).replace(/\n/g,'<br>')+'</p>'; }).join('\n');
+  return '<h1>'+escapeGrok(model.title||'Question — Advantages and Difficulties')+'</h1>\n'+meta.join('\n')+'\n'+body;
+}
+function fillAnswerPrintRoot(model){
+  const root=$('answerPrintRoot');
+  if(!root) return '';
+  const html=answerPrintInnerHtml(model||answerPrintModel());
+  root.innerHTML=html;
+  root.removeAttribute('hidden');
+  return html;
+}
+function sharePayload(kind){
+  if(kind==='answer'){
+    return {kind:'answer', title:'Question — Advantages and Difficulties', text:answerShareText(), filename:'transit-answer'};
+  }
+  return {kind:'report', title:currentReportTitle(), text:reportPlainText({includeAnswer:true}), filename:'transit-report'};
+}
+function encodeWithinLimit(prefix, body, limit, note){
+  limit=limit||MAILTO_SAFE;
+  body=String(body==null?'':body);
+  note=note||'\n\n[The rest was cut because this link has a length limit. Use Copy to clipboard or Print / Save as PDF for the full text.]';
+  function urlOf(s){ return prefix+encodeURIComponent(s); }
+  if(urlOf(body).length<=limit) return urlOf(body);
+  let lo=0, hi=body.length, best='';
+  const room=Math.max(0, limit-prefix.length);
+  // conservative start: room/3 because encodeURIComponent may expand
+  hi=Math.min(body.length, Math.max(40, Math.floor(room/1.2)));
+  while(lo<=hi){
+    const mid=(lo+hi)>>1;
+    let chunk=body.slice(0, mid).replace(/\s+\S*$/,'');
+    if(!chunk) chunk=body.slice(0, mid);
+    const candidate=chunk+note;
+    if(urlOf(candidate).length<=limit){ best=urlOf(candidate); lo=mid+1; }
+    else hi=mid-1;
+  }
+  if(best) return best;
+  const short=body.slice(0, Math.max(20, Math.floor(room/3)))+note;
+  return urlOf(short).slice(0, limit);
+}
+function buildMailtoUrl(payload){
+  payload=payload||sharePayload('report');
+  const prefix='mailto:?subject='+encodeURIComponent(payload.title||'Transit report')+'&body=';
+  return encodeWithinLimit(prefix, payload.text||'', MAILTO_SAFE);
+}
+function buildSmsUrl(payload){
+  payload=payload||sharePayload('report');
+  const prefix='sms:?&body=';
+  return encodeWithinLimit(prefix, payload.text||'', SMS_SAFE);
+}
+function hasWebShare(){
+  try{ return typeof navigator!=='undefined' && typeof navigator.share==='function'; }
+  catch(e){ return false; }
+}
+function makeShareFile(payload, ext){
+  payload=payload||sharePayload('report');
+  ext=ext||'txt';
+  const name=(payload.filename||'transit-report')+'.'+ext;
+  if(ext==='html'){
+    const html='<!DOCTYPE html><html><head><meta charset="utf-8"><title>'+escapeGrok(payload.title||'Transit report')+'</title></head><body><pre style="white-space:pre-wrap;font-family:Georgia,serif;max-width:820px;margin:2rem auto;line-height:1.5">'+escapeGrok(payload.text||'')+'</pre></body></html>';
+    return new File([html], name, {type:'text/html'});
+  }
+  return new File([payload.text||''], name, {type:'text/plain'});
+}
+function canShareWithFiles(files){
+  try{
+    return !!(navigator.canShare && files && files.length && navigator.canShare({files:files}));
+  }catch(e){ return false; }
+}
+async function copyTextToClipboard(text){
+  text=String(text||'');
+  try{
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  }catch(e){}
+  try{
+    const ta=document.createElement('textarea');
+    ta.value=text;
+    ta.setAttribute('readonly','');
+    ta.style.position='fixed';
+    ta.style.left='-9999px';
+    document.body.appendChild(ta);
+    ta.select();
+    const ok=document.execCommand('copy');
+    document.body.removeChild(ta);
+    return !!ok;
+  }catch(e){ return false; }
+}
+function positionShareMenu(anchor){
+  const menu=$('shareMenu');
+  if(!menu) return;
+  const r=anchor&&anchor.getBoundingClientRect?anchor.getBoundingClientRect():{left:12,right:12,bottom:12,top:12};
+  const pad=8;
+  const width=Math.max(menu.offsetWidth||184, 184);
+  let left=r.left;
+  if(left+width>window.innerWidth-pad) left=Math.max(pad, window.innerWidth-width-pad);
+  if(left<pad) left=pad;
+  let top=r.bottom+6;
+  const h=menu.offsetHeight||140;
+  if(top+h>window.innerHeight-pad && r.top-h-6>pad) top=r.top-h-6;
+  menu.style.left=left+'px';
+  menu.style.top=top+'px';
+}
+function closeShareMenu(){
+  const menu=$('shareMenu');
+  if(!menu) return;
+  menu.classList.remove('open');
+  menu.setAttribute('hidden','');
+}
+function openShareMenu(anchor, kind){
+  const menu=$('shareMenu');
+  if(!menu) return;
+  shareMenuKind=kind||'report';
+  menu.dataset.kind=shareMenuKind;
+  menu.removeAttribute('hidden');
+  menu.classList.add('open');
+  positionShareMenu(anchor);
+}
+function onShareMenuClick(ev){
+  const btn=ev.target && ev.target.closest ? ev.target.closest('[data-share]') : null;
+  if(!btn) return;
+  ev.preventDefault();
+  const act=btn.getAttribute('data-share');
+  const payload=sharePayload(shareMenuKind);
+  closeShareMenu();
+  if(act==='email'){ window.location.href=buildMailtoUrl(payload); return; }
+  if(act==='sms'){ window.location.href=buildSmsUrl(payload); return; }
+  if(act==='copy'){
+    copyTextToClipboard(payload.text).then(function(ok){
+      status(ok?'Copied to clipboard.':'Could not copy. Select the report text and copy it manually.', ok?'ok':'err');
+    });
+  }
+}
+async function shareOrFallback(kind, anchor){
+  const payload=sharePayload(kind);
+  if(!(payload.text||'').trim()){
+    status(kind==='answer'?'Ask a question first — then Email / Text can share the answer.':'Run an analysis first — then Email / Text can share the report.','err');
+    return {used:'none'};
+  }
+  if(hasWebShare()){
+    const data={title:payload.title, text:payload.text};
+    try{
+      if(typeof File==='function'){
+        const files=[];
+        try{
+          const htmlFile=makeShareFile(payload,'html');
+          if(canShareWithFiles([htmlFile])) files.push(htmlFile);
+          else {
+            const txtFile=makeShareFile(payload,'txt');
+            if(canShareWithFiles([txtFile])) files.push(txtFile);
+          }
+        }catch(e){}
+        if(files.length && canShareWithFiles(files)) data.files=files;
+      }
+    }catch(e){}
+    try{
+      await navigator.share(data);
+      return {used:'share', data:data};
+    }catch(err){
+      const name=err&&err.name;
+      if(name==='AbortError') return {used:'share-abort'};
+      if(data.files){
+        try{
+          const textOnly={title:payload.title, text:payload.text};
+          await navigator.share(textOnly);
+          return {used:'share', data:textOnly};
+        }catch(err2){
+          if(err2&&err2.name==='AbortError') return {used:'share-abort'};
+        }
+      }
+      openShareMenu(anchor, kind);
+      return {used:'fallback-after-share-error', error:String(err&&err.message||err||'')};
+    }
+  }
+  openShareMenu(anchor, kind);
+  return {used:'fallback'};
+}
+function printAnswerOnly(){
+  if(!hasSuccessfulGrokAnswer()){
+    status('Ask a question first — then Print / Save as PDF prints only the answer.','err');
+    return false;
+  }
+  fillAnswerPrintRoot(answerPrintModel());
+  document.body.classList.add('print-answer-only');
+  let cleaned=false;
+  const cleanup=function(){
+    if(cleaned) return;
+    cleaned=true;
+    document.body.classList.remove('print-answer-only');
+    try{ window.removeEventListener('afterprint', cleanup); }catch(e){}
+  };
+  try{ window.addEventListener('afterprint', cleanup); }catch(e){}
+  try{
+    if(window.matchMedia){
+      const mq=window.matchMedia('print');
+      const onq=function(ev){ if(ev && ev.matches===false) cleanup(); };
+      if(mq.addEventListener) mq.addEventListener('change', onq);
+      else if(mq.addListener) mq.addListener(onq);
+    }
+  }catch(e){}
+  try{ window.print(); }catch(e){
+    cleanup();
+    status('Print failed: '+(e&&e.message?e.message:e),'err');
+    return false;
+  }
+  // iOS Safari/Firefox may not fire afterprint; leave the class until the print dialog has opened.
+  setTimeout(cleanup, 2000);
+  return true;
+}
+
+
 function printReport(){
   const report=$('report');
   if(!report || !(report.textContent||'').trim() || /Load the ephemeris/.test(report.textContent||'')){
@@ -1746,6 +2115,22 @@ function wire(){
   const em=$('exportMd'); if(em) em.onclick=exportMd;
   const eh=$('exportHtml'); if(eh) eh.onclick=exportHtml;
   const pb=$('printBtn'); if(pb) pb.onclick=()=>printReport();
+  const sh=$('shareBtn'); if(sh) sh.onclick=(ev)=>{ ev.preventDefault(); shareOrFallback('report', ev.currentTarget||sh); };
+  const apb=$('answerPrintBtn'); if(apb) apb.onclick=()=>printAnswerOnly();
+  const asb=$('answerShareBtn'); if(asb) asb.onclick=(ev)=>{ ev.preventDefault(); shareOrFallback('answer', ev.currentTarget||asb); };
+  const sm=$('shareMenu');
+  if(sm){ sm.addEventListener('click', onShareMenuClick); }
+  document.addEventListener('click', function(ev){
+    const menu=$('shareMenu');
+    if(!menu || !menu.classList.contains('open')) return;
+    const t=ev.target;
+    if(menu.contains(t)) return;
+    if(t && (t.id==='shareBtn' || t.id==='answerShareBtn' || (t.closest && (t.closest('#shareBtn')||t.closest('#answerShareBtn'))))) return;
+    closeShareMenu();
+  });
+  document.addEventListener('keydown', function(ev){ if(ev.key==='Escape') closeShareMenu(); });
+  window.addEventListener('resize', function(){ const menu=$('shareMenu'); if(menu&&menu.classList.contains('open')) closeShareMenu(); });
+  syncAnswerShareButtons();
   safe('whenMode', syncWhenModeHighlight);
   safe('reportMode2', ()=>setReportMode(reportMode));
   safe('calendar', renderCalendar);
@@ -1775,6 +2160,25 @@ function wire(){
   });
 }
 
+window.__TA_SHARE__={
+  hasWebShare:hasWebShare,
+  sharePayload:sharePayload,
+  buildMailtoUrl:buildMailtoUrl,
+  buildSmsUrl:buildSmsUrl,
+  shareOrFallback:shareOrFallback,
+  openShareMenu:openShareMenu,
+  closeShareMenu:closeShareMenu,
+  printAnswerOnly:printAnswerOnly,
+  fillAnswerPrintRoot:fillAnswerPrintRoot,
+  answerPrintInnerHtml:answerPrintInnerHtml,
+  answerPrintModel:answerPrintModel,
+  reportPlainText:reportPlainText,
+  clipAskDateOrder:clipAskDateOrder,
+  hasSuccessfulGrokAnswer:hasSuccessfulGrokAnswer,
+  syncAnswerShareButtons:syncAnswerShareButtons,
+  MAILTO_SAFE:MAILTO_SAFE,
+  SMS_SAFE:SMS_SAFE
+};
 window.__CAL_TEST__={getState:()=>({mode,startDate,endDate,calViewYear,calViewMonth,label:selectionRangeText(),days:rangeDayCount()}), setMode:(m)=>{mode=m; if(m==='single'){endDate=null; rangeNeedsNewStart=true;} else {endDate=null; rangeNeedsNewStart=true;} renderCalendar();}, pick:onPick, prev:calPrevMonth, next:calNextMonth, render:renderCalendar, applyInputs:applyDateInputsToState, clearPerson, clearDates};
 function bootApp(){
   wire();

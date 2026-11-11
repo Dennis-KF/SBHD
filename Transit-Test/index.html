@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta http-equiv="Cache-Control" content="202611111430" />
-  <meta name="ta-build" content="202611111430" />
+  <meta http-equiv="Cache-Control" content="202611111545" />
+  <meta name="ta-build" content="202611111545" />
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -106,6 +106,18 @@ button.secondary#nowBtn.active{opacity:1;font-weight:750;background:var(--accent
 #askGrokPanel{margin:.4rem 0 .15rem}
 #askGrokQuestion{width:100%;min-height:5.6rem;resize:vertical;max-width:100%;box-sizing:border-box}
 .ask-grok-actions{display:flex;align-items:center;gap:.6rem;margin-top:.35rem;flex-wrap:wrap}
+
+.ask-answer-actions{display:flex;flex-wrap:wrap;gap:.35rem;margin:.55rem 0 .15rem;align-items:center}
+.ask-answer-actions button{width:auto;margin-top:0;padding:.4rem .7rem;font-size:.82rem}
+.share-menu{display:none;position:fixed;z-index:40;min-width:11.5rem;padding:.35rem;background:var(--panel);border:1px solid var(--border);border-radius:10px;box-shadow:0 10px 28px rgba(0,0,0,.4)}
+.share-menu.open{display:block}
+.share-menu button{width:100%;margin:0;padding:.55rem .7rem;text-align:left;background:#182232;color:var(--ink);border:1px solid transparent;font-weight:600}
+.share-menu button:hover,.share-menu button:focus-visible{background:#243247;border-color:var(--border)}
+#answerPrintRoot{display:none}
+@media screen{
+  #answerPrintRoot{display:none!important}
+}
+
 #askGrokCount.warn{color:#c45c5c;font-weight:650}
 #report .grok-answer{margin:1.3rem 0 1rem;padding-top:.35rem;border-top:1px solid var(--border)}
 #report .grok-answer .grok-q{color:var(--muted);font-size:.95rem}
@@ -162,7 +174,22 @@ button.secondary#nowBtn.active{opacity:1;font-weight:750;background:var(--accent
   #extraOutputOpts{ display:none!important; }
   #report .grok-answer{ border-top:1px solid #ccc!important; margin:1.1em 0 0.8em; page-break-inside:avoid; break-inside:avoid; }
   #askGrokPanel{ display:none!important; }
+
+  #shareBtn,#answerPrintBtn,#answerShareBtn,.share-menu,.ask-answer-actions,#answerPrintRoot{ display:none!important; }
+  body.print-answer-only header,#controls,.toolbar,.banner,#cdnBanner,.status,.no-print{ display:none!important; }
+  body.print-answer-only #reportWrap,body.print-answer-only #report,body.print-answer-only #storyPanel > h2,body.print-answer-only #extraOutputOpts{ display:none!important; }
+  body.print-answer-only #storyPanel > :not(#answerPrintRoot){ display:none!important; }
+  body.print-answer-only #answerPrintRoot{
+    display:block!important; color:#000!important;
+    font-family: Georgia, "Times New Roman", Times, serif;
+    font-size:11pt; line-height:1.5; max-width:none; margin:0; padding:0;
+  }
+  body.print-answer-only #answerPrintRoot h1,body.print-answer-only #answerPrintRoot h2{ color:#000!important; font-size:1.25rem; margin:0 0 .5em; }
+  body.print-answer-only #answerPrintRoot h3{ color:#000!important; font-size:1.1rem; margin:0.8em 0 0.35em; }
+  body.print-answer-only #answerPrintRoot p{ color:#000!important; orphans:3; widows:3; }
+  body.print-answer-only #answerPrintRoot .answer-meta{ color:#222!important; margin:0 0 1em; }
 }
+
 
 
     .chart-status{font-size:12px;color:#2a6;margin:4px 0 8px;min-height:1.2em}
@@ -406,6 +433,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
       <button type="button" class="secondary" id="exportMd">Export .md</button>
       <button type="button" class="secondary" id="exportHtml">Export .html</button>
       <button type="button" class="secondary no-print" id="printBtn" title="Print or save the report as PDF">Print / Save as PDF</button>
+      <button type="button" class="secondary no-print" id="shareBtn" title="Email or text the current report">Email / Text</button>
     </div>
     <h2>Story</h2>
     <div id="reportWrap"><div id="report">Load the ephemeris, choose people and a time, then run analysis. The report reads as plain-language paragraphs; technical gate lists stay folded at the bottom.</div></div>
@@ -434,15 +462,25 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
           <button type="button" class="secondary" id="askGrokBtn" disabled>Ask</button>
           <span id="askGrokStatus" class="hint" style="margin:0"></span>
         </div>
+        <div class="ask-answer-actions no-print" id="askAnswerActions" hidden>
+          <button type="button" class="secondary no-print" id="answerPrintBtn" disabled title="Print or save the answer as PDF">Print / Save as PDF</button>
+          <button type="button" class="secondary no-print" id="answerShareBtn" disabled title="Email or text the answer">Email / Text</button>
+        </div>
       </div>
     </div>
+    <div id="answerPrintRoot" hidden></div>
   </section>
 </main>
+<div id="shareMenu" class="share-menu no-print" hidden role="menu" aria-label="Email or text">
+  <button type="button" role="menuitem" data-share="email">Email</button>
+  <button type="button" role="menuitem" data-share="sms">Text</button>
+  <button type="button" role="menuitem" data-share="copy">Copy to clipboard</button>
+</div>
 
 <!-- Data is separate from the UI. Script order matters. Works via file:// on Windows and via https on iPhone/iPad Firefox. -->
-<script src="astronomy.browser.min.js?v=202611111430"></script>
-<script src="data.js?v=202611111430"></script>
-<script src="analyzer.js?v=202611111430"></script>
-<script src="app.js?v=202611111430"></script>
+<script src="astronomy.browser.min.js?v=202611111545"></script>
+<script src="data.js?v=202611111545"></script>
+<script src="analyzer.js?v=202611111545"></script>
+<script src="app.js?v=202611111545"></script>
 </body>
 </html>
