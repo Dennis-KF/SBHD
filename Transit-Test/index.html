@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta http-equiv="Cache-Control" content="202611122330" />
-  <meta name="ta-build" content="202611122330" />
+  <meta http-equiv="Cache-Control" content="202611130915" />
+  <meta name="ta-build" content="202611130915" />
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -348,6 +348,16 @@ label.check,label.check input{cursor:pointer}
       pointer-events:none;
     }
 
+  
+    .model-id{
+      margin:.35rem 0 0;
+      font-size:.95rem;
+      font-weight:650;
+      letter-spacing:.02em;
+      color:var(--muted, #9aa4b2);
+      text-align:center;
+    }
+
   </style>
     <script>
 /* Visible on-page error banner for iOS debugging. ES5, no dependencies. */
@@ -657,8 +667,8 @@ label.check,label.check input{cursor:pointer}
       <button type="button" class="secondary active" id="reportTimeline" aria-pressed="true">Timeline of chart-relevant changes</button>
     </div>
     <p class="hint" id="timelineHint" style="display:block;margin:.35rem 0 .5rem">Timeline scans the selected day or range in the chosen timezone (from local midnight to midnight) for gate/line ingresses that touch the entered chart(s). Selected by default.</p>
-    <button type="button" id="runBtn">Run transit analysis</button>
-    <button type="button" class="secondary" id="loadCouple">Dennis + Eike · Oct 26, 2026 · 3:00 PM ET</button>
+    <button type="button" id="runBtn">Run Human Design / Transit Analysis</button>
+    <p class="model-id" id="modelLabel">Model HDTA 3.7.3</p>
     <div class="status" id="status"></div>
   </section>
 
@@ -743,8 +753,8 @@ label.check,label.check input{cursor:pointer}
 </div>
 
 <!-- Data is separate from the UI. Script order matters. Works via file:// on Windows and via https on iPhone/iPad Firefox. -->
-<script src="astronomy.browser.min.js?v=202611122330"></script>
-<script src="data.js?v=202611122330"></script>
+<script src="astronomy.browser.min.js?v=202611130915"></script>
+<script src="data.js?v=202611130915"></script>
 
 <script>
 /* ES5 quick-load + Full/Brief bootstrap: works even if later scripts fail. */
@@ -864,7 +874,7 @@ label.check,label.check input{cursor:pointer}
   else { boot(); }
 })();
 </script>
-<script src="analyzer.js?v=202611122330"></script>
-<script src="app.js?v=202611122330"></script>
+<script src="analyzer.js?v=202611130915"></script>
+<script src="app.js?v=202611130915"></script>
 </body>
 </html>
