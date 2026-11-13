@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta http-equiv="Cache-Control" content="202611122200" />
-  <meta name="ta-build" content="202611122200" />
+  <meta http-equiv="Cache-Control" content="202611122330" />
+  <meta name="ta-build" content="202611122330" />
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -325,7 +325,44 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 label.check,label.check input{cursor:pointer}
 
 
-</style>
+
+    .time-transit-based-wrap{
+      margin:10px 0 8px;
+      padding:8px 10px;
+      border:1px solid var(--line);
+      border-radius:10px;
+      background:var(--card, #fff);
+    }
+    .time-transit-based-label{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      min-height:44px;
+      font-size:1.12em;
+      font-weight:650;
+      cursor:pointer;
+      line-height:1.3;
+    }
+    .time-transit-based-label input{
+      width:20px;
+      height:20px;
+      flex:0 0 auto;
+    }
+    .time-transit-based-hint{
+      margin:2px 0 0 30px;
+      font-size:1.12em;
+      line-height:1.4;
+      color:var(--muted, #555);
+    }
+    body.natal-only-mode .time-controls-disabled{
+      opacity:.45;
+    }
+    body.natal-only-mode .time-controls-disabled,
+    body.natal-only-mode .time-controls-disabled *{
+      pointer-events:none;
+    }
+
+  </style>
     <script>
 /* Visible on-page error banner for iOS debugging. ES5, no dependencies. */
 (function(){
@@ -642,6 +679,13 @@ label.check,label.check input{cursor:pointer}
     </label>
     <p class="hint" id="rangeTransitFieldHint" style="margin:.05rem 0 .55rem">Appends the planet positions table at the end of every day in the range (any length). Independent of Full/Brief. Unchecked by default. Single day and Now always include the field.</p>
     </div>
+    <div class="time-transit-based-wrap" id="timeTransitBasedWrap">
+      <label class="time-transit-based-label" for="timeTransitBased">
+        <input type="checkbox" id="timeTransitBased" checked>
+        <span>Time / Transit Based</span>
+      </label>
+      <p class="time-transit-based-hint" id="timeTransitBasedHint">For regular Human Design interactions that can be studied uninfluenced by transit activity. Uncheck this box to use that natal-only view (no transit activity).</p>
+    </div>
     <div class="cal-wrap">
       <div class="cal-toolbar">
         <div class="cal-nav">
@@ -835,8 +879,8 @@ label.check,label.check input{cursor:pointer}
 </div>
 
 <!-- Data is separate from the UI. Script order matters. Works via file:// on Windows and via https on iPhone/iPad Firefox. -->
-<script src="astronomy.browser.min.js?v=202611122200"></script>
-<script src="data.js?v=202611122200"></script>
+<script src="astronomy.browser.min.js?v=202611122330"></script>
+<script src="data.js?v=202611122330"></script>
 
 <script>
 /* ES5 quick-load + Full/Brief bootstrap: works even if later scripts fail. */
@@ -953,7 +997,7 @@ label.check,label.check input{cursor:pointer}
   else { boot(); }
 })();
 </script>
-<script src="analyzer.js?v=202611122200"></script>
-<script src="app.js?v=202611122200"></script>
+<script src="analyzer.js?v=202611122330"></script>
+<script src="app.js?v=202611122330"></script>
 </body>
 </html>

@@ -472,7 +472,7 @@ function syncDateInputsFromState() {
   if (from) from.value = startDate || "";
   if (to) {
     to.value = mode === "range" ? endDate || startDate || "" : startDate || "";
-    to.disabled = mode !== "range";
+    to.disabled = mode !== "range" || typeof timeTransitBasedOn === "function" && !timeTransitBasedOn();
   }
 }
 function applyDateInputsToState() {
@@ -1458,7 +1458,7 @@ function enforceRangeDescMutualExclusion(changedId) {
   if (changedId === "includeRangeBriefDesc" && brief.checked) full.checked = false;
 }
 function rerunFromRefine() {
-  if (!window.__LAST_TRANSIT__) return;
+  if (!reportAlreadyGenerated()) return;
   const wrap = $("reportWrap");
   const opts = $("extraOutputOpts");
   try {
@@ -1473,9 +1473,139 @@ function rerunFromRefine() {
     }
   }
 }
+function timeTransitBasedOn() {
+  const el = document.getElementById("timeTransitBased");
+  if (!el) return true;
+  return !!el.checked;
+}
+function reportAlreadyGenerated() {
+  try {
+    if (window.__LAST_TRANSIT__ || window.__NATAL_ONLY__) return true;
+  } catch (e) {
+  }
+  return false;
+}
+function natalControlsToDisable() {
+  return ["modeSingle", "modeRange", "dateFrom", "dateTo", "timeFrom", "timeTo", "month", "clearDates", "hour12", "minute", "ampm", "tz", "nowBtn", "includeRangeTransitField", "calPrev", "calNext"];
+}
+function syncNatalOnlyUI() {
+  const natal = !timeTransitBasedOn();
+  try {
+    if (natal) document.body.classList.add("natal-only-mode");
+    else document.body.classList.remove("natal-only-mode");
+  } catch (e) {
+  }
+  const ids = natalControlsToDisable();
+  for (let i = 0; i < ids.length; i++) {
+    const el = document.getElementById(ids[i]);
+    if (el) el.disabled = natal;
+  }
+  const wraps = [];
+  function addWrap(el) {
+    if (el && wraps.indexOf(el) < 0) wraps.push(el);
+  }
+  try {
+    addWrap(document.getElementById("whenModeToggle"));
+  } catch (e) {
+  }
+  try {
+    addWrap(document.querySelector(".cal-wrap"));
+  } catch (e) {
+  }
+  try {
+    addWrap(document.getElementById("timeSingleWrap"));
+  } catch (e) {
+  }
+  try {
+    addWrap(document.getElementById("rangeTransitFieldOpt"));
+  } catch (e) {
+  }
+  try {
+    addWrap(document.getElementById("rangeTransitFieldHint"));
+  } catch (e) {
+  }
+  try {
+    const tz = document.getElementById("tz");
+    if (tz && tz.parentElement) addWrap(tz.parentElement);
+  } catch (e) {
+  }
+  try {
+    addWrap(document.getElementById("nowBtn"));
+  } catch (e) {
+  }
+  for (let i = 0; i < wraps.length; i++) {
+    if (natal) wraps[i].classList.add("time-controls-disabled");
+    else wraps[i].classList.remove("time-controls-disabled");
+  }
+}
+function natalReportMeta(base) {
+  const meta = Object.assign({}, base || {});
+  try {
+    const brief = $("includeRangeBriefDesc");
+    const full = $("includeRangeFullDesc");
+    meta.brief = !!(brief && brief.checked && !(full && full.checked));
+  } catch (e) {
+    meta.brief = false;
+  }
+  try {
+    const want = typeof extraOutputRequested === "function" ? extraOutputRequested() : {};
+    meta.wantNotSelf = !!want.landscape;
+    meta.wantBetween = !!want.between;
+  } catch (e) {
+    meta.wantNotSelf = false;
+    meta.wantBetween = false;
+  }
+  meta.natalOnly = true;
+  return meta;
+}
+function finishNatalOnlyReport(people, meta) {
+  if (!window.HD || typeof HD.renderNatalOnlyHtml !== "function") {
+    status("Natal-only view is not available in this build.", "err");
+    return;
+  }
+  const html = HD.renderNatalOnlyHtml(people, meta || {});
+  lastHtml = html;
+  lastMd = typeof HD.renderNatalOnlyMarkdown === "function" ? HD.renderNatalOnlyMarkdown(people, meta || {}) : "";
+  window.__NATAL_ONLY__ = true;
+  window.__LAST_TRANSIT__ = null;
+  window.__LAST_EVENTS__ = null;
+  window.__LAST_DAY_TRANSITS__ = [];
+  window.__LAST_REPORT_MD__ = lastMd;
+  const wrap = $("report");
+  if (wrap) wrap.innerHTML = lastHtml;
+  try {
+    rememberReportBase();
+  } catch (e) {
+  }
+  try {
+    if (typeof applyGrokAnswerToReport === "function") applyGrokAnswerToReport();
+  } catch (e) {
+  }
+  try {
+    if (typeof markupHighlightReport === "function") markupHighlightReport();
+  } catch (e) {
+  }
+  const n = (people || []).filter(Boolean).length;
+  status("Done \u2014 natal designs" + (n > 1 ? " and interactions" : ""), "ok");
+  try {
+    syncExtraOutputOpts();
+  } catch (e) {
+  }
+  try {
+    if (typeof syncAnswerShareButtons === "function") syncAnswerShareButtons();
+  } catch (e) {
+  }
+  try {
+    syncNatalOnlyUI();
+  } catch (e) {
+  }
+}
+function rerunIfReportExists() {
+  if (reportAlreadyGenerated()) runAnalysis();
+}
 function hasGeneratedReport() {
   try {
-    return !!window.__LAST_TRANSIT__;
+    return reportAlreadyGenerated();
   } catch (e) {
     return false;
   }
@@ -1858,6 +1988,8 @@ function applyHighlightToggles() {
 }
 function syncHighlightChecks() {
   const ready = typeof hasGeneratedReport === "function" && hasGeneratedReport();
+  const natal = typeof timeTransitBasedOn === "function" && !timeTransitBasedOn() || !!window.__NATAL_ONLY__;
+  const hlReady = ready && !natal;
   let two = false;
   try {
     two = filledMemberCount() >= 2;
@@ -1869,19 +2001,19 @@ function syncHighlightChecks() {
   const aLab = a && a.closest ? a.closest("label") : null;
   const bLab = b && b.closest ? b.closest("label") : null;
   if (a) {
-    a.disabled = !ready;
-    if (!ready) a.checked = false;
+    a.disabled = !hlReady;
+    if (!hlReady) a.checked = false;
   }
   if (b) {
-    b.disabled = !(ready && two);
-    if (!(ready && two)) b.checked = false;
+    b.disabled = !(hlReady && two);
+    if (!(hlReady && two)) b.checked = false;
   }
   if (aLab) {
-    if (!ready) aLab.classList.add("is-disabled");
+    if (!hlReady) aLab.classList.add("is-disabled");
     else aLab.classList.remove("is-disabled");
   }
   if (bLab) {
-    if (!(ready && two)) bLab.classList.add("is-disabled");
+    if (!(hlReady && two)) bLab.classList.add("is-disabled");
     else bLab.classList.remove("is-disabled");
   }
   applyHighlightToggles();
@@ -2143,6 +2275,14 @@ function markBetweenBlocks(root, index) {
 function markupHighlightReport() {
   const root = document.getElementById("report");
   if (!root) return;
+  if (typeof timeTransitBasedOn === "function" && !timeTransitBasedOn() || window.__NATAL_ONLY__) {
+    unwrapHighlightSpans(root);
+    try {
+      applyHighlightToggles();
+    } catch (e) {
+    }
+    return;
+  }
   const index = buildHighlightIndex();
   unwrapHighlightSpans(root);
   wrapTransitMentions(root, index);
@@ -2522,15 +2662,21 @@ function collectAskContext() {
     regularReport: !(want.landscape || want.between)
   };
   const visible = clipAskDateOrder(reportTextWithoutChrome(report), ASK_CONTEXT_CAP, collectAskMembers());
-  const rangeLabel = (typeof selectionRangeText === "function" ? selectionRangeText() : "") || $("ephemNote") && $("ephemNote").textContent || "";
+  const natalOnly = typeof timeTransitBasedOn === "function" && !timeTransitBasedOn() || !!window.__NATAL_ONLY__;
+  const rangeLabel = natalOnly ? "Natal-only (no transit activity)" : (typeof selectionRangeText === "function" ? selectionRangeText() : "") || $("ephemNote") && $("ephemNote").textContent || "";
   const ctx = {
     rangeLabel,
-    timezone: $("tz") && $("tz").value || ""
+    timezone: natalOnly ? "" : $("tz") && $("tz").value || ""
   };
+  if (natalOnly) {
+    ctx.mode = "natal-only";
+    ctx.natalOnly = true;
+    ctx.instruction = "NATAL-ONLY MODE: Answer from the natal charts and member-to-member interactions only. Do not mention transits, the sky, planetary movements, date or time windows, gate time spans, a transit timeline, or a positions table. Do not invent transit weather.";
+  }
   if (sections.notSelfLandscape) ctx.landscape = visible;
   else if (sections.betweenMembers) ctx.between = visible;
   else ctx.regularSummary = visible;
-  return { sections, context: ctx, members: collectAskMembers(), designs: collectAskDesigns(), rangeLabel };
+  return { sections, context: ctx, members: collectAskMembers(), designs: collectAskDesigns(), rangeLabel, natalOnly, mode: natalOnly ? "natal-only" : "transit" };
 }
 function grokSectionHtml(kind, question, body, meta) {
   const q = escapeGrok(question || "");
@@ -2740,7 +2886,8 @@ function runAnalysis() {
       return out;
     };
     var stopChart = stopChart2, attachPerson3 = attachPerson32;
-    if (!engReady || !window.Astronomy) {
+    const natalOnlyMode = typeof timeTransitBasedOn === "function" && !timeTransitBasedOn();
+    if (!natalOnlyMode && (!engReady || !window.Astronomy)) {
       status("Ephemeris library not loaded", "err");
       return;
     }
@@ -2780,6 +2927,12 @@ function runAnalysis() {
         return;
       }
     }
+    if (typeof timeTransitBasedOn === "function" && !timeTransitBasedOn()) {
+      window.__NATAL_ONLY__ = true;
+      finishNatalOnlyReport(members, natalReportMeta(attachPerson32({ natalOnly: true })));
+      return;
+    }
+    window.__NATAL_ONLY__ = false;
     const tz = $("tz").value || "local";
     const queryWin = getQueryWindow(tz);
     if (mode === "range" && !queryWindowIsValid(queryWin)) {
@@ -3025,7 +3178,7 @@ function hasSuccessfulGrokAnswer() {
 }
 function hasDisplayableReport() {
   try {
-    if (window.__LAST_TRANSIT__) return true;
+    if (window.__LAST_TRANSIT__ || window.__NATAL_ONLY__) return true;
   } catch (e) {
   }
   const report = $("report");
@@ -3789,7 +3942,7 @@ function wire() {
       } catch (e) {
       }
       try {
-        if (window.__LAST_TRANSIT__) runAnalysis();
+        if (reportAlreadyGenerated()) runAnalysis();
       } catch (e) {
       }
     });
@@ -3807,7 +3960,7 @@ function wire() {
       } catch (e) {
       }
       try {
-        if (window.__LAST_TRANSIT__) runAnalysis();
+        if (reportAlreadyGenerated()) runAnalysis();
       } catch (e) {
       }
     });
@@ -3825,7 +3978,7 @@ function wire() {
       } catch (e) {
       }
       try {
-        if (window.__LAST_TRANSIT__) runAnalysis();
+        if (reportAlreadyGenerated()) runAnalysis();
       } catch (e) {
       }
     });
@@ -3835,7 +3988,7 @@ function wire() {
   safe("codes", () => {
     const ic = $("includeCodes");
     if (ic) ic.onchange = () => {
-      if (window.__LAST_TRANSIT__) runAnalysis();
+      if (reportAlreadyGenerated()) runAnalysis();
     };
   });
   safe("realWorld", () => {
@@ -3888,30 +4041,48 @@ function wire() {
   safe("moonGate", () => {
     const moonCb = $("moonGateOnly");
     if (moonCb) moonCb.onchange = () => {
-      if (window.__LAST_TRANSIT__) runAnalysis();
+      if (reportAlreadyGenerated()) runAnalysis();
     };
   });
   safe("sunGate", () => {
     const sunCb = $("sunGateOnly");
     if (sunCb) sunCb.onchange = () => {
-      if (window.__LAST_TRANSIT__) runAnalysis();
+      if (reportAlreadyGenerated()) runAnalysis();
     };
   });
   safe("allGate", () => {
     const allGateCb = $("allGateOnly");
     if (allGateCb) allGateCb.onchange = () => {
       syncOmitLightsUI();
-      if (window.__LAST_TRANSIT__) runAnalysis();
+      if (reportAlreadyGenerated()) runAnalysis();
     };
   });
   safe("omitLights", () => {
     const omitCb = $("omitLights");
     if (omitCb) omitCb.onchange = () => {
       syncOmitLightsUI();
-      if (window.__LAST_TRANSIT__) runAnalysis();
+      if (reportAlreadyGenerated()) runAnalysis();
     };
   });
   safe("omitUI", syncOmitLightsUI);
+  safe("timeTransitBased", () => {
+    const el = $("timeTransitBased");
+    if (!el) return;
+    el.onchange = () => {
+      try {
+        syncNatalOnlyUI();
+      } catch (e) {
+      }
+      try {
+        if (reportAlreadyGenerated()) runAnalysis();
+      } catch (e) {
+      }
+    };
+    try {
+      syncNatalOnlyUI();
+    } catch (e) {
+    }
+  });
   safe("nowBtn", syncNowBtnHighlight);
   safe("runBtn", () => {
     const runBtn = $("runBtn");

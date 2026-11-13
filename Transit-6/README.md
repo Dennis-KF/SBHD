@@ -2,7 +2,7 @@
 
 Static web app for GitHub Pages folder `Transit-6` (`https://sbhd.net/Transit-6/index.html`).
 
-Build: **202611122200**. Up to six members (Input 1 required; Inputs 2–6 optional). Forked from Transit Analyzer build 202611121715; this folder is independent of `/Transits/` and `/Transit-Test/`.
+Build: **202611122330**. Up to six members (Input 1 required; Inputs 2–6 optional). Forked from Transit Analyzer build 202611121715; this folder is independent of `/Transits/` and `/Transit-Test/`.
 
 ## Files
 
@@ -18,7 +18,7 @@ Build: **202611122200**. Up to six members (Input 1 required; Inputs 2–6 optio
 | `INSTALL.txt` | Install notes for iPhone / iPad and Windows. |
 | `README.md` | This file. |
 
-Keep these files together in the `Transit-6` folder (same directory). Cache-bust query strings (`?v=202611122200`) are already on the script tags.
+Keep these files together in the `Transit-6` folder (same directory). Cache-bust query strings (`?v=202611122330`) are already on the script tags.
 
 ## Usage notes
 
@@ -27,4 +27,5 @@ Keep these files together in the `Transit-6` folder (same directory). Cache-bust
 - Reports use first names only and cover every selected member.
 - Between Members includes a pair selector (all pairs checked by default). With more than three members, each selected pair uses a shorter per-day form.
 - Start and end times apply to Date Range queries. Defaults, Full/Brief exclusion, refine controls at the bottom, share/print, the error banner, and GoatCounter (real page path, no override) are unchanged.
+- A “Time / Transit Based” checkbox sits just above the calendar and is checked by default (transits included). Uncheck it for a natal-only reading of the selected charts and their interactions, with no transit activity, timeline, or positions table; date and time controls are then greyed out.
 - The question box posts to the existing `transit-question` endpoint. Do not change Vercel CORS; `https://sbhd.net` is already allowed.
