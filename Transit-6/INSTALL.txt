@@ -1,0 +1,26 @@
+Human Design Transit Analyzer (Transit-6) — installation
+========================================================
+
+Build 202611121900. This folder is the complete file set for GitHub Pages
+path /Transit-6/ (https://sbhd.net/Transit-6/index.html).
+
+What you have
+-------------
+  index.html               — the app shell (open this)
+  data.js                  — gate / line / center / channel meanings + samples
+  analyzer.js              — chart + transit engine
+  app.js                   — buttons, uploads, report UI (up to six members)
+  astronomy.browser.min.js — offline ephemeris library
+  manifest.webmanifest     — optional “Add to Home Screen” metadata (Transit-6)
+  netlify.toml             — optional hint for Netlify
+  README.md                — short project notes
+  INSTALL.txt              — this file
+
+Keep every file in the same folder. Unzip so index.html is at the folder root
+(not nested an extra level).
+
+iPhone / iPad: serve over https (GitHub Pages, Netlify Drop, or equivalent).
+Opening a lone .html from the Files app via file:// is unreliable in
+iOS Firefox / Safari. On Windows you can double-click index.html (file://).
+
+This package is independent of the /Transits/ and /Transit-Test/ folders.

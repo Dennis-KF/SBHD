@@ -1,1 +1,901 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta http-equiv="Cache-Control" content="202611121900" />
+  <meta name="ta-build" content="202611121900" />
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="theme-color" content="#0f1419" />
+<title>Human Design Transit Analyzer — Transit-6</title>
+<link rel="manifest" href="manifest.webmanifest" />
+<style>
 
+
+:root {
+  --bg:#0f1419; --panel:#1a2332; --ink:#e7ecf3; --muted:#9aa7b8;
+  --accent:#c9a227; --accent2:#5b8def; --ok:#3d9a6a; --border:#2c3a4f; --err:#e57373;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:"Segoe UI",system-ui,sans-serif;background:linear-gradient(160deg,#0f1419,#162033 50%,#0f1419);color:var(--ink);min-height:100vh}
+header{padding:1.1rem 1.4rem;border-bottom:1px solid var(--border);background:rgba(26,35,50,.92);position:sticky;top:0;z-index:5}
+header h1{margin:0;font-size:1.2rem}
+header p{margin:.3rem 0 0;color:var(--muted);font-size:.88rem}
+main{display:flex;flex-direction:column;align-items:stretch;gap:1rem;padding:1rem 1.5rem 2rem;max-width:none;width:100%;margin:0 auto;box-sizing:border-box}
+#controls{width:100%;max-width:52rem}
+#storyPanel{display:block;width:100%;max-width:none;max-height:none;height:auto;overflow:visible}
+@media(min-width:1200px){main{padding:1.15rem 2rem 2.25rem}}
+.panel{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:1rem;box-shadow:0 8px 24px rgba(0,0,0,.25)}
+.panel h2{margin:0 0 .7rem;font-size:.98rem;color:var(--accent)}
+label{display:block;font-size:.78rem;color:var(--muted);margin:.55rem 0 .22rem}
+input,textarea,select,button{width:100%;border-radius:8px;border:1px solid var(--border);background:#101822;color:var(--ink);padding:.5rem .65rem;font:inherit}
+textarea{min-height:90px;font-family:ui-monospace,Consolas,monospace;font-size:.78rem}
+button{cursor:pointer;background:linear-gradient(135deg,#c9a227,#a67c00);color:#111;border:none;font-weight:650;margin-top:.55rem}
+button.secondary{background:#243247;color:var(--ink);border:1px solid var(--border)}
+button:hover{filter:brightness(1.07)}
+button:disabled{opacity:.5;cursor:not-allowed;filter:none}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:.45rem}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.45rem}
+.cal-wrap{margin-top:.45rem}
+.cal-toolbar{display:flex;align-items:center;justify-content:space-between;gap:.5rem;margin:.35rem 0 .4rem;flex-wrap:wrap}
+.cal-toolbar .cal-nav{display:flex;align-items:center;gap:.35rem}
+.cal-toolbar button.cal-nav-btn{margin-top:0;padding:.35rem .65rem;min-width:2.2rem}
+.cal-toolbar .cal-title{font-size:.9rem;color:var(--muted);min-width:10rem;text-align:center}
+.cal-dual{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}
+@media (max-width:720px){.cal-dual{grid-template-columns:1fr}}
+.calendar{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
+.calendar .cal-month-label{grid-column:1/-1;text-align:center;font-size:.82rem;font-weight:600;color:var(--accent);padding:.15rem 0 .25rem}
+.calendar .dow{text-align:center;font-size:.68rem;color:var(--muted);padding:.2rem 0}
+.calendar .day{aspect-ratio:1;border:1px solid var(--border);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:.78rem;cursor:pointer;background:#121a26;user-select:none}
+.calendar .day.muted{opacity:.35;cursor:default}
+.calendar .day.other-month{opacity:.45}
+.calendar .day.inrange{background:#2a4060;border-color:var(--accent2)}
+.calendar .day.selected,.calendar .day.start,.calendar .day.end{background:var(--accent);color:#111;font-weight:700;border-color:var(--accent)}
+.calendar .day.start.end{box-shadow:inset 0 0 0 2px #111}
+.range-fields{display:grid;grid-template-columns:1fr 1fr;gap:.45rem;margin-top:.45rem}
+.range-dt{display:flex;flex-direction:column;gap:.28rem;min-width:0}
+.range-dt .range-dt-row{display:flex;gap:.35rem;align-items:end;flex-wrap:wrap;min-width:0}
+.range-dt .range-dt-row > div{flex:1 1 8rem;min-width:0}
+.range-dt input[type=time]{width:100%;min-width:7rem;min-height:44px;cursor:pointer;touch-action:manipulation}
+.range-dt .time12-readout{display:block;font-size:.75rem;color:var(--muted);margin-top:.15rem}
+body.when-mode-single .range-time-only{display:none}
+body.when-mode-range #timeSingleWrap{display:none}
+@media(max-width:600px){
+  .range-fields{grid-template-columns:1fr}
+}
+.range-hint{font-size:.78rem;color:var(--muted);margin:.35rem 0 0}
+.range-hint.warn{color:var(--err)}
+#selectionLabel{font-weight:600;color:var(--accent)}
+.mode-toggle{display:inline-flex;flex-wrap:wrap;gap:.3rem;margin:.45rem 0;padding:.22rem;background:#0c121a;border:1px solid var(--border);border-radius:999px;max-width:100%;box-sizing:border-box}
+.mode-toggle button{margin-top:0;width:auto;flex:1 1 auto;min-width:0;border-radius:999px;font-weight:550;opacity:.72;background:#1a2433;color:#9aa7b8;border:1px solid transparent;box-shadow:none}
+.mode-toggle button.secondary{background:#1a2433;color:#9aa7b8;border:1px solid transparent}
+.mode-toggle button:hover{filter:brightness(1.08);opacity:.9}
+.mode-toggle button.active,
+.mode-toggle button.secondary.active,
+#nowBtn.active,
+button.secondary#nowBtn.active{opacity:1;font-weight:750;background:var(--accent);color:#111;border:1px solid #e0c45a;box-shadow:0 0 0 1px rgba(201,162,39,.35)}
+#nowBtn{width:auto;min-width:4.5rem}
+#report .range-overview{margin:.4rem 0 1rem}
+#report .range-overview .ov-day{margin:0 0 1.1rem;padding:0 0 .75rem;border-bottom:1px solid var(--border)}
+#report .range-overview .ov-day:last-child{border-bottom:none}
+#report .range-overview .ov-person{margin:.45rem 0 .25rem;font-weight:650;color:var(--accent)}
+#report .range-overview ul.ov-hits{margin:.2rem 0 .4rem;padding-left:1.15rem}
+#report .range-overview ul.ov-hits li{margin:.28rem 0;line-height:1.45}
+#report .range-overview .ov-gl{font-variant-numeric:tabular-nums;color:#d7c27a}
+#report .range-overview .ov-bridge{margin:.35rem 0 .15rem;color:var(--muted);font-size:.92rem}
+#report .transit-positions{margin:.6rem 0 1.1rem;padding:.75rem .9rem;border:1px solid var(--border);border-radius:10px;background:#0f1620}
+#report .transit-positions h3{margin:.1rem 0 .35rem;color:var(--accent);font-size:1.02rem}
+#report .transit-positions .pos-when{margin:0 0 .55rem;color:#9aa7b8;font-size:.9rem}
+#report .transit-positions table{width:100%;border-collapse:collapse;font-size:.9rem}
+#report .transit-positions th,#report .transit-positions td{text-align:left;padding:.28rem .4rem;border-bottom:1px solid #243247}
+#report .transit-positions th{color:#d7c27a;font-weight:650}
+#report .transit-positions tr:last-child td{border-bottom:none}
+#report .transit-positions td.gl{font-variant-numeric:tabular-nums;white-space:nowrap}
+#reportWrap{max-height:none;height:auto;min-height:0;overflow:visible}
+#report{line-height:1.65;font-size:.95rem;max-height:none;height:auto;overflow:visible}
+#report h2{color:var(--accent);font-size:1.15rem;margin:1.2rem 0 .5rem}
+#report h3{color:#d7c27a;font-size:1.02rem;margin:1rem 0 .4rem}
+#report p{margin:0 0 .85rem;color:var(--ink)}
+#report ul.direct-effects{margin:.35rem 0 1rem;padding-left:1.2rem;color:var(--ink)}
+#report ul.direct-effects li{margin:0 0 .4rem;line-height:1.45}
+#report ul.report-section{margin:.35rem 0 1rem;padding-left:1.2rem;color:var(--ink)}
+#report ul.report-section li{margin:0 0 .55rem;line-height:1.5}
+#report h4{color:#9aa7b8;font-size:.92rem;margin:.7rem 0 .3rem;font-weight:600}
+#report .transit-positions{margin:.25rem 0 .9rem}
+#report .tech{margin-top:1.2rem;border-top:1px solid var(--border);padding-top:.8rem}
+#report details.tech summary{cursor:pointer;color:var(--muted);font-size:.9rem;margin-bottom:.5rem}
+#report .extra-output{margin:1.3rem 0 1rem;padding-top:.35rem;border-top:1px solid var(--border)}
+#report .extra-output .ns-person{margin:.55rem 0 .25rem;font-weight:650;color:var(--accent)}
+#report .extra-output .ns-day{margin:0 0 1.05rem;padding:0 0 .7rem;border-bottom:1px solid var(--border)}
+#report .extra-output .ns-day:last-child{border-bottom:none}
+#extraOutputOpts{margin:.65rem 0 0;padding:.75rem 0 0;border-top:1px solid var(--border);background:var(--panel);position:static;max-height:none;overflow:visible}
+#extraOutputOpts .check input{margin-top:.2rem}
+#extraOutputOpts .hint{max-width:100%}
+#extraOutputNeedReportHint,#betweenMembersDisabledHint{margin:.15rem 0 .45rem;color:var(--muted);font-size:.85rem;line-height:1.35;max-width:100%}
+#extraOutputNeedReportHint[hidden],#betweenMembersDisabledHint[hidden]{display:none!important}
+#extraOutputOpts label.check.is-disabled{opacity:.65}
+#extraOutputOpts input[disabled]{cursor:not-allowed}
+.more-members{margin:.75rem 0 .55rem;border:1px solid var(--border);border-radius:8px;padding:.25rem .7rem .55rem;background:rgba(0,0,0,.15)}
+.more-members > summary{cursor:pointer;font-weight:600;color:var(--accent);padding:.4rem 0;list-style:disclosure-closed}
+.more-members[open] > summary{list-style:disclosure-open}
+.more-members .person-block{margin-top:.35rem}
+#controls .more-members textarea{min-height:72px}
+.between-pair-wrap{margin:.2rem 0 .4rem}
+.between-pair-list{display:flex;flex-wrap:wrap;gap:.3rem .85rem;margin:.2rem 0 .35rem}
+.between-pair-list label.check{margin:0;font-size:.88rem;align-items:center}
+@media(max-width:1000px){
+  #controls textarea{min-height:88px}
+  #controls .more-members textarea{min-height:64px}
+  .between-pair-list{gap:.25rem .55rem}
+}
+#askGrokPanel{margin:.4rem 0 .15rem}
+#askGrokQuestion{width:100%;min-height:5.6rem;resize:vertical;max-width:100%;box-sizing:border-box}
+.ask-grok-actions{display:flex;align-items:center;gap:.6rem;margin-top:.35rem;flex-wrap:wrap}
+
+.ask-answer-actions{display:flex;flex-wrap:wrap;gap:.35rem;margin:.55rem 0 .15rem;align-items:center}
+.ask-answer-actions button{width:auto;margin-top:0;padding:.4rem .7rem;font-size:.82rem}
+.share-menu{display:none!important;position:fixed;z-index:40;min-width:11.5rem;padding:.35rem;background:var(--panel);border:1px solid var(--border);border-radius:10px;box-shadow:0 10px 28px rgba(0,0,0,.4);pointer-events:none;left:-9999px;top:-9999px}
+.share-menu.open{display:block!important;pointer-events:auto;left:auto;top:auto}
+.share-menu button{width:100%;margin:0;padding:.55rem .7rem;text-align:left;background:#182232;color:var(--ink);border:1px solid transparent;font-weight:600}
+.share-menu button:hover,.share-menu button:focus-visible{background:#243247;border-color:var(--border)}
+#answerPrintRoot{display:none}
+@media screen{
+  #answerPrintRoot{display:none!important}
+}
+
+#askGrokCount.warn{color:#c45c5c;font-weight:650}
+#report .grok-answer{margin:1.3rem 0 1rem;padding-top:.35rem;border-top:1px solid var(--border)}
+#report .grok-answer .grok-q{color:var(--muted);font-size:.95rem}
+#report .grok-answer.grok-loading p,#report .grok-answer.grok-error p{color:var(--muted)}
+#report .tech pre{white-space:pre-wrap;font-size:.78rem;color:var(--muted);line-height:1.45;background:#121a26;padding:.75rem;border-radius:8px;border:1px solid var(--border)}
+.status{font-size:.78rem;color:var(--muted);min-height:1.1em;margin-top:.35rem}
+.status.ok{color:var(--ok)}.status.err{color:var(--err)}
+.check{display:flex;align-items:center;gap:.45rem;margin-top:.65rem;font-size:.82rem;color:var(--muted)}
+.check input{width:auto}
+.check.is-muted{opacity:.55}
+.check.is-muted input{cursor:not-allowed}
+.png-box{margin-top:.5rem;display:none;border:1px dashed var(--border);border-radius:8px;padding:.5rem;background:#121a26}
+.png-box img{max-width:100%;border-radius:6px;display:block;margin-bottom:.5rem}
+.toolbar{display:flex;flex-wrap:wrap;gap:.35rem;margin-bottom:.6rem}
+.toolbar button{width:auto;margin-top:0;padding:.4rem .7rem;font-size:.82rem}
+.label-row{display:flex;align-items:center;justify-content:space-between;gap:.5rem;margin:.55rem 0 .22rem}
+.label-row label{margin:0;flex:1}
+.clear-btn{width:auto;min-width:1.7rem;height:1.7rem;padding:0 .35rem;margin:0;flex-shrink:0;border-radius:6px;border:1px solid var(--border);background:#1a2433;color:var(--muted);font-size:.85rem;line-height:1;cursor:pointer;font-weight:700}
+.clear-btn:hover{background:#2a3548;color:var(--ink);border-color:#4a5a70}
+.clear-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.empty-hint{color:var(--muted);font-size:.95rem;padding:.75rem 0}
+.selection-row{display:flex;align-items:center;justify-content:space-between;gap:.5rem;margin:.4rem 0 0}
+.selection-row .ephem{margin:0;flex:1}
+.banner{display:none;background:#3a1f1f;border:1px solid var(--err);color:#ffc9c9;padding:.75rem 1rem;margin:1rem;border-radius:10px}
+.banner.show{display:block}
+.ephem{font-size:.78rem;color:var(--muted);margin-top:.35rem}
+@media print{
+  @page{ margin:12mm; }
+  html,body{ background:#fff!important; color:#000!important; }
+  body{ font-family: Georgia, "Times New Roman", Times, serif; font-size:11pt; line-height:1.45; }
+  header,#controls,.toolbar,.banner,#cdnBanner,.status,.no-print{ display:none!important; }
+  main{ display:block!important; padding:0!important; margin:0!important; max-width:none!important; }
+  .panel{ box-shadow:none!important; border:none!important; background:#fff!important; padding:0!important; margin:0!important; }
+  #storyPanel{ display:block!important; max-height:none!important; height:auto!important; }
+  #reportWrap{ max-height:none!important; overflow:visible!important; height:auto!important; }
+  #report{ display:block!important; color:#000!important; font-size:11pt; line-height:1.5; max-height:none!important; overflow:visible!important; }
+  #report h2,#report h3,#report h4{ color:#000!important; page-break-after:avoid; break-after:avoid; margin:0.9em 0 0.35em; }
+  #report h2{ font-size:1.25rem; }
+  #report h3{ font-size:1.1rem; }
+  #report p,#report li{ color:#000!important; orphans:3; widows:3; }
+  #report ul,#report ol{ page-break-inside:avoid; break-inside:avoid; }
+  #report .range-overview .ov-day{ border-bottom:1px solid #ccc!important; page-break-inside:avoid; break-inside:avoid; margin:0 0 0.9em; padding:0 0 0.6em; }
+  #report .range-overview .ov-person{ color:#000!important; font-weight:700; }
+  #report .range-overview .ov-gl{ color:#000!important; font-weight:600; }
+  #report .range-overview .ov-bridge{ color:#333!important; }
+  #report .transit-positions{ margin-top:1.2em; border:1px solid #ccc!important; background:#fff!important; page-break-inside:avoid; break-inside:avoid; }
+  #report .transit-positions table{ width:100%; border-collapse:collapse; font-size:10pt; }
+  #report .transit-positions th,#report .transit-positions td{ color:#000!important; border-bottom:1px solid #ddd; padding:0.25rem 0.4rem; }
+  #report details.tech{ display:none!important; }
+  #report a{ color:#000; text-decoration:none; }
+  #report .extra-output{ border-top:1px solid #ccc!important; margin:1.1em 0 0.8em; }
+  #report .extra-output .ns-person{ color:#000!important; font-weight:700; }
+  #report .extra-output .ns-day{ border-bottom:1px solid #ccc!important; page-break-inside:avoid; break-inside:avoid; margin:0 0 0.9em; padding:0 0 0.6em; }
+  #extraOutputOpts{ display:none!important; }
+  #report .grok-answer{ border-top:1px solid #ccc!important; margin:1.1em 0 0.8em; page-break-inside:avoid; break-inside:avoid; }
+  #askGrokPanel{ display:none!important; }
+
+  #shareBtn,#answerPrintBtn,#answerShareBtn,.share-menu,.ask-answer-actions,#answerPrintRoot{ display:none!important; }
+  body.print-answer-only header,#controls,.toolbar,.banner,#cdnBanner,.status,.no-print{ display:none!important; }
+  body.print-answer-only #reportWrap,body.print-answer-only #report,body.print-answer-only #storyPanel > h2,body.print-answer-only #extraOutputOpts{ display:none!important; }
+  body.print-answer-only #storyPanel > :not(#answerPrintRoot){ display:none!important; }
+  body.print-answer-only #answerPrintRoot{
+    display:block!important; color:#000!important;
+    font-family: Georgia, "Times New Roman", Times, serif;
+    font-size:11pt; line-height:1.5; max-width:none; margin:0; padding:0;
+  }
+  body.print-answer-only #answerPrintRoot h1,body.print-answer-only #answerPrintRoot h2{ color:#000!important; font-size:1.25rem; margin:0 0 .5em; }
+  body.print-answer-only #answerPrintRoot h3{ color:#000!important; font-size:1.1rem; margin:0.8em 0 0.35em; }
+  body.print-answer-only #answerPrintRoot p{ color:#000!important; orphans:3; widows:3; }
+  body.print-answer-only #answerPrintRoot .answer-meta{ color:#222!important; margin:0 0 1em; }
+}
+
+
+
+    .chart-status{font-size:12px;color:#2a6;margin:4px 0 8px;min-height:1.2em}
+    .chart-status.warn{color:#b80}
+    .chart-status.err{color:#c00}
+
+
+/* --- Mobile / touch (iPhone, iPad Firefox) --- */
+html{-webkit-text-size-adjust:100%}
+button,input,select,textarea{font-size:16px;min-height:44px}
+textarea{min-height:120px}
+button,.secondary{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+@media(max-width:1000px){
+  header{padding:.85rem 1rem}
+  header h1{font-size:1.05rem}
+  main{padding:.75rem 1rem 1.5rem;gap:.75rem}
+  .panel{padding:.85rem}
+  .row{display:flex;flex-direction:column;gap:.5rem}
+  .row > div{width:100%}
+  .row3{grid-template-columns:1fr}
+  input[type=file]{padding:.65rem;font-size:15px}
+  main,.panel,#storyPanel,#reportWrap,#extraOutputOpts,#controls,#report{min-width:0;max-width:100%;box-sizing:border-box}
+  #storyPanel,#reportWrap,#report,#extraOutputOpts{max-height:none;height:auto;overflow:visible;position:static}
+  #extraOutputOpts{margin:.65rem 0 0;padding:.75rem 0 max(.5rem, env(safe-area-inset-bottom));box-shadow:none}
+}
+@media(max-width:600px){
+  .label-row{flex-wrap:wrap;gap:.35rem}
+  #controls button{width:100%}
+  #controls button.clear-btn,
+  #controls .quick-load button,
+  #controls .ql-remove{width:auto;max-width:100%;min-width:0;flex:1 1 auto}
+  #controls button.clear-btn{width:auto;min-width:1.7rem;flex:0 0 auto}
+  /* Keep the bottom refine bar usable: long hints stay available on larger screens.
+     Pre-report and “need a second member” notices must remain visible on phones. */
+  #extraOutputOpts > p.hint{display:none}
+  #extraOutputNeedReportHint:not([hidden]),
+  #betweenMembersDisabledHint:not([hidden]),
+  #betweenPairHint:not([hidden]){display:block!important}
+  #askGrokBtn{min-width:5.5rem}
+  #askGrokQuestion{min-height:5.5rem}
+}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{
+  outline:2px solid var(--accent2);outline-offset:2px
+}
+
+
+.quick-load{margin:.45rem 0 .35rem;display:block;width:100%;min-width:0;overflow:visible}
+.quick-load-label{display:block;font-size:.75rem;color:var(--muted);margin:0 0 .35rem}
+.quick-load-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.4rem;width:100%;min-width:0;min-height:88px;visibility:visible;align-items:stretch;position:relative;z-index:1}
+@media(max-width:420px){.quick-load-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.quick-load button.quick-sample{
+  display:block;flex:1 1 auto;width:auto;max-width:100%;min-width:0;min-height:44px;margin-top:0;padding:.45rem .35rem;
+  font-size:.82rem;line-height:1.15;cursor:pointer;position:relative;z-index:1;
+  touch-action:manipulation;-webkit-tap-highlight-color:rgba(201,162,39,.35)
+}
+#controls .quick-load button.quick-sample{width:auto;max-width:100%;flex:1 1 auto}
+.quick-load button.quick-sample.active{background:linear-gradient(135deg,#c9a227,#a67c00);color:#111;border:none;font-weight:700;box-shadow:0 0 0 2px rgba(201,162,39,.35)}
+.quick-load button.quick-sample.empty,
+.quick-load button.quick-sample:disabled{opacity:.45;cursor:not-allowed;font-weight:500;color:var(--muted);background:#182232}
+
+.ql-slot{position:relative;min-width:0;max-width:100%;width:auto;overflow:hidden;display:flex;z-index:1}
+.ql-slot .quick-sample{width:auto;max-width:100%;flex:1 1 auto}
+.ql-remove{
+  position:absolute;top:-8px;right:-8px;z-index:3;
+  width:30px;height:30px;min-width:30px;min-height:30px;margin:0;padding:0;
+  border-radius:50%;border:1px solid var(--border);background:#3a1f24;color:#ffb4b4;
+  font-size:1.05rem;line-height:1;font-weight:700;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  touch-action:manipulation;-webkit-tap-highlight-color:transparent;
+  box-shadow:0 1px 4px rgba(0,0,0,.35)
+}
+.ql-remove:hover,.ql-remove:focus{background:#5a2a32;color:#fff;outline:2px solid var(--accent2);outline-offset:1px}
+
+#taErrorBanner{display:none;position:fixed;top:0;left:0;right:0;z-index:99999;background:#8b1e1e;color:#fff;padding:.75rem 1rem;font-size:.85rem;line-height:1.35;white-space:pre-wrap;word-break:break-word;box-shadow:0 4px 16px rgba(0,0,0,.45)}
+#taErrorBanner.show{display:block}
+#taErrorBanner[hidden]{display:none!important}
+label.check,label.check input{cursor:pointer}
+
+
+</style>
+    <script>
+/* Visible on-page error banner for iOS debugging. ES5, no dependencies. */
+(function(){
+  var queued=[];
+  function paint(msg){
+    try{
+      var el=document.getElementById('taErrorBanner');
+      if(!el){
+        if(!document.body){ queued.push(msg); return; }
+        el=document.createElement('div');
+        el.id='taErrorBanner';
+        el.setAttribute('role','alert');
+        document.body.insertBefore(el, document.body.firstChild);
+      }
+      el.removeAttribute('hidden');
+      if(el.className.indexOf('show')===-1) el.className=(el.className?el.className+' ':'')+'show';
+      el.appendChild(document.createTextNode(msg+'\n'));
+    }catch(e){}
+  }
+  function show(msg){
+    if(document.body) paint(msg);
+    else queued.push(msg);
+  }
+  function flush(){
+    var i;
+    for(i=0;i<queued.length;i++) paint(queued[i]);
+    queued=[];
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', flush);
+  else flush();
+  window.onerror=function(msg,src,line,col,err){
+    if(!src && /^script error\.?$/i.test(String(msg||'').replace(/^Uncaught\s+/,''))) return false; /* opaque cross-site error (e.g. visit counter or browser add-on), not the app */
+    var parts=['Error: '+msg];
+    if(src) parts.push(String(src)+(line?(':'+line+(col!==undefined && col!==null?(':'+col):'')):''));
+    if(err && err.stack) parts.push(String(err.stack));
+    show(parts.join('\n'));
+    return false;
+  };
+  if(window.addEventListener){
+    window.addEventListener('unhandledrejection', function(ev){
+      var r=ev && ev.reason;
+      var text='Unhandled promise: ';
+      try{ text += (r && (r.stack || r.message || r)) || r; }catch(e){ text += r; }
+      show(text);
+    });
+  }
+})();
+</script>
+    <script data-goatcounter="https://sbhd.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
+</head>
+<body>
+<div id="taErrorBanner" hidden role="alert"></div>
+<header>
+  <h1>Human Design Transit Analyzer (Transit-6)</h1>
+  <p>Up to six members · Offline-capable ephemeris · True Lunar Node · Plain-language transit stories</p>
+</header>
+<div class="banner" id="cdnBanner"></div>
+<main>
+  <section class="panel" id="controls">
+    <h2>Inputs</h2>
+    <div class="label-row">
+      <label for="person1">Person / Input 1 (JSON, text, or .docx)</label>
+      <button type="button" class="clear-btn" id="clearPerson1" title="Remove" aria-label="Remove Person 1">×</button>
+    </div>
+    <textarea id="person1" placeholder='{"name":"Dennis","planets":{"Mercury":"38.6"}}'></textarea>
+    <div class="chart-status" id="chartStatus1" aria-live="polite"></div>
+    <div class="row">
+      <div>
+        <label>Upload .json / .txt / .docx / .png</label>
+        <input type="file" id="file1" accept=".json,.txt,.docx,.doc,.png,image/png,image/*,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword" />
+      </div>
+    </div>
+    <div class="quick-load" id="quickLoad1" role="group" aria-label="Quick-load sample for Person 1">
+      <span class="quick-load-label">Quick load</span>
+      <div class="quick-load-grid" id="quickLoadGrid1">
+        <div class="ql-slot" data-index="1"><button type="button" class="secondary quick-sample" data-slot="1" data-index="1" data-sample="dennis" id="ql1-dennis" aria-pressed="false">Dennis</button></div>
+        <div class="ql-slot" data-index="2"><button type="button" class="secondary quick-sample" data-slot="1" data-index="2" data-sample="eike" id="ql1-eike" aria-pressed="false">Eike</button></div>
+        <div class="ql-slot" data-index="3"><button type="button" class="secondary quick-sample" data-slot="1" data-index="3" data-sample="judy" id="ql1-judy" aria-pressed="false">Judy</button></div>
+        <div class="ql-slot" data-index="4"><button type="button" class="secondary quick-sample" data-slot="1" data-index="4" data-sample="carolyn" id="ql1-carolyn" aria-pressed="false">Carolyn</button></div>
+        <div class="ql-slot" data-index="5"><button type="button" class="secondary quick-sample" data-slot="1" data-index="5" data-sample="milena" id="ql1-milena" aria-pressed="false">Milena</button></div>
+        <div class="ql-slot" data-index="6"><button type="button" class="secondary quick-sample" data-slot="1" data-index="6" data-sample="teresa" id="ql1-teresa" aria-pressed="false">Teresa</button></div>
+        <div class="ql-slot empty-slot" data-index="7"><button type="button" class="secondary quick-sample empty" data-slot="1" data-index="7" data-sample="" id="ql1-empty7" disabled title="Empty custom slot — upload a .docx / .json / .txt chart to save here">Empty</button></div>
+        <div class="ql-slot empty-slot" data-index="8"><button type="button" class="secondary quick-sample empty" data-slot="1" data-index="8" data-sample="" id="ql1-empty8" disabled title="Empty custom slot — upload a .docx / .json / .txt chart to save here">Empty</button></div>
+        <div class="ql-slot empty-slot" data-index="9"><button type="button" class="secondary quick-sample empty" data-slot="1" data-index="9" data-sample="" id="ql1-empty9" disabled title="Empty custom slot — upload a .docx / .json / .txt chart to save here">Empty</button></div>
+        <div class="ql-slot empty-slot" data-index="10"><button type="button" class="secondary quick-sample empty" data-slot="1" data-index="10" data-sample="" id="ql1-empty10" disabled title="Empty custom slot — upload a .docx / .json / .txt chart to save here">Empty</button></div>
+        <div class="ql-slot empty-slot" data-index="11"><button type="button" class="secondary quick-sample empty" data-slot="1" data-index="11" data-sample="" id="ql1-empty11" disabled title="Empty custom slot — upload a .docx / .json / .txt chart to save here">Empty</button></div>
+        <div class="ql-slot empty-slot" data-index="12"><button type="button" class="secondary quick-sample empty" data-slot="1" data-index="12" data-sample="" id="ql1-empty12" disabled title="Empty custom slot — upload a .docx / .json / .txt chart to save here">Empty</button></div>
+      </div>
+    </div>
+
+    <div class="png-box" id="pngBox1">
+      <img id="pngImg1" alt="Chart 1 preview" />
+      <label>Manual gates (from image)</label>
+      <input id="manName1" placeholder="Name" />
+      <input id="manGates1" placeholder="Mercury:38.6, SouthNode:10.2, Mars:31.2" />
+      <button type="button" class="secondary" id="applyMan1">Apply manual gates</button>
+    </div>
+
+    <div class="label-row">
+      <label for="person2">Person / Input 2 (optional couple)</label>
+      <button type="button" class="clear-btn" id="clearPerson2" title="Remove" aria-label="Remove Person 2">×</button>
+    </div>
+    <textarea id="person2"></textarea>
+    <div class="chart-status" id="chartStatus2" aria-live="polite"></div>
+    <div class="row">
+      <div>
+        <label>Upload .json / .txt / .docx / .png</label>
+        <input type="file" id="file2" accept=".json,.txt,.docx,.doc,.png,image/png,image/*,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword" />
+      </div>
+    </div>
+    <div class="quick-load" id="quickLoad2" role="group" aria-label="Quick-load sample for Person 2">
+      <span class="quick-load-label">Quick load</span>
+      <div class="quick-load-grid" id="quickLoadGrid2">
+        <div class="ql-slot" data-index="1"><button type="button" class="secondary quick-sample" data-slot="2" data-index="1" data-sample="dennis" id="ql2-dennis" aria-pressed="false">Dennis</button></div>
+        <div class="ql-slot" data-index="2"><button type="button" class="secondary quick-sample" data-slot="2" data-index="2" data-sample="eike" id="ql2-eike" aria-pressed="false">Eike</button></div>
+        <div class="ql-slot" data-index="3"><button type="button" class="secondary quick-sample" data-slot="2" data-index="3" data-sample="judy" id="ql2-judy" aria-pressed="false">Judy</button></div>
+        <div class="ql-slot" data-index="4"><button type="button" class="secondary quick-sample" data-slot="2" data-index="4" data-sample="carolyn" id="ql2-carolyn" aria-pressed="false">Carolyn</button></div>
+        <div class="ql-slot" data-index="5"><button type="button" class="secondary quick-sample" data-slot="2" data-index="5" data-sample="milena" id="ql2-milena" aria-pressed="false">Milena</button></div>
+        <div class="ql-slot" data-index="6"><button type="button" class="secondary quick-sample" data-slot="2" data-index="6" data-sample="teresa" id="ql2-teresa" aria-pressed="false">Teresa</button></div>
+        <div class="ql-slot empty-slot" data-index="7"><button type="button" class="secondary quick-sample empty" data-slot="2" data-index="7" data-sample="" id="ql2-empty7" disabled title="Empty custom slot — upload a .docx / .json / .txt chart to save here">Empty</button></div>
+        <div class="ql-slot empty-slot" data-index="8"><button type="button" class="secondary quick-sample empty" data-slot="2" data-index="8" data-sample="" id="ql2-empty8" disabled title="Empty custom slot — upload a .docx / .json / .txt chart to save here">Empty</button></div>
+        <div class="ql-slot empty-slot" data-index="9"><button type="button" class="secondary quick-sample empty" data-slot="2" data-index="9" data-sample="" id="ql2-empty9" disabled title="Empty custom slot — upload a .docx / .json / .txt chart to save here">Empty</button></div>
+        <div class="ql-slot empty-slot" data-index="10"><button type="button" class="secondary quick-sample empty" data-slot="2" data-index="10" data-sample="" id="ql2-empty10" disabled title="Empty custom slot — upload a .docx / .json / .txt chart to save here">Empty</button></div>
+        <div class="ql-slot empty-slot" data-index="11"><button type="button" class="secondary quick-sample empty" data-slot="2" data-index="11" data-sample="" id="ql2-empty11" disabled title="Empty custom slot — upload a .docx / .json / .txt chart to save here">Empty</button></div>
+        <div class="ql-slot empty-slot" data-index="12"><button type="button" class="secondary quick-sample empty" data-slot="2" data-index="12" data-sample="" id="ql2-empty12" disabled title="Empty custom slot — upload a .docx / .json / .txt chart to save here">Empty</button></div>
+      </div>
+    </div>
+
+    <div class="png-box" id="pngBox2">
+      <img id="pngImg2" alt="Chart 2 preview" />
+      <label>Manual gates (from image)</label>
+      <input id="manName2" placeholder="Name" />
+      <input id="manGates2" placeholder="Earth:27.2, Mars:14.2, Venus:34.5" />
+      <button type="button" class="secondary" id="applyMan2">Apply manual gates</button>
+    </div>
+
+
+    <div class="label-row">
+      <label for="person3">Person / Input 3 (optional)</label>
+      <button type="button" class="clear-btn" id="clearPerson3" title="Remove" aria-label="Remove Person 3">×</button>
+    </div>
+    <textarea id="person3"></textarea>
+    <div class="chart-status" id="chartStatus3" aria-live="polite"></div>
+    <div class="row">
+      <div>
+        <label>Upload .json / .txt / .docx / .png</label>
+        <input type="file" id="file3" accept=".json,.txt,.docx,.doc,.png,image/png,image/*,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword" />
+      </div>
+    </div>
+    <div class="quick-load" id="quickLoad3" role="group" aria-label="Quick-load sample for Person 3">
+      <span class="quick-load-label">Quick load</span>
+      <div class="quick-load-grid" id="quickLoadGrid3">
+        <div class="ql-slot" data-index="1"><button type="button" class="secondary quick-sample" data-slot="3" data-index="1" data-sample="dennis" id="ql3-dennis" aria-pressed="false">Dennis</button></div>
+        <div class="ql-slot" data-index="2"><button type="button" class="secondary quick-sample" data-slot="3" data-index="2" data-sample="eike" id="ql3-eike" aria-pressed="false">Eike</button></div>
+        <div class="ql-slot" data-index="3"><button type="button" class="secondary quick-sample" data-slot="3" data-index="3" data-sample="judy" id="ql3-judy" aria-pressed="false">Judy</button></div>
+        <div class="ql-slot" data-index="4"><button type="button" class="secondary quick-sample" data-slot="3" data-index="4" data-sample="carolyn" id="ql3-carolyn" aria-pressed="false">Carolyn</button></div>
+        <div class="ql-slot" data-index="5"><button type="button" class="secondary quick-sample" data-slot="3" data-index="5" data-sample="milena" id="ql3-milena" aria-pressed="false">Milena</button></div>
+        <div class="ql-slot" data-index="6"><button type="button" class="secondary quick-sample" data-slot="3" data-index="6" data-sample="teresa" id="ql3-teresa" aria-pressed="false">Teresa</button></div>
+        <div class="ql-slot empty-slot" data-index="7"><button type="button" class="secondary quick-sample empty" data-slot="3" data-index="7" data-sample="" id="ql3-empty7" disabled title="Empty custom slot — upload a .docx / .json / .txt chart to save here">Empty</button></div>
+        <div class="ql-slot empty-slot" data-index="8"><button type="button" class="secondary quick-sample empty" data-slot="3" data-index="8" data-sample="" id="ql3-empty8" disabled title="Empty custom slot — upload a .docx / .json / .txt chart to save here">Empty</button></div>
+        <div class="ql-slot empty-slot" data-index="9"><button type="button" class="secondary quick-sample empty" data-slot="3" data-index="9" data-sample="" id="ql3-empty9" disabled title="Empty custom slot — upload a .docx / .json / .txt chart to save here">Empty</button></div>
+        <div class="ql-slot empty-slot" data-index="10"><button type="button" class="secondary quick-sample empty" data-slot="3" data-index="10" data-sample="" id="ql3-empty10" disabled title="Empty custom slot — upload a .docx / .json / .txt chart to save here">Empty</button></div>
+        <div class="ql-slot empty-slot" data-index="11"><button type="button" class="secondary quick-sample empty" data-slot="3" data-index="11" data-sample="" id="ql3-empty11" disabled title="Empty custom slot — upload a .docx / .json / .txt chart to save here">Empty</button></div>
+        <div class="ql-slot empty-slot" data-index="12"><button type="button" class="secondary quick-sample empty" data-slot="3" data-index="12" data-sample="" id="ql3-empty12" disabled title="Empty custom slot — upload a .docx / .json / .txt chart to save here">Empty</button></div>
+      </div>
+    </div>
+
+    <div class="png-box" id="pngBox3">
+      <img id="pngImg3" alt="Chart 3 preview" />
+      <label>Manual gates (from image)</label>
+      <input id="manName3" placeholder="Name" />
+      <input id="manGates3" placeholder="Earth:27.2, Mars:14.2, Venus:34.5" />
+      <button type="button" class="secondary" id="applyMan3">Apply manual gates</button>
+    </div>
+
+    <details id="moreMembers" class="more-members">
+      <summary>Inputs 4–6 (optional)</summary>
+    <div class="person-block" data-person="4">
+    <div class="label-row">
+      <label for="person4">Person / Input 4 (optional)</label>
+      <button type="button" class="clear-btn" id="clearPerson4" title="Remove" aria-label="Remove Person 4">×</button>
+    </div>
+    <textarea id="person4"></textarea>
+    <div class="chart-status" id="chartStatus4" aria-live="polite"></div>
+    <div class="row">
+      <div>
+        <label>Upload .json / .txt / .docx / .png</label>
+        <input type="file" id="file4" accept=".json,.txt,.docx,.doc,.png,image/png,image/*,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword" />
+      </div>
+    </div>
+    <div class="quick-load" id="quickLoad4" role="group" aria-label="Quick-load sample for Person 4">
+      <span class="quick-load-label">Quick load</span>
+      <div class="quick-load-grid" id="quickLoadGrid4">
+        <div class="ql-slot" data-index="1"><button type="button" class="secondary quick-sample" data-slot="4" data-index="1" data-sample="dennis" id="ql4-dennis" aria-pressed="false">Dennis</button></div>
+        <div class="ql-slot" data-index="2"><button type="button" class="secondary quick-sample" data-slot="4" data-index="2" data-sample="eike" id="ql4-eike" aria-pressed="false">Eike</button></div>
+        <div class="ql-slot" data-index="3"><button type="button" class="secondary quick-sample" data-slot="4" data-index="3" data-sample="judy" id="ql4-judy" aria-pressed="false">Judy</button></div>
+        <div class="ql-slot" data-index="4"><button type="button" class="secondary quick-sample" data-slot="4" data-index="4" data-sample="carolyn" id="ql4-carolyn" aria-pressed="false">Carolyn</button></div>
+        <div class="ql-slot" data-index="5"><button type="button" class="secondary quick-sample" data-slot="4" data-index="5" data-sample="milena" id="ql4-milena" aria-pressed="false">Milena</button></div>
+        <div class="ql-slot" data-index="6"><button type="button" class="secondary quick-sample" data-slot="4" data-index="6" data-sample="teresa" id="ql4-teresa" aria-pressed="false">Teresa</button></div>
+        <div class="ql-slot empty-slot" data-index="7"><button type="button" class="secondary quick-sample empty" data-slot="4" data-index="7" data-sample="" id="ql4-empty7" disabled title="Empty custom slot — upload a .docx / .json / .txt chart to save here">Empty</button></div>
+        <div class="ql-slot empty-slot" data-index="8"><button type="button" class="secondary quick-sample empty" data-slot="4" data-index="8" data-sample="" id="ql4-empty8" disabled title="Empty custom slot — upload a .docx / .json / .txt chart to save here">Empty</button></div>
+        <div class="ql-slot empty-slot" data-index="9"><button type="button" class="secondary quick-sample empty" data-slot="4" data-index="9" data-sample="" id="ql4-empty9" disabled title="Empty custom slot — upload a .docx / .json / .txt chart to save here">Empty</button></div>
+        <div class="ql-slot empty-slot" data-index="10"><button type="button" class="secondary quick-sample empty" data-slot="4" data-index="10" data-sample="" id="ql4-empty10" disabled title="Empty custom slot — upload a .docx / .json / .txt chart to save here">Empty</button></div>
+        <div class="ql-slot empty-slot" data-index="11"><button type="button" class="secondary quick-sample empty" data-slot="4" data-index="11" data-sample="" id="ql4-empty11" disabled title="Empty custom slot — upload a .docx / .json / .txt chart to save here">Empty</button></div>
+        <div class="ql-slot empty-slot" data-index="12"><button type="button" class="secondary quick-sample empty" data-slot="4" data-index="12" data-sample="" id="ql4-empty12" disabled title="Empty custom slot — upload a .docx / .json / .txt chart to save here">Empty</button></div>
+      </div>
+    </div>
+    <div class="png-box" id="pngBox4">
+      <img id="pngImg4" alt="Chart 4 preview" />
+      <label>Manual gates (from image)</label>
+      <input id="manName4" placeholder="Name" />
+      <input id="manGates4" placeholder="Earth:27.2, Mars:14.2, Venus:34.5" />
+      <button type="button" class="secondary" id="applyMan4">Apply manual gates</button>
+    </div>
+    </div>
+    <div class="person-block" data-person="5">
+    <div class="label-row">
+      <label for="person5">Person / Input 5 (optional)</label>
+      <button type="button" class="clear-btn" id="clearPerson5" title="Remove" aria-label="Remove Person 5">×</button>
+    </div>
+    <textarea id="person5"></textarea>
+    <div class="chart-status" id="chartStatus5" aria-live="polite"></div>
+    <div class="row">
+      <div>
+        <label>Upload .json / .txt / .docx / .png</label>
+        <input type="file" id="file5" accept=".json,.txt,.docx,.doc,.png,image/png,image/*,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword" />
+      </div>
+    </div>
+    <div class="quick-load" id="quickLoad5" role="group" aria-label="Quick-load sample for Person 5">
+      <span class="quick-load-label">Quick load</span>
+      <div class="quick-load-grid" id="quickLoadGrid5">
+        <div class="ql-slot" data-index="1"><button type="button" class="secondary quick-sample" data-slot="5" data-index="1" data-sample="dennis" id="ql5-dennis" aria-pressed="false">Dennis</button></div>
+        <div class="ql-slot" data-index="2"><button type="button" class="secondary quick-sample" data-slot="5" data-index="2" data-sample="eike" id="ql5-eike" aria-pressed="false">Eike</button></div>
+        <div class="ql-slot" data-index="3"><button type="button" class="secondary quick-sample" data-slot="5" data-index="3" data-sample="judy" id="ql5-judy" aria-pressed="false">Judy</button></div>
+        <div class="ql-slot" data-index="4"><button type="button" class="secondary quick-sample" data-slot="5" data-index="4" data-sample="carolyn" id="ql5-carolyn" aria-pressed="false">Carolyn</button></div>
+        <div class="ql-slot" data-index="5"><button type="button" class="secondary quick-sample" data-slot="5" data-index="5" data-sample="milena" id="ql5-milena" aria-pressed="false">Milena</button></div>
+        <div class="ql-slot" data-index="6"><button type="button" class="secondary quick-sample" data-slot="5" data-index="6" data-sample="teresa" id="ql5-teresa" aria-pressed="false">Teresa</button></div>
+        <div class="ql-slot empty-slot" data-index="7"><button type="button" class="secondary quick-sample empty" data-slot="5" data-index="7" data-sample="" id="ql5-empty7" disabled title="Empty custom slot — upload a .docx / .json / .txt chart to save here">Empty</button></div>
+        <div class="ql-slot empty-slot" data-index="8"><button type="button" class="secondary quick-sample empty" data-slot="5" data-index="8" data-sample="" id="ql5-empty8" disabled title="Empty custom slot — upload a .docx / .json / .txt chart to save here">Empty</button></div>
+        <div class="ql-slot empty-slot" data-index="9"><button type="button" class="secondary quick-sample empty" data-slot="5" data-index="9" data-sample="" id="ql5-empty9" disabled title="Empty custom slot — upload a .docx / .json / .txt chart to save here">Empty</button></div>
+        <div class="ql-slot empty-slot" data-index="10"><button type="button" class="secondary quick-sample empty" data-slot="5" data-index="10" data-sample="" id="ql5-empty10" disabled title="Empty custom slot — upload a .docx / .json / .txt chart to save here">Empty</button></div>
+        <div class="ql-slot empty-slot" data-index="11"><button type="button" class="secondary quick-sample empty" data-slot="5" data-index="11" data-sample="" id="ql5-empty11" disabled title="Empty custom slot — upload a .docx / .json / .txt chart to save here">Empty</button></div>
+        <div class="ql-slot empty-slot" data-index="12"><button type="button" class="secondary quick-sample empty" data-slot="5" data-index="12" data-sample="" id="ql5-empty12" disabled title="Empty custom slot — upload a .docx / .json / .txt chart to save here">Empty</button></div>
+      </div>
+    </div>
+    <div class="png-box" id="pngBox5">
+      <img id="pngImg5" alt="Chart 5 preview" />
+      <label>Manual gates (from image)</label>
+      <input id="manName5" placeholder="Name" />
+      <input id="manGates5" placeholder="Earth:27.2, Mars:14.2, Venus:34.5" />
+      <button type="button" class="secondary" id="applyMan5">Apply manual gates</button>
+    </div>
+    </div>
+    <div class="person-block" data-person="6">
+    <div class="label-row">
+      <label for="person6">Person / Input 6 (optional)</label>
+      <button type="button" class="clear-btn" id="clearPerson6" title="Remove" aria-label="Remove Person 6">×</button>
+    </div>
+    <textarea id="person6"></textarea>
+    <div class="chart-status" id="chartStatus6" aria-live="polite"></div>
+    <div class="row">
+      <div>
+        <label>Upload .json / .txt / .docx / .png</label>
+        <input type="file" id="file6" accept=".json,.txt,.docx,.doc,.png,image/png,image/*,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword" />
+      </div>
+    </div>
+    <div class="quick-load" id="quickLoad6" role="group" aria-label="Quick-load sample for Person 6">
+      <span class="quick-load-label">Quick load</span>
+      <div class="quick-load-grid" id="quickLoadGrid6">
+        <div class="ql-slot" data-index="1"><button type="button" class="secondary quick-sample" data-slot="6" data-index="1" data-sample="dennis" id="ql6-dennis" aria-pressed="false">Dennis</button></div>
+        <div class="ql-slot" data-index="2"><button type="button" class="secondary quick-sample" data-slot="6" data-index="2" data-sample="eike" id="ql6-eike" aria-pressed="false">Eike</button></div>
+        <div class="ql-slot" data-index="3"><button type="button" class="secondary quick-sample" data-slot="6" data-index="3" data-sample="judy" id="ql6-judy" aria-pressed="false">Judy</button></div>
+        <div class="ql-slot" data-index="4"><button type="button" class="secondary quick-sample" data-slot="6" data-index="4" data-sample="carolyn" id="ql6-carolyn" aria-pressed="false">Carolyn</button></div>
+        <div class="ql-slot" data-index="5"><button type="button" class="secondary quick-sample" data-slot="6" data-index="5" data-sample="milena" id="ql6-milena" aria-pressed="false">Milena</button></div>
+        <div class="ql-slot" data-index="6"><button type="button" class="secondary quick-sample" data-slot="6" data-index="6" data-sample="teresa" id="ql6-teresa" aria-pressed="false">Teresa</button></div>
+        <div class="ql-slot empty-slot" data-index="7"><button type="button" class="secondary quick-sample empty" data-slot="6" data-index="7" data-sample="" id="ql6-empty7" disabled title="Empty custom slot — upload a .docx / .json / .txt chart to save here">Empty</button></div>
+        <div class="ql-slot empty-slot" data-index="8"><button type="button" class="secondary quick-sample empty" data-slot="6" data-index="8" data-sample="" id="ql6-empty8" disabled title="Empty custom slot — upload a .docx / .json / .txt chart to save here">Empty</button></div>
+        <div class="ql-slot empty-slot" data-index="9"><button type="button" class="secondary quick-sample empty" data-slot="6" data-index="9" data-sample="" id="ql6-empty9" disabled title="Empty custom slot — upload a .docx / .json / .txt chart to save here">Empty</button></div>
+        <div class="ql-slot empty-slot" data-index="10"><button type="button" class="secondary quick-sample empty" data-slot="6" data-index="10" data-sample="" id="ql6-empty10" disabled title="Empty custom slot — upload a .docx / .json / .txt chart to save here">Empty</button></div>
+        <div class="ql-slot empty-slot" data-index="11"><button type="button" class="secondary quick-sample empty" data-slot="6" data-index="11" data-sample="" id="ql6-empty11" disabled title="Empty custom slot — upload a .docx / .json / .txt chart to save here">Empty</button></div>
+        <div class="ql-slot empty-slot" data-index="12"><button type="button" class="secondary quick-sample empty" data-slot="6" data-index="12" data-sample="" id="ql6-empty12" disabled title="Empty custom slot — upload a .docx / .json / .txt chart to save here">Empty</button></div>
+      </div>
+    </div>
+    <div class="png-box" id="pngBox6">
+      <img id="pngImg6" alt="Chart 6 preview" />
+      <label>Manual gates (from image)</label>
+      <input id="manName6" placeholder="Name" />
+      <input id="manGates6" placeholder="Earth:27.2, Mars:14.2, Venus:34.5" />
+      <button type="button" class="secondary" id="applyMan6">Apply manual gates</button>
+    </div>
+    </div>
+    </details>
+
+    <h2 style="margin-top:1rem">When</h2>
+    <div class="mode-toggle" id="whenModeToggle" role="group" aria-label="When">
+      <button type="button" class="secondary" id="modeSingle" aria-pressed="false">Single day</button>
+      <button type="button" class="secondary active" id="modeRange" aria-pressed="true">Date range</button>
+    </div>
+
+        <div id="rangeReportOpts" class="no-print" style="display:block">
+    <label class="check" id="rangeFullDescOpt" style="margin:.35rem 0 .15rem">
+      <input type="checkbox" id="includeRangeFullDesc" checked />
+      Full descriptions
+    </label>
+    <p class="hint" id="rangeFullDescHint" style="margin:.05rem 0 .45rem">Per event: gate.line, weekday date, local AM/PM time, and the full reading—channel completions, other transit interactions, chart touches, and couple comparison when two or more charts are loaded. Does not add positions tables. Checked by default. Mutually exclusive with Brief descriptions. If neither Full nor Brief is checked, the report uses Full descriptions.</p>
+    <label class="check" id="rangeBriefDescOpt" style="margin:.15rem 0 .15rem">
+      <input type="checkbox" id="includeRangeBriefDesc" />
+      Brief descriptions
+    </label>
+    <p class="hint" id="rangeBriefDescHint" style="margin:.05rem 0 .45rem">Per event: gate.line, gate number/name, line name, weekday date, time, and short keynotes (no long pasted passages). Does not add positions tables. Unchecked by default. Mutually exclusive with Full descriptions.</p>
+    <label class="check" id="rangeTransitFieldOpt" style="margin:.15rem 0 .15rem">
+      <input type="checkbox" id="includeRangeTransitField" />
+      Add transit field after each day
+    </label>
+    <p class="hint" id="rangeTransitFieldHint" style="margin:.05rem 0 .55rem">Appends the planet positions table at the end of every day in the range (any length). Independent of Full/Brief. Unchecked by default. Single day and Now always include the field.</p>
+    </div>
+    <div class="cal-wrap">
+      <div class="cal-toolbar">
+        <div class="cal-nav">
+          <button type="button" class="secondary cal-nav-btn" id="calPrev" aria-label="Previous month">‹</button>
+          <button type="button" class="secondary cal-nav-btn" id="calNext" aria-label="Next month">›</button>
+        </div>
+        <div class="cal-title" id="calViewLabel">October – November 2026</div>
+        <input type="month" id="month" value="" title="Jump to month" style="width:auto;max-width:10rem" />
+      </div>
+      <div class="cal-dual" id="calendar"></div>
+      <div class="range-fields" id="rangeFields">
+        <div class="range-dt">
+          <div class="range-dt-row">
+            <div>
+              <label for="dateFrom" id="fromLabel">From date</label>
+              <input type="date" id="dateFrom" value="" />
+            </div>
+            <div class="range-time-only">
+              <label for="timeFrom">Start time</label>
+              <input type="time" id="timeFrom" step="60" value="" aria-describedby="timeFromLabel" />
+              <span class="time12-readout" id="timeFromLabel"></span>
+            </div>
+          </div>
+        </div>
+        <div class="range-dt">
+          <div class="range-dt-row">
+            <div>
+              <label for="dateTo" id="toLabel">To date</label>
+              <input type="date" id="dateTo" value="" />
+            </div>
+            <div class="range-time-only">
+              <label for="timeTo">End time</label>
+              <input type="time" id="timeTo" step="60" value="" aria-describedby="timeToLabel" />
+              <span class="time12-readout" id="timeToLabel"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="selection-row">
+        <p class="ephem"><span id="selectionLabel">Oct 26, 2026</span></p>
+        <button type="button" class="clear-btn" id="clearDates" title="Remove" aria-label="Remove date selection">×</button>
+      </div>
+      <p class="range-hint" id="rangeHint"></p>
+    </div>
+    <div class="row3" style="margin-top:.5rem">
+      <div id="timeSingleWrap">
+        <label>Time</label>
+        <div class="time12" style="display:flex;gap:.35rem;align-items:center">
+          <select id="hour12" aria-label="Hour" style="width:auto;flex:1"></select>
+          <span>:</span>
+          <select id="minute" aria-label="Minute" style="width:auto;flex:1"></select>
+          <select id="ampm" aria-label="AM/PM" style="width:auto;flex:1">
+            <option value="AM">AM</option>
+            <option value="PM">PM</option>
+          </select>
+          <input type="hidden" id="timeOfDay" value="" />
+        </div>
+      </div>
+      <div>
+        <label>Timezone</label>
+        <select id="tz"></select>
+      </div>
+      <div>
+        <label>&nbsp;</label>
+        <button type="button" class="secondary" id="nowBtn" aria-pressed="false">Now</button>
+      </div>
+    </div>
+    <p class="ephem" id="ephemNote">Positions computed live (geocentric). Nodes use the <strong>True</strong> Lunar Node.</p>
+    <label class="check" style="display:flex;align-items:center;gap:.5rem;margin:.65rem 0 .2rem">
+      <input type="checkbox" id="includeCodes" />
+      Include gates and lines in description
+    </label>
+    <label class="check" style="display:flex;align-items:center;gap:.5rem;margin:.35rem 0 .2rem">
+      <input type="checkbox" id="realWorldInfluence" checked />
+      Real-World Influence
+    </label>
+    <p class="hint" id="realWorldHint" style="margin:.15rem 0 .5rem">Checked by default. When on, the same report structure focuses on practical potentials—how this sky may amplify not-self patterns at work, home, and in conversation (including how partners condition each other's open centers). Unchecked keeps the usual Human Design educational tone.</p>
+    <label class="check" style="display:flex;align-items:center;gap:.5rem;margin:.35rem 0 .2rem">
+      <input type="checkbox" id="moonGateOnly" checked />
+      Moon: gate changes only
+    </label>
+    <p class="hint" id="moonGateOnlyHint" style="margin:.15rem 0 .5rem">Default on. When checked, timeline omits Moon line ingresses (line changes within the same gate) and keeps Moon gate ingresses. Other planets are unchanged. Snapshot mode is unaffected. Works independently of Real-World Influence and Gates &amp; Lines.</p>
+    <label class="check" style="display:flex;align-items:center;gap:.5rem;margin:.35rem 0 .2rem">
+      <input type="checkbox" id="sunGateOnly" checked />
+      Sun/Earth: gate changes only
+    </label>
+    <p class="hint" id="sunGateOnlyHint" style="margin:.15rem 0 .5rem">Default on. When checked, timeline omits Sun and Earth line ingresses (line changes within the same gate) and keeps their gate ingresses. Other planets are unchanged. Snapshot mode is unaffected. Works independently of other settings.</p>
+    <label class="check" id="allGateOnlyLabel" style="display:flex;align-items:center;gap:.5rem;margin:.35rem 0 .2rem">
+      <input type="checkbox" id="allGateOnly" />
+      All planets: gate changes only
+    </label>
+    <p class="hint" id="allGateOnlyHint" style="margin:.15rem 0 .5rem">When checked, timeline omits line ingresses for every planet and keeps gate changes only. Overrides the Moon and Sun/Earth gate-only boxes while on. Snapshot mode is unaffected. Works with Omit Sun/Earth/Moon.</p>
+    <label class="check" id="omitLightsLabel" style="display:flex;align-items:center;gap:.5rem;margin:.35rem 0 .2rem">
+      <input type="checkbox" id="omitLights" />
+      Omit Sun, Earth &amp; Moon
+    </label>
+    <p class="hint" id="omitLightsHint" style="margin:.15rem 0 .5rem">When checked, Sun, Earth, and Moon are excluded entirely from timeline events and from snapshot narrative/interactions. The Moon and Sun/Earth gate-only filters are overridden while this is on. Snapshot raw ephemeris details hide those bodies. Independent of other report settings.</p>
+    <div style="margin:.75rem 0 .35rem"><strong>Report mode</strong></div>
+    <div class="mode-toggle" id="reportModeToggle" role="group" aria-label="Report mode">
+      <button type="button" class="secondary" id="reportSnapshot" aria-pressed="false">Snapshot at chosen time</button>
+      <button type="button" class="secondary active" id="reportTimeline" aria-pressed="true">Timeline of chart-relevant changes</button>
+    </div>
+    <p class="hint" id="timelineHint" style="display:block;margin:.35rem 0 .5rem">Timeline scans the selected day or range in the chosen timezone (from local midnight to midnight) for gate/line ingresses that touch the entered chart(s). Selected by default.</p>
+    <button type="button" id="runBtn">Run transit analysis</button>
+    <button type="button" class="secondary" id="loadCouple">Dennis + Eike · Oct 26, 2026 · 3:00 PM ET</button>
+    <div class="status" id="status"></div>
+  </section>
+
+  <section class="panel" id="storyPanel">
+    <div class="toolbar">
+      <button type="button" class="secondary" id="exportMd">Export .md</button>
+      <button type="button" class="secondary" id="exportHtml">Export .html</button>
+      <button type="button" class="secondary no-print" id="printBtn" title="Print or save the report as PDF">Print / Save as PDF</button>
+      <button type="button" class="secondary no-print" id="shareBtn" title="Email or text the current report">Email / Text</button>
+    </div>
+    <h2>Story</h2>
+    <div id="reportWrap"><div id="report">Load the ephemeris, choose people and a time, then run analysis. The report reads as plain-language paragraphs; technical gate lists stay folded at the bottom.</div></div>
+    <div id="extraOutputOpts" class="no-print">
+      <div style="margin:.1rem 0 .35rem"><strong>Refine output</strong></div>
+      <p id="extraOutputNeedReportHint">Generate a report to use these options.</p>
+      <label class="check" style="display:flex;align-items:flex-start;gap:.5rem;margin:.25rem 0 .1rem">
+        <input type="checkbox" id="notSelfLandscape" />
+        Not-Self landscape (full chart), day by day
+      </label>
+      <p class="hint" id="notSelfLandscapeHint" style="margin:.05rem 0 .45rem">Unchecked by default. When on, the report above shows only the Not-Self landscape, date by date, not the full regular report. Type, Strategy, and Authority are restated once, then each day (weekday date, local AM/PM times, gate time spans in the prose) shows how that day's transits touch open or undefined centers. Always available here, whether or not Real-World Influence is checked.</p>
+      <label class="check" id="betweenMembersLabel" style="display:flex;align-items:flex-start;gap:.5rem;margin:.15rem 0 .1rem">
+        <input type="checkbox" id="betweenMembers" />
+        Between members selected, day by day
+      </label>
+      <p id="betweenMembersDisabledHint" hidden>Select a second member (or more) to compare. With only one member selected, Between members is unavailable.</p>
+      <div id="betweenPairWrap" class="between-pair-wrap" hidden>
+        <p id="betweenPairHint" class="hint" style="margin:.05rem 0 .25rem">Choose which pairs to include. All pairs are selected by default. With more than three members, Between uses a shorter form per pair per day.</p>
+        <div id="betweenPairList" class="between-pair-list"></div>
+      </div>
+      <p class="hint" id="betweenMembersHint" style="margin:.05rem 0 .35rem">Unchecked by default. When on, the report above shows only the Between members section, date by date, not the full regular report. With two members selected, each day (weekday date, local AM/PM times, gate time spans in the prose) describes how they condition each other—electromagnetic, companionship, and dominance channels, and which open centers each fills in the other—plus how that day's transits change it. With three members, each day covers the selected pairs (all pairs on by default). With four to six members, Between uses a shorter form per selected pair per day (all pairs on by default). Always available here, whether or not Real-World Influence is checked.</p>
+      <label class="check" style="display:flex;align-items:flex-start;gap:.5rem;margin:.15rem 0 .1rem">
+        <input type="checkbox" id="askGrokBox" />
+        Ask a question about Advantages and Difficulties
+      </label>
+      <p class="hint" id="askGrokHint" style="margin:.05rem 0 .35rem">Unchecked by default. When on, a question box appears. The question is answered from the checked sections' output (or the full regular report if neither section is checked). The date range and member names are included. The answer is added under its heading in the report above so it prints and saves as PDF. Always available here, whether or not Real-World Influence is checked.</p>
+      <div id="askGrokPanel" class="no-print" style="display:none">
+        <label for="askGrokQuestion">Your question</label>
+        <textarea id="askGrokQuestion" rows="4" placeholder="Ask about advantages and difficulties in the selected output…"></textarea>
+        <div class="ask-grok-actions">
+          <span id="askGrokCount" class="hint" style="margin:0">0/5000</span>
+          <button type="button" class="secondary" id="askGrokBtn" disabled>Ask</button>
+          <span id="askGrokStatus" class="hint" style="margin:0"></span>
+        </div>
+        <div class="ask-answer-actions no-print" id="askAnswerActions" hidden>
+          <button type="button" class="secondary no-print" id="answerPrintBtn" disabled title="Print or save the answer as PDF">Print / Save as PDF</button>
+          <button type="button" class="secondary no-print" id="answerShareBtn" disabled title="Email or text the answer">Email / Text</button>
+        </div>
+      </div>
+    </div>
+    <div id="answerPrintRoot" hidden></div>
+  </section>
+</main>
+<div id="shareMenu" class="share-menu no-print" hidden role="menu" aria-label="Email or text">
+  <button type="button" role="menuitem" data-share="email">Email</button>
+  <button type="button" role="menuitem" data-share="sms">Text</button>
+  <button type="button" role="menuitem" data-share="copy">Copy to clipboard</button>
+</div>
+
+<!-- Data is separate from the UI. Script order matters. Works via file:// on Windows and via https on iPhone/iPad Firefox. -->
+<script src="astronomy.browser.min.js?v=202611121900"></script>
+<script src="data.js?v=202611121900"></script>
+
+<script>
+/* ES5 quick-load + Full/Brief bootstrap: works even if later scripts fail. */
+(function(){
+  function byId(id){ return document.getElementById(id); }
+  function rootData(){
+    if(window.HD_DATA) return window.HD_DATA;
+    if(window.DATA) return window.DATA;
+    return {};
+  }
+  function hasClass(el, name){
+    return !!(el && (' '+(el.className||'')+' ').indexOf(' '+name+' ')!==-1);
+  }
+  function addClass(el, name){
+    if(!el || hasClass(el, name)) return;
+    el.className = (el.className ? el.className+' ' : '')+name;
+  }
+  function removeClass(el, name){
+    if(!el) return;
+    el.className = (' '+(el.className||'')+' ').replace(' '+name+' ', ' ').replace(/^\s+|\s+$/g,'');
+  }
+  function setHighlight(n, key){
+    try{
+      var grid=byId('quickLoadGrid'+n);
+      if(!grid) return;
+      var buttons=grid.getElementsByTagName('button');
+      var i,b,on;
+      for(i=0;i<buttons.length;i++){
+        b=buttons[i];
+        on=!!key && b.getAttribute && b.getAttribute('data-sample')===key;
+        if(on){ addClass(b,'active'); if(b.setAttribute) b.setAttribute('aria-pressed','true'); }
+        else { removeClass(b,'active'); if(b.setAttribute) b.setAttribute('aria-pressed','false'); }
+      }
+    }catch(e){}
+  }
+  function loadKey(n, key){
+    if(!key) return;
+    var usedApp=false;
+    if(typeof loadSampleInto==='function'){
+      try{ loadSampleInto(n, key); usedApp=true; }catch(e){ usedApp=false; }
+    }
+    if(!usedApp){
+      try{
+        var samples=(rootData().samples)||{};
+        var src=samples[key];
+        var ta=byId('person'+n);
+        if(src && ta) ta.value=typeof src==='string'?src:JSON.stringify(src,null,2);
+      }catch(e){}
+    }
+    try{ setHighlight(n, key); }catch(e){}
+  }
+  function onGridEvent(ev, grid, n){
+    try{
+      var t=ev.target||ev.srcElement;
+      if(t && t.nodeType===3) t=t.parentNode;
+      while(t && t!==grid && !(t.getAttribute && t.getAttribute('data-sample'))) t=t.parentNode;
+      if(!t || t===grid) return;
+      if(t.disabled) return;
+      if(hasClass(t,'ql-remove')) return;
+      var key=t.getAttribute('data-sample');
+      if(key) loadKey(n, key);
+    }catch(e){}
+  }
+  function wireGrid(gridId, n){
+    var grid=byId(gridId);
+    if(!grid || grid.getAttribute('data-ql-wired')) return;
+    grid.setAttribute('data-ql-wired','1');
+    function handler(ev){ onGridEvent(ev, grid, n); }
+    try{ grid.addEventListener('click', handler, false); }catch(e){}
+    try{ grid.addEventListener('touchend', handler, false); }catch(e){}
+    try{ grid.addEventListener('pointerup', handler, false); }catch(e){}
+  }
+  function fillIfEmpty(gridId, n){
+    var grid=byId(gridId);
+    if(!grid) return;
+    if(grid.querySelector && grid.querySelector('button.quick-sample')) return;
+    var keys=['dennis','eike','judy','carolyn','milena','teresa'];
+    var labels=['Dennis','Eike','Judy','Carolyn','Milena','Teresa'];
+    var html='', i, k;
+    for(i=0;i<6;i++){
+      k=keys[i];
+      html+='<div class="ql-slot" data-index="'+(i+1)+'"><button type="button" class="secondary quick-sample" data-slot="'+n+'" data-index="'+(i+1)+'" data-sample="'+k+'" id="ql'+n+'-'+k+'">'+labels[i]+'</button></div>';
+    }
+    for(i=7;i<=12;i++){
+      html+='<div class="ql-slot empty-slot" data-index="'+i+'"><button type="button" class="secondary quick-sample empty" data-slot="'+n+'" data-index="'+i+'" data-sample="" id="ql'+n+'-empty'+i+'" disabled>Empty</button></div>';
+    }
+    grid.innerHTML=html;
+  }
+  function wireRangeDesc(){
+    var full=byId('includeRangeFullDesc');
+    var brief=byId('includeRangeBriefDesc');
+    if(!full || !brief) return;
+    if(full.getAttribute('data-boot-wired')) return;
+    try{ full.setAttribute('data-boot-wired','1'); }catch(e){}
+    try{ brief.setAttribute('data-boot-wired','1'); }catch(e){}
+    function onFull(){
+      try{ if(full.checked) brief.checked=false; }catch(e){}
+    }
+    function onBrief(){
+      try{ if(brief.checked) full.checked=false; }catch(e){}
+    }
+    try{ full.addEventListener('change', onFull, false); }catch(e){}
+    try{ full.addEventListener('click', onFull, false); }catch(e){}
+    try{ brief.addEventListener('change', onBrief, false); }catch(e){}
+    try{ brief.addEventListener('click', onBrief, false); }catch(e){}
+  }
+  function boot(){
+    var n;
+    for(n=1;n<=6;n++){ try{ fillIfEmpty('quickLoadGrid'+n,n); }catch(e){} }
+    for(n=1;n<=6;n++){ try{ wireGrid('quickLoadGrid'+n,n); }catch(e){} }
+    try{ wireRangeDesc(); }catch(e){}
+  }
+  if(document.readyState==='loading'){ document.addEventListener('DOMContentLoaded', boot); }
+  else { boot(); }
+})();
+</script>
+<script src="analyzer.js?v=202611121900"></script>
+<script src="app.js?v=202611121900"></script>
+</body>
+</html>
