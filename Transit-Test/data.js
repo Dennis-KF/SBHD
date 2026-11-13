@@ -5506,6 +5506,8 @@ window.HD_DATA = {
  "samples": {
   "dennis": {
    "name": "Dennis",
+   "gender": null,
+   "pronouns": "they/them",
    "source": "Advanced Imaging transcription",
    "type": "Manifesting Generator",
    "planets": {
@@ -5680,6 +5682,8 @@ window.HD_DATA = {
   },
   "eike": {
    "name": "Eike Oertel",
+   "gender": "female",
+   "pronouns": "she/her",
    "source": "Advanced Imaging transcription",
    "type": "Generator",
    "planets": {
@@ -5852,6 +5856,8 @@ window.HD_DATA = {
   },
   "judy": {
    "name": "Judy",
+   "gender": null,
+   "pronouns": "they/them",
    "source": "bodygraph PNG golden read 2026-10-29",
    "type": "Manifesting Generator",
    "authority": "Solar Plexus",
@@ -5994,6 +6000,8 @@ window.HD_DATA = {
   },
   "carolyn": {
    "name": "Carolyn",
+   "gender": null,
+   "pronouns": "they/them",
    "source": "User paste (natal planets only)",
    "planets": {
     "Sun": {
@@ -6167,6 +6175,8 @@ window.HD_DATA = {
   },
   "milena": {
    "name": "Milena",
+   "gender": null,
+   "pronouns": "they/them",
    "source": "User paste (natal planets only)",
    "planets": {
     "Sun": {
@@ -6338,6 +6348,8 @@ window.HD_DATA = {
   },
   "teresa": {
    "name": "Teresa",
+   "gender": null,
+   "pronouns": "they/them",
    "source": "User paste (natal planets only)",
    "planets": {
     "Sun": {

@@ -1735,8 +1735,11 @@ function compactDesignSummary(person) {
     const gates = (ch.gates || []).join("-");
     return (ch.name || ch.id || "") + (cents ? " (" + cents + ")" : "") + (gates ? " " + gates : "");
   });
+  const pn = window.HD && typeof HD.personPronouns === "function" ? HD.personPronouns(person) : null;
   return {
     name: firstNameMember(person.name),
+    pronouns: pn && pn.label || "they/them",
+    gender: pn && pn.gender || "",
     type: profile.type || "",
     strategy: profile.strategy || "",
     authority: profile.authority || "",
@@ -1806,7 +1809,7 @@ function collectAskContext() {
   else ctx.regularSummary = visible;
   return { sections, context: ctx, members: collectAskMembers(), designs: collectAskDesigns(), rangeLabel };
 }
-function grokSectionHtml(kind, question, body) {
+function grokSectionHtml(kind, question, body, meta) {
   const q = escapeGrok(question || "");
   let inner;
   if (kind === "loading") {
@@ -1816,6 +1819,9 @@ function grokSectionHtml(kind, question, body) {
   } else {
     const paras = String(body || "").split(/\n{2,}/).map((s) => s.trim()).filter(Boolean);
     inner = (q ? '<p class="grok-q"><em>Asked: ' + q + "</em></p>" : "") + paras.map((p) => "<p>" + escapeGrok(p).replace(/\n/g, "<br>") + "</p>").join("\n");
+    if (meta && meta.finishReason === "length") {
+      inner += '<p class="grok-length-note"><em>' + escapeGrok("This answer reached the length limit; ask a narrower follow-up for more.") + "</em></p>";
+    }
   }
   const cls = "grok-answer" + (kind === "loading" ? " grok-loading" : "") + (kind === "error" ? " grok-error" : "");
   return '<div class="' + cls + '"><h2>Question \u2014 Advantages and Difficulties</h2>\n' + inner + "</div>";
@@ -1845,7 +1851,7 @@ function applyGrokAnswerToReport() {
   if (typeof lastHtml !== "undefined") lastHtml = next;
   if (typeof lastMd !== "undefined" && lastGrokQuestion) {
     const mdBase = String(lastMd || "").replace(/\n## Question — Advantages and Difficulties[\s\S]*$/, "");
-    lastMd = mdBase + "\n\n## Question \u2014 Advantages and Difficulties\n\n*Asked: " + lastGrokQuestion + "*\n\n" + (lastGrokAnswerText || "") + "\n";
+    lastMd = mdBase + "\n\n## Question \u2014 Advantages and Difficulties\n\n*Asked: " + lastGrokQuestion + "*\n\n" + (lastGrokAnswerText || "") + (lastGrokAnswerHtml && /grok-length-note/.test(lastGrokAnswerHtml) ? "\n\n*This answer reached the length limit; ask a narrower follow-up for more.*" : "") + "\n";
   }
   if (typeof syncAnswerShareButtons === "function") syncAnswerShareButtons();
 }
@@ -1951,9 +1957,14 @@ async function askGrok() {
       return;
     }
     lastGrokAnswerText = answer;
-    lastGrokAnswerHtml = grokSectionHtml("ok", lastGrokQuestion, answer);
+    const finishReason = data && data.finish_reason ? String(data.finish_reason) : "";
+    lastGrokAnswerHtml = grokSectionHtml("ok", lastGrokQuestion, answer, { finishReason });
     applyGrokAnswerToReport();
-    setAskStatus("Answer added to the report.");
+    if (finishReason === "length") {
+      setAskStatus("This answer reached the length limit; ask a narrower follow-up for more.");
+    } else {
+      setAskStatus("Answer added to the report.");
+    }
   } catch (e) {
     const aborted = e && (e.name === "AbortError" || /aborted/i.test(e && e.message ? e.message : ""));
     const msg = aborted ? "The answer took too long. Try a shorter date range or check a section box, then ask again." : friendlyAskError(e && e.message ? e.message : e);
