@@ -2831,6 +2831,103 @@ function fmtNatalRef(person, natalBits, gates) {
   }
   return person + "'s chart";
 }
+function scrubSourceNames(s) {
+  return String(s || "").replace(/\b(LCN|TCRI|lcn\.pdf|tcri\.pdf|Ra\s*Uru\s*Hu|Rave\s+I\s*Ching|Black\s+Book|White\s+Book)\b/gi, " ").replace(/\s+/g, " ").trim();
+}
+function meaningSentences(text, maxSentences, maxChars) {
+  maxSentences = maxSentences == null ? 2 : maxSentences;
+  maxChars = maxChars == null ? 560 : maxChars;
+  let s = scrubSourceNames(text).replace(/\s+/g, " ").trim();
+  if (!s) return "";
+  const bits = s.match(/[^.!?]+[.!?]+/g) || [s];
+  const out = [];
+  let len = 0;
+  for (let i = 0; i < bits.length; i++) {
+    const t = bits[i].trim();
+    if (!t) continue;
+    if (len + t.length > maxChars && out.length) break;
+    out.push(t);
+    len += t.length;
+    if (out.length >= maxSentences) break;
+  }
+  let joined = out.join(" ").replace(/\s+/g, " ").trim();
+  if (joined && !/[.!?]$/.test(joined)) joined += ".";
+  return joined;
+}
+function uniqueMeaningAppend(chunks, text, maxSentences, maxChars) {
+  const next = meaningSentences(text, maxSentences, maxChars);
+  if (!next) return;
+  const have = (" " + chunks.join(" ") + " ").toLowerCase().replace(/\s+/g, " ");
+  const bits = next.match(/[^.!?]+[.!?]+/g) || [next];
+  const add = [];
+  for (let i = 0; i < bits.length; i++) {
+    const t = bits[i].trim();
+    if (!t) continue;
+    const stem = t.toLowerCase().replace(/\s+/g, " ").slice(0, 72);
+    if (stem.length < 18) continue;
+    if (have.indexOf(stem) !== -1) continue;
+    if (add.join(" ").toLowerCase().indexOf(stem) !== -1) continue;
+    add.push(/[.!?]$/.test(t) ? t : t + ".");
+  }
+  if (add.length) chunks.push(add.join(" "));
+}
+function collectHitMeaningSentences(person, hit, tracker) {
+  const chunks = [];
+  try {
+    const lineBody = typeof meaningForLine === "function" ? meaningForLine(hit.lineInfo, hit.gateInfo) : "";
+    uniqueMeaningAppend(chunks, lineBody, 4, 900);
+  } catch (e) {
+  }
+  try {
+    const gi = hit.gateInfo || (typeof gateInfo === "function" ? gateInfo(hit.gate) : null);
+    if (gi) {
+      uniqueMeaningAppend(chunks, gi.description || "", 2, 420);
+      uniqueMeaningAppend(chunks, gi.lcn_intro || "", 2, 420);
+    }
+  } catch (e) {
+  }
+  if (hit.channelInfo) {
+    uniqueMeaningAppend(chunks, hit.channelInfo.description || "", 3, 560);
+    uniqueMeaningAppend(chunks, hit.channelInfo.design || "", 1, 180);
+  }
+  const centers = (typeof hitCentersList === "function" ? hitCentersList(hit) : []) || [];
+  for (let i = 0; i < centers.length && chunks.length < 6; i++) {
+    const c = typeof normalizeCenterName === "function" ? normalizeCenterName(centers[i]) : centers[i];
+    if (!c) continue;
+    let isOpen = true;
+    try {
+      if (typeof isCenterDefined === "function" && isCenterDefined(person, c)) isOpen = false;
+    } catch (e) {
+    }
+    if (!isOpen) continue;
+    const info = typeof centerNotSelfInfo === "function" ? centerNotSelfInfo(c) : null;
+    if (!info) continue;
+    const name = person && person.name || "This person";
+    if (info.conditioning) {
+      const cond = meaningSentences(info.conditioning, 2, 360);
+      if (cond) uniqueMeaningAppend(chunks, "In " + name + "'s open " + c + ", " + cond.charAt(0).toLowerCase() + cond.slice(1), 2, 400);
+    }
+    if (info.everyday_pull) {
+      uniqueMeaningAppend(chunks, "Everyday pull: " + info.everyday_pull, 1, 220);
+    }
+  }
+  let text = chunks.join(" ").replace(/\s+/g, " ").trim();
+  if (!text) return "";
+  try {
+    if (typeof registerAndFilterSentence === "function" && tracker) {
+      const filtered = registerAndFilterSentence(tracker, text);
+      if (filtered) return filtered;
+    }
+  } catch (e) {
+  }
+  return text;
+}
+function channelMeaningClip(ch) {
+  if (!ch) return "";
+  const info = ch.info || ch;
+  const txt = ((info.description || "") + " " + (info.design || "")).trim();
+  return meaningSentences(txt, 3, 560);
+}
 function meaningForLine(line, gInfo) {
   function scrub(body) {
     body = (body || "").trim();
@@ -4145,7 +4242,8 @@ function describeHitParagraph(person, hit, tracker, transit, meta2) {
     const fr = illFrames[+picked] || illFrames[0];
     illSentence = registerAndFilterSentence(tracker, fr) || fr;
   }
-  const parts = [lead + ".", touchClause + ".", centerBit ? centerBit + "." : "", lineBit ? lineBit + "." : "", designBit ? designBit + "." : "", illSentence];
+  const meaningBits = collectHitMeaningSentences(person, hit, tracker);
+  const parts = [lead + ".", touchClause + ".", centerBit ? centerBit + "." : "", lineBit ? lineBit + "." : "", designBit ? designBit + "." : "", illSentence, meaningBits];
   let para = parts.filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
   para = para.replace(/\.\./g, ".");
   registerAndFilterSentence(tracker, para);
@@ -4175,6 +4273,8 @@ function describeChannelWeather(person, day, tracker) {
     const filtered = registerAndFilterSentence(tracker, tone);
     if (filtered) sentences.push(filtered);
     else sentences.push(tone);
+    const more = channelMeaningClip(item);
+    if (more) sentences.push(registerAndFilterSentence(tracker, more) || more);
   }
   const litSet = /* @__PURE__ */ new Set();
   for (const item of day.completed_channels || []) {
@@ -4271,6 +4371,10 @@ function describeOpenCenterConditioning(person, day, otherPerson, otherDay, tran
       }
       s += tb || themeOpts[idx % themeOpts.length];
     }
+    if (info && info.conditioning) {
+      const cond = meaningSentences(info.conditioning, 2, 400);
+      if (cond) s += " " + cond;
+    }
     if (q) {
       const qOpts = [
         " Useful check: \u201C" + q + "\u201D.",
@@ -4322,9 +4426,17 @@ function describeCoupleComparison(person1, person2, day1, day2, couple, tracker,
   if (amplified.length) {
     const s = "Bridge channels the transit amplifies: " + amplified.map((c) => prettyTheme(plainChannelName(c))).join(", ") + ".";
     bits.push(registerAndFilterSentence(tracker, s) || s);
+    amplified.slice(0, 3).forEach(function(c) {
+      const more = channelMeaningClip(c);
+      if (more) bits.push(registerAndFilterSentence(tracker, more) || more);
+    });
   } else if (electro.length) {
     const s = "Electromagnetic bridges between them (natal): " + electro.map((c) => prettyTheme(plainChannelName(c))).join(", ") + ".";
     bits.push(registerAndFilterSentence(tracker, s) || s);
+    electro.slice(0, 3).forEach(function(c) {
+      const more = channelMeaningClip(c);
+      if (more) bits.push(registerAndFilterSentence(tracker, more) || more);
+    });
   }
   if (!bits.length) {
     return "Under this sky the two charts do not show a loud shared hook or amplified bridge; keep reading each person\u2019s direct hits on their own terms.";
@@ -4332,13 +4444,7 @@ function describeCoupleComparison(person1, person2, day1, day2, couple, tracker,
   return bits.join(" ");
 }
 function packHitParagraphs(hitParas) {
-  if (!hitParas.length) return [];
-  if (hitParas.length <= 2) return hitParas;
-  const target = Math.min(4, Math.max(2, Math.ceil(hitParas.length / 2)));
-  const per = Math.ceil(hitParas.length / target);
-  const out = [];
-  for (let i = 0; i < hitParas.length; i += per) out.push(hitParas.slice(i, i + per).join(" "));
-  return out.slice(0, 4);
+  return (hitParas || []).filter(Boolean);
 }
 function renderPersonIndepthSections(person, transit, tracker, otherPerson, otherDay, meta2) {
   const parts = [];
@@ -5190,6 +5296,13 @@ function describeExpandedNotSelf(person, day, otherPerson, otherDay, transit, tr
   if (profile.signature) {
     p1 += " The Type signature to watch is " + profile.signature + (profile.theme ? " \u2014 " + profile.theme : "") + ".";
   }
+  try {
+    const tns = typeof typeNotSelfInfo === "function" ? typeNotSelfInfo(person) : null;
+    if (tns && tns.everyday_pull) {
+      p1 += " In everyday life that Type pressure can look like " + String(tns.everyday_pull).replace(/\.+$/, "") + ".";
+    }
+  } catch (e) {
+  }
   paras.push(filt(p1));
   const hanging = hangingGatesList(person).slice(0, 8);
   let p2 = "Under this sky, transit weather can amplify not-self themes that already live in " + name + "'s design through open centers and Type pressure, not only through planets landing on natal gates.";
@@ -5207,7 +5320,9 @@ function describeExpandedNotSelf(person, day, otherPerson, otherDay, transit, tr
       const info = centerNotSelfInfo(c) || {};
       const q = info.not_self_question || "";
       const ex = freshOpenCenterExample(person, c, tracker, (tracker && tracker.seq || 0) + i * 5 + name.length);
-      bits.push("Open " + c + (q ? " (" + q + ")" : "") + ": " + ex);
+      const cond = info.conditioning ? meaningSentences(info.conditioning, 2, 320) : "";
+      const pull = info.everyday_pull ? meaningSentences(info.everyday_pull, 1, 200) : "";
+      bits.push("Open " + c + (q ? " (" + q + ")" : "") + ": " + ex + (cond ? " " + cond : "") + (pull ? " Everyday pull: " + pull : ""));
     });
     const mid = Math.ceil(bits.length / 2) || bits.length;
     paras.push(bits.slice(0, mid).join(" "));
@@ -5233,7 +5348,7 @@ function describeExpandedNotSelf(person, day, otherPerson, otherDay, transit, tr
     patternBit = "rushing decisions in an unhealthy field until disappointment gathers";
   let p4;
   if (hits.length) {
-    p4 = "Hits that are present \u2014 " + hits.slice(0, 6).join("; ") + (hits.length > 6 ? "\u2026" : "") + " \u2014 are not isolated events. They plug into " + name + "'s larger not-self pattern: " + patternBit + ", especially where open centers borrow definition from this sky.";
+    p4 = "Hits that are present \u2014 " + hits.slice(0, 12).join("; ") + (hits.length > 12 ? "\u2026" : "") + " \u2014 are not isolated events. They plug into " + name + "'s larger not-self pattern: " + patternBit + ", especially where open centers borrow definition from this sky.";
   } else {
     p4 = "Even without a direct gate hit, " + name + " can still feel this sky as background conditioning through open centers and hanging gates, feeding the same " + (profile.signature || "not-self") + " pattern the Type already knows.";
   }
@@ -5273,6 +5388,10 @@ function describeExpandedCoupleNotSelf(person1, person2, day1, day2, couple, tra
   if (amplified.length || electro.length) {
     const names = (amplified.length ? amplified : electro).slice(0, 4).map((c) => prettyTheme(plainChannelName(c))).join(", ");
     paras.push(filt("Bridge channels between them" + (amplified.length ? " the transit amplifies: " : " (electromagnetic): ") + names + ". Those bridges can make one person's open-center questions louder precisely when the other is defined there."));
+    (amplified.length ? amplified : electro).slice(0, 3).forEach(function(c) {
+      const more = channelMeaningClip(c);
+      if (more) paras.push(filt(more));
+    });
   }
   return paras.filter(Boolean);
 }
@@ -5403,6 +5522,19 @@ function describeNotSelfDayForPerson(person, transit, tracker, meta2) {
     s += ", completing the channel of " + theme + " with " + name + "'s chart.";
     if (centerBit) s += " " + centerBit + ".";
     if (nsBits.length) s += " As a potential, " + nsBits.join("; ") + ".";
+    const chClip = channelMeaningClip(item);
+    if (chClip) s += " " + chClip;
+    for (let oi = 0; oi < openHit.length; oi++) {
+      const info0 = centerNotSelfInfo(openHit[oi]);
+      if (info0 && info0.conditioning) {
+        const cond = meaningSentences(info0.conditioning, 2, 360);
+        if (cond) s += " " + cond;
+      }
+      if (info0 && info0.everyday_pull) {
+        const pull = meaningSentences(info0.everyday_pull, 1, 200);
+        if (pull) s += " Everyday pull: " + pull;
+      }
+    }
     if (openHit[0]) {
       const ex = freshOpenCenterExample(person, openHit[0], tracker, (tracker.seq || 0) + openHit[0].length);
       if (ex) s += " " + ex;
@@ -5440,6 +5572,22 @@ function describeNotSelfDayForPerson(person, transit, tracker, meta2) {
     }
     if (info && info.not_self_theme) s += " A potential not-self theme is " + info.not_self_theme + ".";
     if (info && info.not_self_question) s += " A useful check: " + info.not_self_question;
+    if (info && info.conditioning) {
+      const cond = meaningSentences(info.conditioning, 2, 360);
+      if (cond) s += " " + cond;
+    }
+    if (info && info.everyday_pull) {
+      const pull = meaningSentences(info.everyday_pull, 1, 200);
+      if (pull) s += " Everyday pull: " + pull;
+    }
+    if (hooks[0] && hooks[0].gate) {
+      try {
+        const gi = gateInfo(hooks[0].gate);
+        const gs = meaningSentences(gi && (gi.description || gi.lcn_intro) || "", 2, 420);
+        if (gs) s += " " + gs;
+      } catch (e) {
+      }
+    }
     const ex = freshOpenCenterExample(person, c, tracker, (tracker.seq || 0) + c.length + 3);
     if (ex) s += " " + ex;
     paras.push(extraFilt(tracker, s));
@@ -5528,7 +5676,8 @@ function describeBetweenDay(p1, p2, transit, tracker, meta2) {
       }
       const leads = planets.slice(0, 2).map((h) => spanLeadForPlanetGate(h.planet, h.gate, transit, meta2, tracker));
       const lead = leads.length ? leads[0] + ", " : "";
-      return lead + "the " + kind + " channel of " + extraChLabel(c) + " between them is lit by this sky";
+      const clip2 = channelMeaningClip(c);
+      return lead + "the " + kind + " channel of " + extraChLabel(c) + " between them is lit by this sky" + (clip2 ? ". " + clip2 : "");
     });
     paras.push(extraFilt(tracker, bits.join(". ") + ". That can make already-familiar chemistry or dominance feel louder for the day, without rewriting the natal bond."));
   }
@@ -5558,22 +5707,39 @@ function describeBetweenDay(p1, p2, transit, tracker, meta2) {
           s += " " + ampName + " may therefore condition " + openName + "'s open " + c + " more strongly while the sky holds the bridge.";
         }
         if (info && info.not_self_theme) s += " A potential theme for " + openName + " is " + info.not_self_theme + ".";
+        if (info && info.conditioning) {
+          const cond = meaningSentences(info.conditioning, 2, 320);
+          if (cond) s += " " + cond;
+        }
+        if (info && info.everyday_pull) {
+          const pull = meaningSentences(info.everyday_pull, 1, 200);
+          if (pull) s += " Everyday pull for " + openName + ": " + pull;
+        }
+        const chClip = channelMeaningClip(item);
+        if (chClip) s += " " + chClip;
         out.push(extraFilt(tracker, s));
       }
     }
     return out;
   }
-  paras.push.apply(paras, tempBridges(p1, p2, day1).slice(0, 3));
-  paras.push.apply(paras, tempBridges(p2, p1, day2).slice(0, 3));
+  paras.push.apply(paras, tempBridges(p1, p2, day1).slice(0, 6));
+  paras.push.apply(paras, tempBridges(p2, p1, day2).slice(0, 6));
   const hooks = dyn.shared_transit_hooks || [];
   const both = hooks.filter((h) => h.in_a && h.in_b);
   if (both.length) {
-    const bits = both.slice(0, 3).map((h) => {
+    const bits = both.slice(0, 6).map((h) => {
       const theme = prettyTheme(h.gate && h.gate.name || gateThemeName(h.gate && h.gate.number || h.gate));
       const gNum = h.gate && (h.gate.number || h.gate) || (h.gl ? +String(h.gl).split(".")[0] : 0);
-      return spanLeadForPlanetGate(h.planet, gNum, transit, meta2, tracker) + " lands in both charts on " + theme;
+      let bit = spanLeadForPlanetGate(h.planet, gNum, transit, meta2, tracker) + " lands in both charts on " + theme;
+      try {
+        const gi = gateInfo(gNum);
+        const gs = meaningSentences(gi && (gi.description || gi.lcn_intro) || "", 2, 400);
+        if (gs) bit += ": " + gs;
+      } catch (e) {
+      }
+      return bit;
     });
-    paras.push(extraFilt(tracker, bits.filter(Boolean).join("; ") + ". Shared hooks can raise the same pressure on both sides at once; volume is weather, not a verdict on the relationship."));
+    paras.push(extraFilt(tracker, bits.filter(Boolean).join(" ") + " Shared hooks can raise the same pressure on both sides at once; volume is weather, not a verdict on the relationship."));
   }
   if (!paras.length) {
     paras.push(extraFilt(tracker, "This day does not sharply retune the natal conditioning between " + n1 + " and " + n2 + ". The electromagnetic, companionship, and dominance picture described above remains the baseline; stay with each person's Strategy and Authority when a shared decision gets loud."));

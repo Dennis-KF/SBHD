@@ -1568,8 +1568,8 @@ function applyExtraOutput(html, md, person1, person2, extraMeta) {
 }
 const ASK_ENDPOINT = "https://transit-question.vercel.app/api/ask";
 const ASK_MAX = 5e3;
-const ASK_CONTEXT_CAP = 16e3;
-const ASK_TIMEOUT_MS = 12e4;
+const ASK_CONTEXT_CAP = 32e3;
+const ASK_TIMEOUT_MS = 24e4;
 let lastGrokQuestion = null;
 let lastGrokAnswerHtml = null;
 let lastHtmlBase = null;
@@ -2370,17 +2370,258 @@ let shareMenuKind = "report";
 function hasSuccessfulGrokAnswer() {
   return !!(lastGrokAnswerText && String(lastGrokAnswerText).trim() && lastGrokAnswerHtml && !/grok-error|grok-loading/.test(lastGrokAnswerHtml));
 }
+function hasDisplayableReport() {
+  try {
+    if (window.__LAST_TRANSIT__) return true;
+  } catch (e) {
+  }
+  const report = $("report");
+  const t = report && String(report.innerText || "").trim();
+  if (!t) return false;
+  if (/Load the ephemeris|Add a chart to get started|no natal planets/i.test(t) && t.length < 200) return false;
+  return t.length > 80;
+}
+function displayContentHtml() {
+  const report = $("report");
+  if (!report) return "<p>Nothing to display yet.</p>";
+  if (typeof hasSuccessfulGrokAnswer === "function" && hasSuccessfulGrokAnswer()) {
+    const ans = report.querySelector(".grok-answer");
+    if (ans) return ans.innerHTML;
+    if (typeof lastGrokAnswerHtml !== "undefined" && lastGrokAnswerHtml) return lastGrokAnswerHtml;
+  }
+  const clone = report.cloneNode(true);
+  try {
+    clone.querySelectorAll(".tech, #timelineEventsJson").forEach(function(el) {
+      el.remove();
+    });
+  } catch (e) {
+  }
+  return clone.innerHTML || "<p>Nothing to display yet.</p>";
+}
 function syncAnswerShareButtons() {
   const row = $("askAnswerActions");
   const pb = $("answerPrintBtn");
   const sb = $("answerShareBtn");
-  const on = hasSuccessfulGrokAnswer();
+  const db = $("answerDisplayBtn");
+  const on = typeof hasSuccessfulGrokAnswer === "function" && hasSuccessfulGrokAnswer();
+  const canDisplay = on || hasDisplayableReport();
   if (row) {
-    if (on) row.removeAttribute("hidden");
+    if (canDisplay) row.removeAttribute("hidden");
     else row.setAttribute("hidden", "");
   }
   if (pb) pb.disabled = !on;
   if (sb) sb.disabled = !on;
+  if (db) db.disabled = !canDisplay;
+}
+let displaySavedHtml = "";
+let displayMatches = [];
+let displayIndex = 0;
+let displayPrevOverflow = "";
+let displayPrevScroll = 0;
+function displayEscapeRe(s) {
+  return String(s || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+function displayUpdateCount() {
+  const el = $("displayFindCount");
+  if (!el) return;
+  const total = displayMatches.length;
+  if (!total) {
+    el.textContent = "0 of 0";
+    return;
+  }
+  el.textContent = String(displayIndex + 1) + " of " + String(total);
+}
+function displayMarkCurrent() {
+  for (let i = 0; i < displayMatches.length; i++) {
+    const el = displayMatches[i];
+    if (!el) continue;
+    const on = i === displayIndex;
+    el.className = on ? "display-hl display-hl-current" : "display-hl";
+  }
+  const cur = displayMatches[displayIndex];
+  if (cur && cur.scrollIntoView) {
+    try {
+      cur.scrollIntoView({ block: "center", inline: "nearest" });
+    } catch (e) {
+      try {
+        cur.scrollIntoView(true);
+      } catch (_e) {
+      }
+    }
+  }
+  displayUpdateCount();
+}
+function displayGo(delta) {
+  if (!displayMatches.length) return;
+  const n = displayMatches.length;
+  displayIndex = ((displayIndex + delta) % n + n) % n;
+  displayMarkCurrent();
+}
+function displayRestoreBody() {
+  const body = $("displayOverlayBody");
+  if (!body) return;
+  body.innerHTML = displaySavedHtml || "";
+  displayMatches = [];
+  displayIndex = 0;
+}
+function displayApplyFind() {
+  const input = $("displayFindInput");
+  const q = input ? String(input.value || "") : "";
+  displayRestoreBody();
+  displayUpdateCount();
+  if (!q) {
+    displayUpdateCount();
+    return;
+  }
+  const body = $("displayOverlayBody");
+  if (!body || !document.createTreeWalker) {
+    displayUpdateCount();
+    return;
+  }
+  let re;
+  try {
+    re = new RegExp(displayEscapeRe(q), "gi");
+  } catch (e) {
+    displayUpdateCount();
+    return;
+  }
+  const walker = document.createTreeWalker(body, NodeFilter.SHOW_TEXT, null, false);
+  const nodes = [];
+  while (walker.nextNode()) nodes.push(walker.currentNode);
+  const marks = [];
+  for (let i = 0; i < nodes.length; i++) {
+    const node = nodes[i];
+    const text = node.nodeValue;
+    if (!text) continue;
+    re.lastIndex = 0;
+    if (!re.test(text)) {
+      re.lastIndex = 0;
+      continue;
+    }
+    re.lastIndex = 0;
+    const frag = document.createDocumentFragment();
+    let last = 0, m;
+    while (m = re.exec(text)) {
+      if (m.index > last) frag.appendChild(document.createTextNode(text.slice(last, m.index)));
+      const mark = document.createElement("mark");
+      mark.className = "display-hl";
+      mark.appendChild(document.createTextNode(m[0]));
+      frag.appendChild(mark);
+      marks.push(mark);
+      last = m.index + m[0].length;
+      if (!m[0].length) re.lastIndex++;
+    }
+    if (last < text.length) frag.appendChild(document.createTextNode(text.slice(last)));
+    if (node.parentNode) node.parentNode.replaceChild(frag, node);
+  }
+  displayMatches = marks;
+  displayIndex = 0;
+  if (displayMatches.length) displayMarkCurrent();
+  else displayUpdateCount();
+}
+function openDisplayView() {
+  const overlay = $("displayOverlay");
+  const body = $("displayOverlayBody");
+  if (!overlay || !body) return;
+  displaySavedHtml = displayContentHtml();
+  body.innerHTML = displaySavedHtml;
+  displayMatches = [];
+  displayIndex = 0;
+  const input = $("displayFindInput");
+  if (input) input.value = "";
+  displayUpdateCount();
+  try {
+    displayPrevScroll = window.pageYOffset || document.documentElement.scrollTop || 0;
+  } catch (e) {
+    displayPrevScroll = 0;
+  }
+  try {
+    displayPrevOverflow = document.body.style.overflow || "";
+    document.body.style.overflow = "hidden";
+  } catch (e) {
+  }
+  overlay.hidden = false;
+  overlay.setAttribute("aria-hidden", "false");
+  overlay.removeAttribute("hidden");
+  try {
+    const closer = $("displayOverlayClose");
+    if (closer) closer.focus();
+  } catch (e) {
+  }
+}
+function closeDisplayView() {
+  const overlay = $("displayOverlay");
+  if (!overlay) return;
+  overlay.hidden = true;
+  overlay.setAttribute("aria-hidden", "true");
+  overlay.setAttribute("hidden", "");
+  try {
+    document.body.style.overflow = displayPrevOverflow;
+  } catch (e) {
+  }
+  try {
+    window.scrollTo(0, displayPrevScroll || 0);
+  } catch (e) {
+  }
+  displayMatches = [];
+  displaySavedHtml = "";
+  try {
+    const db = $("answerDisplayBtn");
+    if (db) db.focus();
+  } catch (e) {
+  }
+}
+function wireDisplayOverlay() {
+  const db = $("answerDisplayBtn");
+  if (db) db.onclick = function() {
+    openDisplayView();
+  };
+  const close = $("displayOverlayClose");
+  if (close) close.onclick = function() {
+    closeDisplayView();
+  };
+  const prev = $("displayFindPrev");
+  if (prev) prev.onclick = function() {
+    displayGo(-1);
+  };
+  const next = $("displayFindNext");
+  if (next) next.onclick = function() {
+    displayGo(1);
+  };
+  const clear = $("displayFindClear");
+  if (clear) clear.onclick = function() {
+    const input2 = $("displayFindInput");
+    if (input2) input2.value = "";
+    displayRestoreBody();
+    displayUpdateCount();
+    if (input2) input2.focus();
+  };
+  const input = $("displayFindInput");
+  if (input) {
+    input.addEventListener("input", function() {
+      displayApplyFind();
+    });
+    input.addEventListener("search", function() {
+      displayApplyFind();
+    });
+    input.addEventListener("keydown", function(ev) {
+      if (!ev) return;
+      if (ev.key === "Enter") {
+        ev.preventDefault();
+        if (ev.shiftKey) displayGo(-1);
+        else displayGo(1);
+      }
+    });
+  }
+  document.addEventListener("keydown", function(ev) {
+    if (!ev) return;
+    if (ev.key !== "Escape") return;
+    const overlay = $("displayOverlay");
+    if (overlay && !overlay.hidden && !overlay.hasAttribute("hidden")) {
+      ev.preventDefault();
+      closeDisplayView();
+    }
+  });
 }
 function reportPlainText(opts) {
   opts = opts || {};
@@ -3038,6 +3279,10 @@ function wire() {
       ev.preventDefault();
       shareOrFallback("answer", ev.currentTarget || asb);
     };
+    try {
+      wireDisplayOverlay();
+    } catch (e) {
+    }
     const sm = $("shareMenu");
     if (sm) {
       sm.addEventListener("click", onShareMenuClick);
