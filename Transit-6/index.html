@@ -1,15 +1,15 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta http-equiv="Cache-Control" content="202611121945" />
-  <meta name="ta-build" content="202611121945" />
+  <meta http-equiv="Cache-Control" content="202611122000" />
+  <meta name="ta-build" content="202611122000" />
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="theme-color" content="#0f1419" />
-<title>Human Design Transit Analyzer</title>
+<title>Human Design Transit Analyzer — Transit-6</title>
 <link rel="manifest" href="manifest.webmanifest" />
 <style>
 
@@ -117,6 +117,19 @@ button.secondary#nowBtn.active{opacity:1;font-weight:750;background:var(--accent
 #extraOutputNeedReportHint[hidden],#betweenMembersDisabledHint[hidden]{display:none!important}
 #extraOutputOpts label.check.is-disabled{opacity:.65}
 #extraOutputOpts input[disabled]{cursor:not-allowed}
+.more-members{margin:.75rem 0 .55rem;border:1px solid var(--border);border-radius:8px;padding:.25rem .7rem .55rem;background:rgba(0,0,0,.15)}
+.more-members > summary{cursor:pointer;font-weight:600;color:var(--accent);padding:.4rem 0;list-style:disclosure-closed}
+.more-members[open] > summary{list-style:disclosure-open}
+.more-members .person-block{margin-top:.35rem}
+#controls .more-members textarea{min-height:72px}
+.between-pair-wrap{margin:.2rem 0 .4rem}
+.between-pair-list{display:flex;flex-wrap:wrap;gap:.3rem .85rem;margin:.2rem 0 .35rem}
+.between-pair-list label.check{margin:0;font-size:.88rem;align-items:center}
+@media(max-width:1000px){
+  #controls textarea{min-height:88px}
+  #controls .more-members textarea{min-height:64px}
+  .between-pair-list{gap:.25rem .55rem}
+}
 #askGrokPanel{margin:.4rem 0 .15rem}
 #report .grok-length-note{margin:.4rem 0 0;font-size:.92em;color:#c9b27a;}
 
@@ -242,7 +255,8 @@ button,.secondary{touch-action:manipulation;-webkit-tap-highlight-color:transpar
      Pre-report and “need a second member” notices must remain visible on phones. */
   #extraOutputOpts > p.hint{display:none}
   #extraOutputNeedReportHint:not([hidden]),
-  #betweenMembersDisabledHint:not([hidden]){display:block!important}
+  #betweenMembersDisabledHint:not([hidden]),
+  #betweenPairHint:not([hidden]){display:block!important}
   #askGrokBtn{min-width:5.5rem}
   #askGrokQuestion{min-height:5.5rem}
 }
@@ -338,8 +352,8 @@ label.check,label.check input{cursor:pointer}
 <body>
 <div id="taErrorBanner" hidden role="alert"></div>
 <header>
-  <h1>Human Design Transit Analyzer (Live)</h1>
-  <p>Offline-capable ephemeris · True Lunar Node · Plain-language transit stories · data.js separate</p>
+  <h1>Human Design Transit Analyzer (Transit-6)</h1>
+  <p>Up to six members · Offline-capable ephemeris · True Lunar Node · Plain-language transit stories</p>
 </header>
 <div class="banner" id="cdnBanner"></div>
 <main>
@@ -460,6 +474,124 @@ label.check,label.check input{cursor:pointer}
       <button type="button" class="secondary" id="applyMan3">Apply manual gates</button>
     </div>
 
+    <details id="moreMembers" class="more-members">
+      <summary>Inputs 4–6 (optional)</summary>
+    <div class="person-block" data-person="4">
+    <div class="label-row">
+      <label for="person4">Person / Input 4 (optional)</label>
+      <button type="button" class="clear-btn" id="clearPerson4" title="Remove" aria-label="Remove Person 4">×</button>
+    </div>
+    <textarea id="person4"></textarea>
+    <div class="chart-status" id="chartStatus4" aria-live="polite"></div>
+    <div class="row">
+      <div>
+        <label>Upload .json / .txt / .docx / .png</label>
+        <input type="file" id="file4" accept=".json,.txt,.docx,.doc,.png,image/png,image/*,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword" />
+      </div>
+    </div>
+    <div class="quick-load" id="quickLoad4" role="group" aria-label="Quick-load sample for Person 4">
+      <span class="quick-load-label">Quick load</span>
+      <div class="quick-load-grid" id="quickLoadGrid4">
+        <div class="ql-slot" data-index="1"><button type="button" class="secondary quick-sample" data-slot="4" data-index="1" data-sample="dennis" id="ql4-dennis" aria-pressed="false">Dennis</button></div>
+        <div class="ql-slot" data-index="2"><button type="button" class="secondary quick-sample" data-slot="4" data-index="2" data-sample="eike" id="ql4-eike" aria-pressed="false">Eike</button></div>
+        <div class="ql-slot" data-index="3"><button type="button" class="secondary quick-sample" data-slot="4" data-index="3" data-sample="judy" id="ql4-judy" aria-pressed="false">Judy</button></div>
+        <div class="ql-slot" data-index="4"><button type="button" class="secondary quick-sample" data-slot="4" data-index="4" data-sample="carolyn" id="ql4-carolyn" aria-pressed="false">Carolyn</button></div>
+        <div class="ql-slot" data-index="5"><button type="button" class="secondary quick-sample" data-slot="4" data-index="5" data-sample="milena" id="ql4-milena" aria-pressed="false">Milena</button></div>
+        <div class="ql-slot" data-index="6"><button type="button" class="secondary quick-sample" data-slot="4" data-index="6" data-sample="teresa" id="ql4-teresa" aria-pressed="false">Teresa</button></div>
+        <div class="ql-slot empty-slot" data-index="7"><button type="button" class="secondary quick-sample empty" data-slot="4" data-index="7" data-sample="" id="ql4-empty7" disabled title="Empty custom slot — upload a .docx / .json / .txt chart to save here">Empty</button></div>
+        <div class="ql-slot empty-slot" data-index="8"><button type="button" class="secondary quick-sample empty" data-slot="4" data-index="8" data-sample="" id="ql4-empty8" disabled title="Empty custom slot — upload a .docx / .json / .txt chart to save here">Empty</button></div>
+        <div class="ql-slot empty-slot" data-index="9"><button type="button" class="secondary quick-sample empty" data-slot="4" data-index="9" data-sample="" id="ql4-empty9" disabled title="Empty custom slot — upload a .docx / .json / .txt chart to save here">Empty</button></div>
+        <div class="ql-slot empty-slot" data-index="10"><button type="button" class="secondary quick-sample empty" data-slot="4" data-index="10" data-sample="" id="ql4-empty10" disabled title="Empty custom slot — upload a .docx / .json / .txt chart to save here">Empty</button></div>
+        <div class="ql-slot empty-slot" data-index="11"><button type="button" class="secondary quick-sample empty" data-slot="4" data-index="11" data-sample="" id="ql4-empty11" disabled title="Empty custom slot — upload a .docx / .json / .txt chart to save here">Empty</button></div>
+        <div class="ql-slot empty-slot" data-index="12"><button type="button" class="secondary quick-sample empty" data-slot="4" data-index="12" data-sample="" id="ql4-empty12" disabled title="Empty custom slot — upload a .docx / .json / .txt chart to save here">Empty</button></div>
+      </div>
+    </div>
+    <div class="png-box" id="pngBox4">
+      <img id="pngImg4" alt="Chart 4 preview" />
+      <label>Manual gates (from image)</label>
+      <input id="manName4" placeholder="Name" />
+      <input id="manGates4" placeholder="Earth:27.2, Mars:14.2, Venus:34.5" />
+      <button type="button" class="secondary" id="applyMan4">Apply manual gates</button>
+    </div>
+    </div>
+    <div class="person-block" data-person="5">
+    <div class="label-row">
+      <label for="person5">Person / Input 5 (optional)</label>
+      <button type="button" class="clear-btn" id="clearPerson5" title="Remove" aria-label="Remove Person 5">×</button>
+    </div>
+    <textarea id="person5"></textarea>
+    <div class="chart-status" id="chartStatus5" aria-live="polite"></div>
+    <div class="row">
+      <div>
+        <label>Upload .json / .txt / .docx / .png</label>
+        <input type="file" id="file5" accept=".json,.txt,.docx,.doc,.png,image/png,image/*,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword" />
+      </div>
+    </div>
+    <div class="quick-load" id="quickLoad5" role="group" aria-label="Quick-load sample for Person 5">
+      <span class="quick-load-label">Quick load</span>
+      <div class="quick-load-grid" id="quickLoadGrid5">
+        <div class="ql-slot" data-index="1"><button type="button" class="secondary quick-sample" data-slot="5" data-index="1" data-sample="dennis" id="ql5-dennis" aria-pressed="false">Dennis</button></div>
+        <div class="ql-slot" data-index="2"><button type="button" class="secondary quick-sample" data-slot="5" data-index="2" data-sample="eike" id="ql5-eike" aria-pressed="false">Eike</button></div>
+        <div class="ql-slot" data-index="3"><button type="button" class="secondary quick-sample" data-slot="5" data-index="3" data-sample="judy" id="ql5-judy" aria-pressed="false">Judy</button></div>
+        <div class="ql-slot" data-index="4"><button type="button" class="secondary quick-sample" data-slot="5" data-index="4" data-sample="carolyn" id="ql5-carolyn" aria-pressed="false">Carolyn</button></div>
+        <div class="ql-slot" data-index="5"><button type="button" class="secondary quick-sample" data-slot="5" data-index="5" data-sample="milena" id="ql5-milena" aria-pressed="false">Milena</button></div>
+        <div class="ql-slot" data-index="6"><button type="button" class="secondary quick-sample" data-slot="5" data-index="6" data-sample="teresa" id="ql5-teresa" aria-pressed="false">Teresa</button></div>
+        <div class="ql-slot empty-slot" data-index="7"><button type="button" class="secondary quick-sample empty" data-slot="5" data-index="7" data-sample="" id="ql5-empty7" disabled title="Empty custom slot — upload a .docx / .json / .txt chart to save here">Empty</button></div>
+        <div class="ql-slot empty-slot" data-index="8"><button type="button" class="secondary quick-sample empty" data-slot="5" data-index="8" data-sample="" id="ql5-empty8" disabled title="Empty custom slot — upload a .docx / .json / .txt chart to save here">Empty</button></div>
+        <div class="ql-slot empty-slot" data-index="9"><button type="button" class="secondary quick-sample empty" data-slot="5" data-index="9" data-sample="" id="ql5-empty9" disabled title="Empty custom slot — upload a .docx / .json / .txt chart to save here">Empty</button></div>
+        <div class="ql-slot empty-slot" data-index="10"><button type="button" class="secondary quick-sample empty" data-slot="5" data-index="10" data-sample="" id="ql5-empty10" disabled title="Empty custom slot — upload a .docx / .json / .txt chart to save here">Empty</button></div>
+        <div class="ql-slot empty-slot" data-index="11"><button type="button" class="secondary quick-sample empty" data-slot="5" data-index="11" data-sample="" id="ql5-empty11" disabled title="Empty custom slot — upload a .docx / .json / .txt chart to save here">Empty</button></div>
+        <div class="ql-slot empty-slot" data-index="12"><button type="button" class="secondary quick-sample empty" data-slot="5" data-index="12" data-sample="" id="ql5-empty12" disabled title="Empty custom slot — upload a .docx / .json / .txt chart to save here">Empty</button></div>
+      </div>
+    </div>
+    <div class="png-box" id="pngBox5">
+      <img id="pngImg5" alt="Chart 5 preview" />
+      <label>Manual gates (from image)</label>
+      <input id="manName5" placeholder="Name" />
+      <input id="manGates5" placeholder="Earth:27.2, Mars:14.2, Venus:34.5" />
+      <button type="button" class="secondary" id="applyMan5">Apply manual gates</button>
+    </div>
+    </div>
+    <div class="person-block" data-person="6">
+    <div class="label-row">
+      <label for="person6">Person / Input 6 (optional)</label>
+      <button type="button" class="clear-btn" id="clearPerson6" title="Remove" aria-label="Remove Person 6">×</button>
+    </div>
+    <textarea id="person6"></textarea>
+    <div class="chart-status" id="chartStatus6" aria-live="polite"></div>
+    <div class="row">
+      <div>
+        <label>Upload .json / .txt / .docx / .png</label>
+        <input type="file" id="file6" accept=".json,.txt,.docx,.doc,.png,image/png,image/*,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword" />
+      </div>
+    </div>
+    <div class="quick-load" id="quickLoad6" role="group" aria-label="Quick-load sample for Person 6">
+      <span class="quick-load-label">Quick load</span>
+      <div class="quick-load-grid" id="quickLoadGrid6">
+        <div class="ql-slot" data-index="1"><button type="button" class="secondary quick-sample" data-slot="6" data-index="1" data-sample="dennis" id="ql6-dennis" aria-pressed="false">Dennis</button></div>
+        <div class="ql-slot" data-index="2"><button type="button" class="secondary quick-sample" data-slot="6" data-index="2" data-sample="eike" id="ql6-eike" aria-pressed="false">Eike</button></div>
+        <div class="ql-slot" data-index="3"><button type="button" class="secondary quick-sample" data-slot="6" data-index="3" data-sample="judy" id="ql6-judy" aria-pressed="false">Judy</button></div>
+        <div class="ql-slot" data-index="4"><button type="button" class="secondary quick-sample" data-slot="6" data-index="4" data-sample="carolyn" id="ql6-carolyn" aria-pressed="false">Carolyn</button></div>
+        <div class="ql-slot" data-index="5"><button type="button" class="secondary quick-sample" data-slot="6" data-index="5" data-sample="milena" id="ql6-milena" aria-pressed="false">Milena</button></div>
+        <div class="ql-slot" data-index="6"><button type="button" class="secondary quick-sample" data-slot="6" data-index="6" data-sample="teresa" id="ql6-teresa" aria-pressed="false">Teresa</button></div>
+        <div class="ql-slot empty-slot" data-index="7"><button type="button" class="secondary quick-sample empty" data-slot="6" data-index="7" data-sample="" id="ql6-empty7" disabled title="Empty custom slot — upload a .docx / .json / .txt chart to save here">Empty</button></div>
+        <div class="ql-slot empty-slot" data-index="8"><button type="button" class="secondary quick-sample empty" data-slot="6" data-index="8" data-sample="" id="ql6-empty8" disabled title="Empty custom slot — upload a .docx / .json / .txt chart to save here">Empty</button></div>
+        <div class="ql-slot empty-slot" data-index="9"><button type="button" class="secondary quick-sample empty" data-slot="6" data-index="9" data-sample="" id="ql6-empty9" disabled title="Empty custom slot — upload a .docx / .json / .txt chart to save here">Empty</button></div>
+        <div class="ql-slot empty-slot" data-index="10"><button type="button" class="secondary quick-sample empty" data-slot="6" data-index="10" data-sample="" id="ql6-empty10" disabled title="Empty custom slot — upload a .docx / .json / .txt chart to save here">Empty</button></div>
+        <div class="ql-slot empty-slot" data-index="11"><button type="button" class="secondary quick-sample empty" data-slot="6" data-index="11" data-sample="" id="ql6-empty11" disabled title="Empty custom slot — upload a .docx / .json / .txt chart to save here">Empty</button></div>
+        <div class="ql-slot empty-slot" data-index="12"><button type="button" class="secondary quick-sample empty" data-slot="6" data-index="12" data-sample="" id="ql6-empty12" disabled title="Empty custom slot — upload a .docx / .json / .txt chart to save here">Empty</button></div>
+      </div>
+    </div>
+    <div class="png-box" id="pngBox6">
+      <img id="pngImg6" alt="Chart 6 preview" />
+      <label>Manual gates (from image)</label>
+      <input id="manName6" placeholder="Name" />
+      <input id="manGates6" placeholder="Earth:27.2, Mars:14.2, Venus:34.5" />
+      <button type="button" class="secondary" id="applyMan6">Apply manual gates</button>
+    </div>
+    </div>
+    </details>
+
     <h2 style="margin-top:1rem">When</h2>
     <div class="mode-toggle" id="whenModeToggle" role="group" aria-label="When">
       <button type="button" class="secondary" id="modeSingle" aria-pressed="false">Single day</button>
@@ -471,7 +603,7 @@ label.check,label.check input{cursor:pointer}
       <input type="checkbox" id="includeRangeFullDesc" checked />
       Full descriptions
     </label>
-    <p class="hint" id="rangeFullDescHint" style="margin:.05rem 0 .45rem">Per event: gate.line, weekday date, local AM/PM time, and the full reading—channel completions, other transit interactions, chart touches, and couple comparison when two or three charts are loaded. Does not add positions tables. Checked by default. Mutually exclusive with Brief descriptions. If neither Full nor Brief is checked, the report uses Full descriptions.</p>
+    <p class="hint" id="rangeFullDescHint" style="margin:.05rem 0 .45rem">Per event: gate.line, weekday date, local AM/PM time, and the full reading—channel completions, other transit interactions, chart touches, and couple comparison when two or more charts are loaded. Does not add positions tables. Checked by default. Mutually exclusive with Brief descriptions. If neither Full nor Brief is checked, the report uses Full descriptions.</p>
     <label class="check" id="rangeBriefDescOpt" style="margin:.15rem 0 .15rem">
       <input type="checkbox" id="includeRangeBriefDesc" />
       Brief descriptions
@@ -612,8 +744,12 @@ label.check,label.check input{cursor:pointer}
         <input type="checkbox" id="betweenMembers" />
         Between members selected, day by day
       </label>
-      <p id="betweenMembersDisabledHint" hidden>Select a second or third member to compare. With only one member selected, Between members is unavailable.</p>
-      <p class="hint" id="betweenMembersHint" style="margin:.05rem 0 .35rem">Unchecked by default. When on, the report above shows only the Between members section, date by date, not the full regular report. With two members selected, each day (weekday date, local AM/PM times, gate time spans in the prose) describes how they condition each other—electromagnetic, companionship, and dominance channels, and which open centers each fills in the other—plus how that day's transits change it. With three members selected, each day covers all three pairs (1–2, 1–3, and 2–3). Always available here, whether or not Real-World Influence is checked.</p>
+      <p id="betweenMembersDisabledHint" hidden>Select a second member (or more) to compare. With only one member selected, Between members is unavailable.</p>
+      <div id="betweenPairWrap" class="between-pair-wrap" hidden>
+        <p id="betweenPairHint" class="hint" style="margin:.05rem 0 .25rem">Choose which pairs to include. All pairs are selected by default. With more than three members, Between uses a shorter form per pair per day.</p>
+        <div id="betweenPairList" class="between-pair-list"></div>
+      </div>
+      <p class="hint" id="betweenMembersHint" style="margin:.05rem 0 .35rem">Unchecked by default. When on, the report above shows only the Between members section, date by date, not the full regular report. With two members selected, each day (weekday date, local AM/PM times, gate time spans in the prose) describes how they condition each other—electromagnetic, companionship, and dominance channels, and which open centers each fills in the other—plus how that day's transits change it. With three members, each day covers the selected pairs (all pairs on by default). With four to six members, Between uses a shorter form per selected pair per day (all pairs on by default). Always available here, whether or not Real-World Influence is checked.</p>
       <label class="check" style="display:flex;align-items:flex-start;gap:.5rem;margin:.15rem 0 .1rem">
         <input type="checkbox" id="askGrokBox" />
         Ask a question about Advantages and Difficulties
@@ -643,8 +779,8 @@ label.check,label.check input{cursor:pointer}
 </div>
 
 <!-- Data is separate from the UI. Script order matters. Works via file:// on Windows and via https on iPhone/iPad Firefox. -->
-<script src="astronomy.browser.min.js?v=202611121945"></script>
-<script src="data.js?v=202611121945"></script>
+<script src="astronomy.browser.min.js?v=202611122000"></script>
+<script src="data.js?v=202611122000"></script>
 
 <script>
 /* ES5 quick-load + Full/Brief bootstrap: works even if later scripts fail. */
@@ -752,19 +888,16 @@ label.check,label.check input{cursor:pointer}
     try{ brief.addEventListener('click', onBrief, false); }catch(e){}
   }
   function boot(){
-    try{ fillIfEmpty('quickLoadGrid1',1); }catch(e){}
-    try{ fillIfEmpty('quickLoadGrid2',2); }catch(e){}
-    try{ fillIfEmpty('quickLoadGrid3',3); }catch(e){}
-    try{ wireGrid('quickLoadGrid1',1); }catch(e){}
-    try{ wireGrid('quickLoadGrid2',2); }catch(e){}
-    try{ wireGrid('quickLoadGrid3',3); }catch(e){}
+    var n;
+    for(n=1;n<=6;n++){ try{ fillIfEmpty('quickLoadGrid'+n,n); }catch(e){} }
+    for(n=1;n<=6;n++){ try{ wireGrid('quickLoadGrid'+n,n); }catch(e){} }
     try{ wireRangeDesc(); }catch(e){}
   }
   if(document.readyState==='loading'){ document.addEventListener('DOMContentLoaded', boot); }
   else { boot(); }
 })();
 </script>
-<script src="analyzer.js?v=202611121945"></script>
-<script src="app.js?v=202611121945"></script>
+<script src="analyzer.js?v=202611122000"></script>
+<script src="app.js?v=202611122000"></script>
 </body>
 </html>

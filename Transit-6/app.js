@@ -43,19 +43,109 @@ function loadParsedFromBox(n) {
 function selectedPeopleFromBoxes() {
   const p1 = loadParsedFromBox(1);
   const extras = [];
-  const a = loadParsedFromBox(2);
-  if (a) extras.push({ raw: a, slot: 2 });
-  const b = loadParsedFromBox(3);
-  if (b) extras.push({ raw: b, slot: 3 });
+  for (let n = 2; n <= 6; n++) {
+    const raw = loadParsedFromBox(n);
+    if (raw) extras.push({ raw, slot: n });
+  }
   return {
     p1,
     p2: extras[0] ? extras[0].raw : null,
     p3: extras[1] ? extras[1].raw : null,
+    extrasRaw: extras.map(function(e) {
+      return e.raw;
+    }),
+    extraSlots: extras.map(function(e) {
+      return e.slot;
+    }),
     p2slot: extras[0] ? extras[0].slot : null,
     p3slot: extras[1] ? extras[1].slot : null,
     extraCount: extras.length,
     anyExtra: extras.length > 0
   };
+}
+function firstNameFromRaw(raw, fallback) {
+  try {
+    const n = firstNameMember(raw && raw.name);
+    if (n) return n;
+  } catch (e) {
+  }
+  return fallback || "Member";
+}
+function listSelectedMemberSlots() {
+  const sel = selectedPeopleFromBoxes();
+  const out = [];
+  if (sel.p1) out.push({ slot: 1, raw: sel.p1, name: firstNameFromRaw(sel.p1, "Person 1") });
+  (sel.extraSlots || []).forEach(function(slot, i) {
+    const raw = sel.extrasRaw[i];
+    out.push({ slot, raw, name: firstNameFromRaw(raw, "Person " + slot) });
+  });
+  return out;
+}
+function memberPairKey(slotA, slotB) {
+  return String(slotA) + "-" + String(slotB);
+}
+function listPossiblePairs(members) {
+  const list = members || listSelectedMemberSlots();
+  const pairs = [];
+  for (let i = 0; i < list.length; i++) {
+    for (let j = i + 1; j < list.length; j++) {
+      pairs.push({
+        a: list[i],
+        b: list[j],
+        key: memberPairKey(list[i].slot, list[j].slot),
+        label: (list[i].name || "Member") + " & " + (list[j].name || "Member")
+      });
+    }
+  }
+  return pairs;
+}
+function renderBetweenPairSelector() {
+  const wrap = $("betweenPairWrap");
+  const listEl = $("betweenPairList");
+  if (!wrap || !listEl) return;
+  const members = listSelectedMemberSlots();
+  const pairs = listPossiblePairs(members);
+  const show = members.length >= 2;
+  wrap.hidden = !show;
+  if (!show) {
+    listEl.innerHTML = "";
+    return;
+  }
+  const prev = {};
+  listEl.querySelectorAll("input[data-pair-key]").forEach(function(cb) {
+    prev[cb.getAttribute("data-pair-key")] = !!cb.checked;
+  });
+  const parts = [];
+  for (let i = 0; i < pairs.length; i++) {
+    const pr = pairs[i];
+    const checked = prev[pr.key] === void 0 ? true : prev[pr.key];
+    parts.push('<label class="check"><input type="checkbox" data-pair-key="' + pr.key + '" id="betweenPair-' + pr.key + '"' + (checked ? " checked" : "") + " /> " + pr.label + "</label>");
+  }
+  listEl.innerHTML = parts.join("");
+  const hint = $("betweenPairHint");
+  if (hint) {
+    hint.textContent = members.length > 3 ? "Choose which pairs to include. All pairs are selected by default. With more than three members, Between uses a shorter form per pair per day." : "Choose which pairs to include. All pairs are selected by default.";
+  }
+}
+function getSelectedBetweenPairKeys() {
+  const listEl = $("betweenPairList");
+  const boxes = listEl ? listEl.querySelectorAll("input[data-pair-key]") : [];
+  if (!boxes.length) {
+    return listPossiblePairs().map(function(pr) {
+      return pr.key;
+    });
+  }
+  const keys = [];
+  boxes.forEach(function(cb) {
+    if (cb.checked) keys.push(cb.getAttribute("data-pair-key"));
+  });
+  return keys;
+}
+function ensureMemberSlotVisible(n) {
+  if (n >= 4) {
+    const d = $("moreMembers");
+    if (d) d.open = true;
+  }
 }
 const status = (msg, cls = "") => {
   const s = $("status");
@@ -884,7 +974,7 @@ function sampleButtonLabel(key) {
 function renderQuickLoadGrids() {
   try {
     const order = sampleOrderList();
-    for (let n = 1; n <= 3; n++) {
+    for (let n = 1; n <= 6; n++) {
       try {
         const grid = $("quickLoadGrid" + n) || $("quickLoad" + n) && $("quickLoad" + n).querySelector(".quick-load-grid");
         if (!grid) continue;
@@ -1023,6 +1113,10 @@ function setPersonText(n, obj, sampleKey) {
   updateChartStatus(n);
   if (sampleKey) setQuickLoadHighlight(n, sampleKey);
   else clearQuickLoadHighlight(n);
+  try {
+    if (typeof ensureMemberSlotVisible === "function") ensureMemberSlotVisible(n);
+  } catch (e) {
+  }
   try {
     if (typeof syncExtraOutputOpts === "function") syncExtraOutputOpts();
   } catch (e) {
@@ -1393,7 +1487,7 @@ function filledMemberCount() {
   try {
     if (typeof selectedPeopleFromBoxes === "function") {
       const sel = selectedPeopleFromBoxes();
-      return (sel.p1 ? 1 : 0) + (sel.p2 ? 1 : 0) + (sel.p3 ? 1 : 0);
+      return (sel.p1 ? 1 : 0) + (sel.extraCount || 0);
     }
   } catch (e) {
   }
@@ -1440,6 +1534,10 @@ function syncExtraOutputOpts() {
   if (disHint) {
     if (needTwo) disHint.removeAttribute("hidden");
     else disHint.setAttribute("hidden", "hidden");
+  }
+  try {
+    renderBetweenPairSelector();
+  } catch (e) {
   }
   if (typeof syncAskGrokPanel === "function") syncAskGrokPanel();
 }
@@ -1735,8 +1833,11 @@ function compactDesignSummary(person) {
     const gates = (ch.gates || []).join("-");
     return (ch.name || ch.id || "") + (cents ? " (" + cents + ")" : "") + (gates ? " " + gates : "");
   });
+  const pn = window.HD && typeof HD.personPronouns === "function" ? HD.personPronouns(person) : null;
   return {
     name: firstNameMember(person.name),
+    pronouns: pn && pn.label || "they/them",
+    gender: pn && pn.gender || "",
     type: profile.type || "",
     strategy: profile.strategy || "",
     authority: profile.authority || "",
@@ -1762,7 +1863,7 @@ function loadAskPersonFromBox(which) {
 function collectAskDesigns() {
   const out = [];
   const sel = selectedPeopleFromBoxes();
-  const raws = [sel.p1, sel.p2, sel.p3];
+  const raws = [sel.p1].concat(sel.extrasRaw || []);
   for (let i = 0; i < raws.length; i++) {
     if (!raws[i]) continue;
     try {
@@ -1777,7 +1878,7 @@ function collectAskDesigns() {
 function collectAskMembers() {
   const names = [];
   const sel = selectedPeopleFromBoxes();
-  const raws = [sel.p1, sel.p2, sel.p3];
+  const raws = [sel.p1].concat(sel.extrasRaw || []);
   for (let i = 0; i < raws.length; i++) {
     try {
       const n = firstNameMember(raws[i] && raws[i].name);
@@ -1990,7 +2091,11 @@ function runAnalysis() {
       status(msg.split("\n")[0], "err");
     }, attachPerson32 = function(meta) {
       const out = Object.assign({}, meta || {});
+      out.members = members;
+      if (extraAfterTwo.length) out.extraPeople = extraAfterTwo;
       if (person3) out.person3 = person3;
+      out.betweenPairKeys = getSelectedBetweenPairKeys();
+      out.betweenBrief = members.length > 3;
       return out;
     };
     var stopChart = stopChart2, attachPerson3 = attachPerson32;
@@ -2003,7 +2108,7 @@ function runAnalysis() {
     const p2 = sel.p2;
     const p3 = sel.p3;
     if (!p1) {
-      const friendly = !sel.anyExtra ? "Add a chart to get started \u2014 paste JSON or text, upload a file, or load a sample for Person 1 (Person 2 and Person 3 are optional)." : "Person 1 is empty \u2014 add a chart in Person 1, or clear the other inputs and use Person 1 for a solo report.";
+      const friendly = !sel.anyExtra ? "Add a chart to get started \u2014 paste JSON or text, upload a file, or load a sample for Person 1 (Inputs 2\u20136 are optional)." : "Person 1 is empty \u2014 add a chart in Person 1, or clear the other inputs and use Person 1 for a solo report.";
       const wrap = $("report");
       if (wrap) wrap.innerHTML = '<p class="empty-hint">' + friendly + "</p>";
       lastHtml = wrap ? wrap.innerHTML : "";
@@ -2012,27 +2117,25 @@ function runAnalysis() {
       return;
     }
     const person1 = HD.loadPerson(p1);
-    const person2 = p2 ? HD.loadPerson(p2) : null;
-    const person3 = p3 ? HD.loadPerson(p3) : null;
+    person1._inputSlot = 1;
+    const extraPeople = [];
+    (sel.extrasRaw || []).forEach(function(raw, i) {
+      const person = HD.loadPerson(raw);
+      person._inputSlot = sel.extraSlots[i];
+      extraPeople.push(person);
+    });
+    const person2 = extraPeople[0] || null;
+    const extraAfterTwo = extraPeople.slice(1);
+    const person3 = extraAfterTwo[0] || null;
+    const members = [person1].concat(extraPeople);
     updateChartStatus(1);
-    if (sel.p2slot) updateChartStatus(sel.p2slot);
-    if (sel.p3slot) updateChartStatus(sel.p3slot);
-    const v1 = HD.validateNatalOrStop(person1, person1.name || "Person 1");
-    if (!v1.ok) {
-      stopChart2(v1.message);
-      return;
-    }
-    if (person2) {
-      const v2 = HD.validateNatalOrStop(person2, person2.name || "Person 2");
-      if (!v2.ok) {
-        stopChart2(v2.message);
-        return;
-      }
-    }
-    if (person3) {
-      const v3 = HD.validateNatalOrStop(person3, person3.name || "Person 3");
-      if (!v3.ok) {
-        stopChart2(v3.message);
+    (sel.extraSlots || []).forEach(function(slot) {
+      updateChartStatus(slot);
+    });
+    for (let mi = 0; mi < members.length; mi++) {
+      const v = HD.validateNatalOrStop(members[mi], members[mi].name || "Person " + (members[mi]._inputSlot || mi + 1));
+      if (!v.ok) {
+        stopChart2(v.message);
         return;
       }
     }
@@ -2050,7 +2153,7 @@ function runAnalysis() {
       if (dates.length > 31) throw new Error("Timeline ranges are limited to 31 days (you selected " + dates.length + "). Shorten From/To or click a nearer end date.");
       const startMs = mode === "range" ? queryWin.startMs : zonedTimeToUtc(dates[0], "00:00", tz).getTime();
       const endMs = mode === "range" ? queryWin.endExclusiveMs : zonedTimeToUtc(addCalendarDays(dates[dates.length - 1], 1), "00:00", tz).getTime();
-      const found = findChartRelevantEvents(window.Astronomy, person1, person2, startMs, endMs, tz, person3);
+      const found = findChartRelevantEvents(window.Astronomy, person1, person2, startMs, endMs, tz, extraAfterTwo);
       const rangeLabel = mode === "range" ? formatQueryWindowLabel(queryWin) : formatDisplayDateOnly(new Date(startMs), tz) + " \xB7 full local day";
       const tzLabel = resolveTzId(tz);
       const startField = computeTransitField(window.Astronomy, new Date(startMs));
@@ -2112,7 +2215,7 @@ function runAnalysis() {
       applyGrokAnswerToReport();
       let _shownN = found.events.length;
       if (interactionsOnlyOn() && person2) {
-        _shownN = found.events.filter((e) => isInteractionTimelineEvent(e, person1, person2, person3)).length;
+        _shownN = found.events.filter((e) => isInteractionTimelineEvent(e, person1, person2, extraAfterTwo)).length;
         $("ephemNote").textContent = "Interaction timeline: " + _shownN + " interaction events (" + found.events.length + " chart-relevant)" + (found.moonSkipped ? " \xB7 " + found.moonSkipped + " quiet Moon shifts omitted" : "") + " \xB7 " + rangeLabel;
       } else {
         $("ephemNote").textContent = "Timeline: " + found.events.length + " chart-relevant events" + (found.moonSkipped ? " \xB7 " + found.moonSkipped + " quiet Moon shifts omitted" : "") + " \xB7 " + rangeLabel;
@@ -2706,20 +2809,27 @@ function wire() {
       syncWhenModeHighlight();
       renderCalendar();
     };
-    const f1 = $("file1"), f2 = $("file2"), f3 = $("file3");
-    if (f1) f1.onchange = (e) => handleFile(1, e.target.files && e.target.files[0]);
-    if (f2) f2.onchange = (e) => handleFile(2, e.target.files && e.target.files[0]);
-    if (f3) f3.onchange = (e) => handleFile(3, e.target.files && e.target.files[0]);
-    const cp1 = $("clearPerson1"), cp2 = $("clearPerson2"), cp3 = $("clearPerson3"), cd = $("clearDates");
-    if (cp1) cp1.onclick = () => clearPerson(1);
-    if (cp2) cp2.onclick = () => clearPerson(2);
-    if (cp3) cp3.onclick = () => clearPerson(3);
+    for (let n = 1; n <= 6; n++) {
+      const f = $("file" + n);
+      if (f) f.onchange = /* @__PURE__ */ (function(slot) {
+        return function(e) {
+          handleFile(slot, e.target.files && e.target.files[0]);
+        };
+      })(n);
+      const cp = $("clearPerson" + n);
+      if (cp) cp.onclick = /* @__PURE__ */ (function(slot) {
+        return function() {
+          clearPerson(slot);
+        };
+      })(n);
+    }
+    const cd = $("clearDates");
     if (cd) cd.onclick = () => clearDates();
   });
   safe("quickLoad2", renderQuickLoadGrids);
   safe("quickLoadInput", () => {
     ;
-    [1, 2, 3].forEach((n) => {
+    [1, 2, 3, 4, 5, 6].forEach((n) => {
       const ta = $(personBoxId(n));
       if (ta) {
         const onPersonEdit = () => {
@@ -2828,6 +2938,15 @@ function wire() {
     };
   });
   safe("extraOpts", syncExtraOutputOpts);
+  safe("moreMembers", () => {
+    const d = $("moreMembers");
+    if (d && window.innerWidth > 1e3 && !d.hasAttribute("data-user-toggled")) d.open = true;
+    if (d) {
+      d.addEventListener("toggle", function() {
+        d.setAttribute("data-user-toggled", "1");
+      });
+    }
+  });
   safe("notSelf", () => {
     const nsCb = $("notSelfLandscape");
     if (nsCb) nsCb.onchange = () => rerunFromRefine();
@@ -2889,12 +3008,14 @@ function wire() {
     if (nowBtn) nowBtn.onclick = setNow;
   });
   safe("applyMan", () => {
-    const am1 = $("applyMan1");
-    if (am1) am1.onclick = () => applyManualGates(1);
-    const am2 = $("applyMan2");
-    if (am2) am2.onclick = () => applyManualGates(2);
-    const am3 = $("applyMan3");
-    if (am3) am3.onclick = () => applyManualGates(3);
+    for (let n = 1; n <= 6; n++) {
+      const am = $("applyMan" + n);
+      if (am) am.onclick = /* @__PURE__ */ (function(slot) {
+        return function() {
+          applyManualGates(slot);
+        };
+      })(n);
+    }
   });
   safe("export", () => {
     const em = $("exportMd");

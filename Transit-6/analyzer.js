@@ -424,6 +424,24 @@ function deepCloneChart(obj) {
   if (obj == null || typeof obj !== "object") return obj;
   return JSON.parse(JSON.stringify(obj));
 }
+function normalizePronouns(pronouns, gender) {
+  const g = String(gender == null ? "" : gender).toLowerCase().trim();
+  let p = String(pronouns == null ? "" : pronouns).toLowerCase().trim();
+  p = p.replace(/\s+/g, "");
+  if (p === "she/her" || p === "she" || p === "her" || g === "female" || g === "woman" || g === "f") {
+    return { known: true, label: "she/her", gender: "female", subject: "she", object: "her", possessive: "her", possessivePronoun: "hers", reflexive: "herself" };
+  }
+  if (p === "he/him" || p === "he" || p === "him" || g === "male" || g === "man" || g === "m") {
+    return { known: true, label: "he/him", gender: "male", subject: "he", object: "him", possessive: "his", possessivePronoun: "his", reflexive: "himself" };
+  }
+  return { known: false, label: "they/them", gender: null, subject: "they", object: "them", possessive: "their", possessivePronoun: "theirs", reflexive: "themself" };
+}
+function personPronouns(person) {
+  if (!person) return normalizePronouns(null, null);
+  if (person.pronounSet && person.pronounSet.label) return person.pronounSet;
+  const raw = person.raw || {};
+  return normalizePronouns(person.pronouns || raw.pronouns || raw.pronoun, person.gender || raw.gender);
+}
 function coerceChartObject(data) {
   if (data == null) return { planets: {}, design_planets: {} };
   if (typeof data === "string") {
@@ -485,6 +503,10 @@ function coerceChartObject(data) {
     const dk = "Design " + p;
     if (data[dk] != null && out.design_planets[p] == null) out.design_planets[p] = data[dk];
   }
+  if (data.gender != null && String(data.gender).trim() !== "") out.gender = data.gender;
+  else if (data.Gender != null && String(data.Gender).trim() !== "") out.gender = data.Gender;
+  const pr = data.pronouns || data.Pronouns || data.pronoun || data.Pronoun;
+  if (pr != null && String(pr).trim() !== "") out.pronouns = pr;
   return out;
 }
 function formatActivationList(person) {
@@ -530,6 +552,10 @@ function loadPerson(data) {
     center_mismatch: null,
     natal_channel_list: []
   };
+  const pn = normalizePronouns(data.pronouns, data.gender);
+  person.gender = pn.gender;
+  person.pronouns = pn.label;
+  person.pronounSet = pn;
   function ingestPlanet(pname, val, side) {
     try {
       const gl = parseGl(val);
@@ -5773,5 +5799,7 @@ window.HD = {
   appendExtraOutputSections,
   extraOutputWanted,
   extraOutputLandscapeOn,
-  extraOutputBetweenOn
+  extraOutputBetweenOn,
+  normalizePronouns,
+  personPronouns
 };
