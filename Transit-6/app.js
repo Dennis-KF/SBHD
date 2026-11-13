@@ -3129,8 +3129,10 @@ function showCdnFail(msg) {
   const b = $("cdnBanner");
   b.textContent = msg || "Could not load the astronomy-engine library from the CDN. Check your internet connection and reopen this file (or try again). Live transit positions cannot be calculated offline.";
   b.classList.add("show");
-  $("runBtn").disabled = true;
-  $("loadCouple").disabled = true;
+  const rb = $("runBtn");
+  if (rb) rb.disabled = true;
+  const lc = $("loadCouple");
+  if (lc) lc.disabled = true;
   engReady = false;
 }
 function loadAstronomy() {
