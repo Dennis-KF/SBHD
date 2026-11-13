@@ -333,6 +333,43 @@ function firstNameOnly(n) {
   if (!s) return "Unknown";
   return s.split(/\s+/)[0] || "Unknown";
 }
+function allPeople(p1, p2, p3) {
+  const out = [];
+  if (p1) out.push(p1);
+  if (p2) out.push(p2);
+  if (p3) out.push(p3);
+  return out;
+}
+function person3Of(meta2, explicit) {
+  if (explicit) return explicit;
+  if (meta2 && meta2.person3) return meta2.person3;
+  return null;
+}
+function peopleNameString(p1, p2, p3, firstOnly) {
+  if (!p3) {
+    if (firstOnly) return p2 ? firstNameOnly(p1.name) + " & " + firstNameOnly(p2.name) : firstNameOnly(p1 && p1.name);
+    return p2 ? p1.name + " & " + p2.name : p1 && p1.name || "";
+  }
+  const names = allPeople(p1, p2, p3).map((p) => firstNameOnly(p.name));
+  if (names.length <= 1) return names[0] || "";
+  if (names.length === 2) return names[0] + " & " + names[1];
+  return names.slice(0, -1).join(", ") + " & " + names[names.length - 1];
+}
+function peopleOrString(p1, p2, p3) {
+  if (!p3) return p1.name + (p2 ? " or " + p2.name : "");
+  const names = allPeople(p1, p2, p3).map((p) => firstNameOnly(p.name));
+  if (names.length <= 1) return names[0] || "";
+  if (names.length === 2) return names[0] + " or " + names[1];
+  return names.slice(0, -1).join(", ") + " or " + names[names.length - 1];
+}
+function peoplePairs(p1, p2, p3) {
+  const people = allPeople(p1, p2, p3);
+  const pairs = [];
+  for (let i = 0; i < people.length; i++) {
+    for (let j = i + 1; j < people.length; j++) pairs.push([people[i], people[j]]);
+  }
+  return pairs;
+}
 function normalizeCenterName(c) {
   const s = String(c || "").trim();
   if (!s) return s;
@@ -882,9 +919,36 @@ function spanYearsDiffer(span, tz) {
 function formatFromUntil(span, tz) {
   if (!span) return "";
   const withYear = spanYearsDiffer(span, tz);
-  const start = span.enterMs != null ? formatLocalAtStamp(span.enterMs, tz, withYear) : "before " + formatLocalAtStamp(span.floorMs, tz, withYear);
-  const end = span.exitMs != null ? formatLocalAtStamp(span.exitMs, tz, withYear) : "beyond " + formatLocalAtStamp(span.capMs, tz, withYear);
-  return "From " + start + " until " + end;
+  let enterMs = span.enterMs, exitMs = span.exitMs, floorMs = span.floorMs, capMs = span.capMs;
+  let startNote = "", endNote = "";
+  try {
+    const w = typeof window !== "undefined" && window.__RANGE_WINDOW__ ? window.__RANGE_WINDOW__ : null;
+    if (w && w.startMs != null && w.endMs != null) {
+      const startB = w.startMs, endB = w.endMs;
+      if (enterMs != null) {
+        if (enterMs < startB) {
+          enterMs = startB;
+          startNote = " (start of range)";
+        }
+      } else if (floorMs != null && floorMs < startB) {
+        enterMs = startB;
+        startNote = " (start of range)";
+      }
+      if (exitMs != null) {
+        if (exitMs > endB) {
+          exitMs = endB;
+          endNote = " (end of range)";
+        }
+      } else if (capMs != null && capMs > endB) {
+        exitMs = endB;
+        endNote = " (end of range)";
+      }
+    }
+  } catch (e) {
+  }
+  const start = enterMs != null ? formatLocalAtStamp(enterMs, tz, withYear) : "before " + formatLocalAtStamp(floorMs, tz, withYear);
+  const end = exitMs != null ? formatLocalAtStamp(exitMs, tz, withYear) : "beyond " + formatLocalAtStamp(capMs, tz, withYear);
+  return "From " + start + startNote + " until " + end + endNote;
 }
 function gateMoveClause(planet, gate, theme) {
   return planetLabel(planet) + " moves through gate " + gate + (theme ? " (" + theme + ")" : "");
@@ -905,8 +969,8 @@ function astronomyEngine() {
     return null;
   }
 }
-function transitTzOf(transit, meta) {
-  if (meta && meta.tz) return meta.tz;
+function transitTzOf(transit, meta2) {
+  if (meta2 && meta2.tz) return meta2.tz;
   if (transit && transit.tz) return transit.tz;
   try {
     const el = document.getElementById("tz");
@@ -946,11 +1010,11 @@ function claimHitSpeech(tracker, person, hit) {
   tracker.spokenHits.add(key);
   return true;
 }
-function activationLabelForHit(hit, transit, meta) {
+function activationLabelForHit(hit, transit, meta2) {
   const planet = hit.planet;
   const gate = +hit.gate || +String(hit.gl || "").split(".")[0] || 0;
   const line = +hit.line || +String(hit.gl || "").split(".")[1] || 0;
-  const tz = transitTzOf(transit, meta);
+  const tz = transitTzOf(transit, meta2);
   const at = transitAtMs(transit);
   const span = spanForPlanetAt(planet, at, tz);
   const theme = prettyTheme(hit.gateInfo && hit.gateInfo.name || gateThemeName(gate));
@@ -1027,7 +1091,7 @@ function gateRoleForPerson(person, gate) {
   }
   return null;
 }
-function diffRelevant(person1, person2, beforeField, afterField) {
+function diffRelevant(person1, person2, beforeField, afterField, person3) {
   const reasons = [];
   const s1b = chartStateKey(person1, beforeField), s1a = chartStateKey(person1, afterField);
   if (s1b.ch !== s1a.ch) reasons.push({ type: "channel", who: person1.name, before: s1b, after: s1a });
@@ -1043,13 +1107,28 @@ function diffRelevant(person1, person2, beforeField, afterField) {
       reasons.push({ type: "couple", who: "together", before: cb, after: ca });
     }
   }
+  if (person3) {
+    const s3b = chartStateKey(person3, beforeField), s3a = chartStateKey(person3, afterField);
+    if (s3b.ch !== s3a.ch) reasons.push({ type: "channel", who: person3.name, before: s3b, after: s3a });
+    if (s3b.touches !== s3a.touches) reasons.push({ type: "touch", who: person3.name, before: s3b, after: s3a });
+    if (s3b.centers !== s3a.centers) reasons.push({ type: "center", who: person3.name, before: s3b, after: s3a });
+    const pairs = [[person1, person3], [person2, person3]].filter(function(pr) {
+      return pr[0] && pr[1];
+    });
+    for (const pr of pairs) {
+      const cb = coupleStateKey(pr[0], pr[1], beforeField), ca = coupleStateKey(pr[0], pr[1], afterField);
+      if (cb.amplified !== ca.amplified || cb.shared !== ca.shared) {
+        reasons.push({ type: "couple", who: "together", before: cb, after: ca, pair: [pr[0].name, pr[1].name] });
+      }
+    }
+  }
   return reasons;
 }
-function reasonsForPlanetIngress(person1, person2, ev, snapshotField) {
+function reasonsForPlanetIngress(person1, person2, ev, snapshotField, person3) {
   const before = fieldWithPlanetGL(snapshotField, ev.planet, ev.from);
   const after = fieldWithPlanetGL(snapshotField, ev.planet, ev.to);
-  const reasons = diffRelevant(person1, person2, before, after);
-  const people = [person1].concat(person2 ? [person2] : []);
+  const reasons = diffRelevant(person1, person2, before, after, person3);
+  const people = allPeople(person1, person2, person3);
   for (const person of people) {
     for (const g of [ev.from.gate, ev.to.gate]) {
       const role = gateRoleForPerson(person, g);
@@ -1063,16 +1142,21 @@ function reasonsForPlanetIngress(person1, person2, ev, snapshotField) {
       }
     }
   }
-  if (person2) {
-    const dynA = coupleDynamics(person1, person2, after);
+  const pairs = peoplePairs(person1, person2, person3);
+  for (const pr of pairs) {
+    const dynA = coupleDynamics(pr[0], pr[1], after);
     const electroIds = new Set((dynA.electromagnetic || []).map((c) => c.id));
     for (const chId of electroIds) {
       const ch = CHANNELS[chId];
       if (!ch) continue;
       const [a, b] = ch.gates;
       if (ev.to.gate === a || ev.to.gate === b || ev.from.gate === a || ev.from.gate === b) {
-        if (!reasons.some((r) => r.type === "couple")) {
-          reasons.push({ type: "couple", who: "together", before: coupleStateKey(person1, person2, before), after: coupleStateKey(person1, person2, after), role: "electro" });
+        const pairNames = [pr[0].name, pr[1].name];
+        const already = reasons.some((r) => r.type === "couple" && (!r.pair || r.pair[0] === pairNames[0] && r.pair[1] === pairNames[1]));
+        if (!already) {
+          const rec = { type: "couple", who: "together", before: coupleStateKey(pr[0], pr[1], before), after: coupleStateKey(pr[0], pr[1], after), role: "electro" };
+          if (person3) rec.pair = pairNames;
+          reasons.push(rec);
         }
         break;
       }
@@ -1080,21 +1164,24 @@ function reasonsForPlanetIngress(person1, person2, ev, snapshotField) {
   }
   return reasons;
 }
-function classifyEventWho(reasons, person1, person2) {
+function classifyEventWho(reasons, person1, person2, person3) {
   const names = new Set(reasons.filter((r) => r.who && r.who !== "together").map((r) => r.who));
   const couple = reasons.some((r) => r.type === "couple" || r.who === "together");
   const p1 = person1 && names.has(person1.name);
   const p2 = person2 && names.has(person2.name);
+  const p3 = person3 && names.has(person3.name);
+  const pairCount = (p1 && p2 ? 1 : 0) + (p1 && p3 ? 1 : 0) + (p2 && p3 ? 1 : 0);
   return {
     person1: !!p1,
     person2: !!p2,
+    person3: !!p3,
     couple: !!couple,
     both: !!(p1 && p2),
-    anyCouple: !!(couple || p1 && p2),
+    anyCouple: !!(couple || pairCount >= 1),
     whoNames: [...names]
   };
 }
-function findChartRelevantEvents(Astronomy2, person1, person2, startMs, endMs, tz) {
+function findChartRelevantEvents(Astronomy2, person1, person2, startMs, endMs, tz, person3) {
   try {
     clearPlanetSpanCache();
   } catch (e) {
@@ -1109,6 +1196,7 @@ function findChartRelevantEvents(Astronomy2, person1, person2, startMs, endMs, t
   const relevant = [];
   let moonSkipped = 0;
   for (const ev of raw) {
+    if (!(ev.tMs >= startMs && ev.tMs < endMs)) continue;
     const snapshot = computeTransitField(Astronomy2, new Date(ev.tMs));
     snapshot.tz = tz;
     const beforeGL = getPlanetGL(Astronomy2, ev.planet, new Date(ev.tMs - 6e4));
@@ -1130,12 +1218,12 @@ function findChartRelevantEvents(Astronomy2, person1, person2, startMs, endMs, t
     if (!allGateOnlyOn() && !omitLightsOn() && sunGateOnlyOn() && (ev.planet === "Sun" || ev.planet === "Earth") && !ev.gateChanged) {
       continue;
     }
-    const reasons = reasonsForPlanetIngress(person1, person2, ev, snapshot);
+    const reasons = reasonsForPlanetIngress(person1, person2, ev, snapshot, person3);
     if (!reasons.length) {
       if (ev.planet === "Moon") moonSkipped++;
       continue;
     }
-    const who = classifyEventWho(reasons, person1, person2);
+    const who = classifyEventWho(reasons, person1, person2, person3);
     relevant.push({
       ...ev,
       stamp: formatTimelineStamp(new Date(ev.tMs), tz),
@@ -1165,7 +1253,7 @@ function formatTimelineStamp(date, timeZone) {
   const get = (t) => (parts.find((p) => p.type === t) || {}).value || "";
   return `${get("weekday")}, ${get("month")} ${get("day")}, ${get("year")}, ${get("hour")}:${get("minute")} ${get("dayPeriod")} ${get("timeZoneName")}`;
 }
-function describeTimelineEvent(ev, reasons, person1, person2, showCodes) {
+function describeTimelineEvent(ev, reasons, person1, person2, showCodes, person3) {
   const planet = ev.planet;
   const themeTo = gateThemeName(ev.to.gate);
   const themeFrom = gateThemeName(ev.from.gate);
@@ -1173,7 +1261,7 @@ function describeTimelineEvent(ev, reasons, person1, person2, showCodes) {
   const gateFrom = fmtGateTheme(ev.from.gate, showCodes);
   const move = timelineGateSpanLead(ev, ev.afterField && ev.afterField.tz || "local");
   const sentences = [move + "."];
-  const people = [person1].concat(person2 ? [person2] : []);
+  const people = allPeople(person1, person2, person3);
   let primaryTheme = themeTo;
   let kind = "line_shift";
   for (const person of people) {
@@ -1283,8 +1371,8 @@ function describeTimelineEvent(ev, reasons, person1, person2, showCodes) {
   }
   return sentences.join(" ").replace(/\s+/g, " ").trim();
 }
-function renderTimelineHtml(person1, person2, meta) {
-  return renderStructuredTimelineHtml(person1, person2, meta || {});
+function renderTimelineHtml(person1, person2, meta2) {
+  return renderStructuredTimelineHtml(person1, person2, meta2 || {});
   const show = codesOn();
   const wantIx = interactionsOnlyOn();
   const shortCouple = wantIx && !!person2;
@@ -1292,7 +1380,7 @@ function renderTimelineHtml(person1, person2, meta) {
   const shortMode = shortCouple || shortSolo;
   const parts = [];
   const names = person2 ? `${person1.name} & ${person2.name}` : person1.name;
-  const allEvents = meta.events || [];
+  const allEvents = meta2.events || [];
   let events = shortCouple ? allEvents.filter((e) => isInteractionTimelineEvent(e, person1, person2)) : allEvents.slice();
   if (omitLightsOn()) {
     events = events.filter((e) => !isLightPlanet(e.planet));
@@ -1310,7 +1398,7 @@ function renderTimelineHtml(person1, person2, meta) {
   const rw = realWorldOn();
   const titlePrefix = rw ? shortCouple ? "Real-world interaction timeline: " : shortSolo ? "Real-world short timeline: " : "Real-world influence timeline: " : shortCouple ? "Interaction timeline: " : shortSolo ? "Short transit timeline: " : "Transit timeline: ";
   parts.push(`<h2>${escapeHtml(titlePrefix)}${escapeHtml(names)}</h2>`);
-  parts.push(`<p><em>${escapeHtml(meta.rangeLabel)}</em></p>`);
+  parts.push(`<p><em>${escapeHtml(meta2.rangeLabel)}</em></p>`);
   if (shortSolo) {
     parts.push(`<p><em>${escapeHtml(rw ? "Short real-world form for one chart." : "Short form for one chart.")}</em></p>`);
   }
@@ -1318,11 +1406,11 @@ function renderTimelineHtml(person1, person2, meta) {
     parts.push(`<p><em>${escapeHtml("Potentials only\u2014practical not-self influence in everyday situations. Not predictions.")}</em></p>`);
   }
   if (shortCouple) {
-    parts.push(`<p>${escapeHtml(rw ? "Stamps below are local " + meta.tzLabel + " times when the sky shifted in a way that may amplify not-self between " + person1.name + " and " + person2.name + "\u2014open-center bridges, mirrored hooks, or one partner carrying weather the other feels. One-person-only shifts are omitted." : "Stamps below are local " + meta.tzLabel + " times when the sky shifted in a way that lands between " + person1.name + " and " + person2.name + "\u2014shared hooks, mirrored gates, amplified channels, or one partner carrying weather the other feels through the relationship. One-person-only shifts are omitted.")}</p>`);
+    parts.push(`<p>${escapeHtml(rw ? "Stamps below are local " + meta2.tzLabel + " times when the sky shifted in a way that may amplify not-self between " + person1.name + " and " + person2.name + "\u2014open-center bridges, mirrored hooks, or one partner carrying weather the other feels. One-person-only shifts are omitted." : "Stamps below are local " + meta2.tzLabel + " times when the sky shifted in a way that lands between " + person1.name + " and " + person2.name + "\u2014shared hooks, mirrored gates, amplified channels, or one partner carrying weather the other feels through the relationship. One-person-only shifts are omitted.")}</p>`);
   } else if (shortSolo) {
-    parts.push(`<p>${escapeHtml(rw ? "Stamps below are local " + meta.tzLabel + " times when the sky shifted in a way that may trigger " + person1.name + "'s not-self through open centers, channel pressure, or temporary definition. Each item is a short potential with one everyday example." : "Stamps below are local " + meta.tzLabel + " times when the sky shifted in a way that hooks " + person1.name + " directly\u2014same-gate hits, harmonic channel pressure, or center definition. Each item is a short read with one everyday example.")}</p>`);
+    parts.push(`<p>${escapeHtml(rw ? "Stamps below are local " + meta2.tzLabel + " times when the sky shifted in a way that may trigger " + person1.name + "'s not-self through open centers, channel pressure, or temporary definition. Each item is a short potential with one everyday example." : "Stamps below are local " + meta2.tzLabel + " times when the sky shifted in a way that hooks " + person1.name + " directly\u2014same-gate hits, harmonic channel pressure, or center definition. Each item is a short read with one everyday example.")}</p>`);
   } else {
-    parts.push(`<p>${escapeHtml(rw ? `Below is a chronological timeline of chart-relevant sky changes across this window in ${meta.tzLabel}. Each stamp marks a minute when a planet moved gate or line in a way that may start or end practical not-self pressure for ${person1.name}${person2 ? " or " + person2.name : ""}. Potentials only\u2014not predictions.` : `Below is a chronological timeline of chart-relevant sky changes across this window in ${meta.tzLabel}. Each stamp marks a minute when a planet moved gate or line in a way that starts or ends an activation for ${person1.name}${person2 ? " or " + person2.name : ""}. This is conditioning weather, not a prediction of events.`)}</p>`);
+    parts.push(`<p>${escapeHtml(rw ? `Below is a chronological timeline of chart-relevant sky changes across this window in ${meta2.tzLabel}. Each stamp marks a minute when a planet moved gate or line in a way that may start or end practical not-self pressure for ${person1.name}${person2 ? " or " + person2.name : ""}. Potentials only\u2014not predictions.` : `Below is a chronological timeline of chart-relevant sky changes across this window in ${meta2.tzLabel}. Each stamp marks a minute when a planet moved gate or line in a way that starts or ends an activation for ${person1.name}${person2 ? " or " + person2.name : ""}. This is conditioning weather, not a prediction of events.`)}</p>`);
   }
   if (omitLightsOn()) {
     parts.push(`<p>${escapeHtml("Lights omitted: Sun, Earth, and Moon are excluded from this timeline. Other planets still show gate and line ingresses.")}</p>`);
@@ -1337,8 +1425,8 @@ function renderTimelineHtml(person1, person2, meta) {
       parts.push(`<p>${escapeHtml("Sun/Earth filter on: only Sun and Earth gate changes are listed; their line changes within the same gate are omitted. Other planets still show gate and line ingresses.")}</p>`);
     }
   }
-  if (!shortMode && meta.moonSkipped > 0) {
-    parts.push(`<p>${escapeHtml(`The Moon changed gate or line ${meta.moonSkipped} additional time${meta.moonSkipped > 1 ? "s" : ""} without directly hooking these charts; those quieter lunar shifts are omitted so the timeline stays readable.`)}</p>`);
+  if (!shortMode && meta2.moonSkipped > 0) {
+    parts.push(`<p>${escapeHtml(`The Moon changed gate or line ${meta2.moonSkipped} additional time${meta2.moonSkipped > 1 ? "s" : ""} without directly hooking these charts; those quieter lunar shifts are omitted so the timeline stays readable.`)}</p>`);
   }
   if (!events.length) {
     const emptyMsg = shortCouple ? "No interaction-relevant gate or line ingresses were found in this window between " + person1.name + " and " + person2.name + "." : shortSolo ? "No chart-relevant gate or line ingresses were found in this window for " + person1.name + "." : "No chart-relevant gate or line ingresses were found in this window for the activations entered.";
@@ -1364,7 +1452,7 @@ function renderTimelineHtml(person1, person2, meta) {
     }
   }
   const tech = [];
-  tech.push("Timeline window: " + meta.rangeLabel);
+  tech.push("Timeline window: " + meta2.rangeLabel);
   tech.push("Mode: " + (shortCouple ? "interactions-only" : shortSolo ? "short-solo" : "full"));
   tech.push("Lights (Sun/Earth/Moon): " + (omitLightsOn() ? "omitted from timeline" : "included"));
   tech.push("All planets filter: " + (allGateOnlyOn() ? "gate changes only (line ingresses omitted)" : "off"));
@@ -1372,7 +1460,7 @@ function renderTimelineHtml(person1, person2, meta) {
     tech.push("Moon filter: " + (moonGateOnlyOn() ? "gate changes only (line ingresses omitted)" : "gate and line ingresses"));
     tech.push("Sun/Earth filter: " + (sunGateOnlyOn() ? "gate changes only (line ingresses omitted)" : "gate and line ingresses"));
   }
-  tech.push("Events shown: " + events.length + (shortCouple ? " interaction-relevant / " + allEvents.length + " chart-relevant" : " chart-relevant") + " / " + meta.rawCount + " total ingresses scanned; moon-only non-hooks omitted: " + meta.moonSkipped);
+  tech.push("Events shown: " + events.length + (shortCouple ? " interaction-relevant / " + allEvents.length + " chart-relevant" : " chart-relevant") + " / " + meta2.rawCount + " total ingresses scanned; moon-only non-hooks omitted: " + meta2.moonSkipped);
   tech.push("Verification: each event checked 1 minute before vs at stamp (gate/line differs): " + events.filter((e) => e.verified).length + "/" + events.length);
   for (const ev of events) {
     tech.push(`${ev.stamp} | ${ev.planet} ${ev.from.gl} \u2192 ${ev.to.gl} | ${ev.gateChanged ? "gate" : "line"} | reasons: ${ev.reasons.map((r) => r.type + "@" + r.who).join(", ")}`);
@@ -1547,10 +1635,10 @@ function isRangeWhenActive() {
   }
   return false;
 }
-function wantTransitFieldSections(meta) {
-  meta = meta || {};
-  if (meta.includePositions === true || meta.includeTransitField === true) return true;
-  if (meta.includePositions === false || meta.includeTransitField === false) return false;
+function wantTransitFieldSections(meta2) {
+  meta2 = meta2 || {};
+  if (meta2.includePositions === true || meta2.includeTransitField === true) return true;
+  if (meta2.includePositions === false || meta2.includeTransitField === false) return false;
   try {
     if (typeof window !== "undefined" && window.__INCLUDE_TRANSIT_FIELD__ === true) return true;
     if (typeof window !== "undefined" && window.__INCLUDE_TRANSIT_FIELD__ === false) return false;
@@ -1561,8 +1649,8 @@ function wantTransitFieldSections(meta) {
   }
   return true;
 }
-function showTransitFieldPositions(meta) {
-  return wantTransitFieldSections(meta);
+function showTransitFieldPositions(meta2) {
+  return wantTransitFieldSections(meta2);
 }
 function rangeTransitFieldMode(dayCount) {
   if (!(dayCount > 1)) return "single";
@@ -1586,10 +1674,10 @@ function includeRangeOverviewOn() {
     return false;
   }
 }
-function wantRangeOverview(meta) {
-  meta = meta || {};
-  if (meta.rangeOverview === true) return true;
-  if (meta.rangeOverview === false) return false;
+function wantRangeOverview(meta2) {
+  meta2 = meta2 || {};
+  if (meta2.rangeOverview === true) return true;
+  if (meta2.rangeOverview === false) return false;
   try {
     if (typeof window !== "undefined" && window.__INCLUDE_RANGE_OVERVIEW__ === true) return true;
     if (typeof window !== "undefined" && window.__INCLUDE_RANGE_OVERVIEW__ === false) return false;
@@ -2180,7 +2268,7 @@ function describeInteractionTimelineEventRW(ev, person1, person2) {
   const example = scenarioRWPair((to.gate || 1) * 5 + (to.line || 1), person1.name, person2.name, info ? info.not_self_theme : theme, who.both ? "shared" : "open_bridge");
   return hook + " \u2014 " + bridge + ns + " " + example;
 }
-function describeTimelineEventRW(ev, reasons, person1, person2, show) {
+function describeTimelineEventRW(ev, reasons, person1, person2, show, person3) {
   const planet = ev.planet;
   const themeTo = gateThemeName(ev.to.gate);
   const themeFrom = gateThemeName(ev.from.gate);
@@ -2188,7 +2276,7 @@ function describeTimelineEventRW(ev, reasons, person1, person2, show) {
   const gateFrom = fmtGateTheme(ev.from.gate, show);
   const move = timelineGateSpanLead(ev, ev.afterField && ev.afterField.tz || "local");
   const sentences = [move + "."];
-  const people = [person1].concat(person2 ? [person2] : []);
+  const people = allPeople(person1, person2, person3);
   let primaryTheme = themeTo;
   let kind = "line_shift";
   const openNotes = [];
@@ -2318,29 +2406,36 @@ function describeTimelineEventRW(ev, reasons, person1, person2, show) {
   }
   return sentences.join(" ").replace(/\s+/g, " ").trim();
 }
-function isInteractionTimelineEvent(ev, person1, person2) {
+function isInteractionTimelineEvent(ev, person1, person2, person3) {
   if (!person2 || !ev) return false;
-  const who = ev.who || {};
-  if (who.couple || who.both || who.anyCouple) return true;
-  if (who.person1 && who.person2) return true;
-  if ((ev.reasons || []).some((r) => r.type === "couple" || r.who === "together")) return true;
-  const gTo = ev.to && (ev.to.gate != null ? ev.to.gate : parseInt(String(ev.to.gl || ev.to).split(".")[0], 10));
-  const gFrom = ev.from && (ev.from.gate != null ? ev.from.gate : parseInt(String(ev.from.gl || ev.from).split(".")[0], 10));
-  for (const g of [gTo, gFrom]) {
-    if (g == null || isNaN(g)) continue;
-    if (person1.gates.has(g) && person2.gates.has(g)) return true;
-  }
-  try {
-    const dyn = coupleDynamics(person1, person2, ev.afterField || { planets: {} });
-    const rel = [...dyn.electromagnetic || [], ...dyn.compromise || [], ...dyn.transit_amplified_channels || []];
-    for (const c of rel) {
-      const ch = CHANNELS[c.id || c];
-      if (!ch) continue;
-      const [a, b] = ch.gates;
-      if (gTo === a || gTo === b || gFrom === a || gFrom === b) return true;
+  function pairInteracts(a, b) {
+    if (!a || !b) return false;
+    const who = ev.who || {};
+    if (who.couple || who.both || who.anyCouple) return true;
+    if (who.person1 && who.person2) return true;
+    if (person3 && (who.person1 && who.person3 || who.person2 && who.person3)) return true;
+    if ((ev.reasons || []).some((r) => r.type === "couple" || r.who === "together")) return true;
+    const gTo = ev.to && (ev.to.gate != null ? ev.to.gate : parseInt(String(ev.to.gl || ev.to).split(".")[0], 10));
+    const gFrom = ev.from && (ev.from.gate != null ? ev.from.gate : parseInt(String(ev.from.gl || ev.from).split(".")[0], 10));
+    for (const g of [gTo, gFrom]) {
+      if (g == null || isNaN(g)) continue;
+      if (a.gates.has(g) && b.gates.has(g)) return true;
     }
-  } catch (e) {
+    try {
+      const dyn = coupleDynamics(a, b, ev.afterField || { planets: {} });
+      const rel = [...dyn.electromagnetic || [], ...dyn.compromise || [], ...dyn.transit_amplified_channels || []];
+      for (const c of rel) {
+        const ch = CHANNELS[c.id || c];
+        if (!ch) continue;
+        const [ga, gb] = ch.gates;
+        if (gTo === ga || gTo === gb || gFrom === ga || gFrom === gb) return true;
+      }
+    } catch (e) {
+    }
+    return false;
   }
+  if (pairInteracts(person1, person2)) return true;
+  if (person3 && (pairInteracts(person1, person3) || pairInteracts(person2, person3))) return true;
   return false;
 }
 function openCenterAmplifications(p1, p2, transit) {
@@ -2923,39 +3018,45 @@ function directAmplifiedItem(p1, p2, ch, show) {
   const centers = ch.centers || [];
   return "Together: transit amplifies " + label + " between " + p1.name + " & " + p2.name + directRwBit(theme, centers[0]);
 }
-function collectDirectEffectItems(person1, person2, transit) {
+function collectDirectEffectItems(person1, person2, transit, person3) {
   const show = codesOn();
   const items = [];
   const tUse = transitWithoutLights(transit);
-  const d1 = analyzeDay(person1, tUse);
-  const seenCenter = /* @__PURE__ */ new Set();
-  for (const t of d1.touches || []) items.push(directTouchItem(person1, t, show));
-  for (const item of d1.completed_channels || []) items.push(directChannelItem(person1, item, show));
-  for (const c of d1.centers_activated_with_natal || []) {
-    if (seenCenter.has(c)) continue;
-    seenCenter.add(c);
-    items.push(directCenterItem(person1, c, show));
+  function addPersonItems(person, day) {
+    const seen = /* @__PURE__ */ new Set();
+    for (const t of day.touches || []) items.push(directTouchItem(person, t, show));
+    for (const item of day.completed_channels || []) items.push(directChannelItem(person, item, show));
+    for (const c of day.centers_activated_with_natal || []) {
+      if (seen.has(c)) continue;
+      seen.add(c);
+      items.push(directCenterItem(person, c, show));
+    }
   }
-  let d2 = null, couple = null;
+  function addPairItems(a, b) {
+    const couple2 = coupleDynamics(a, b, tUse);
+    for (const h of couple2.shared_transit_hooks || []) {
+      if (h.in_a || h.in_b) items.push(directCoupleHookItem(a, b, h, show));
+    }
+    for (const ch of couple2.transit_amplified_channels || []) {
+      items.push(directAmplifiedItem(a, b, ch, show));
+    }
+    return couple2;
+  }
+  const d1 = analyzeDay(person1, tUse);
+  addPersonItems(person1, d1);
+  let d2 = null, d3 = null, couple = null;
   if (person2) {
     d2 = analyzeDay(person2, tUse);
-    const seen2 = /* @__PURE__ */ new Set();
-    for (const t of d2.touches || []) items.push(directTouchItem(person2, t, show));
-    for (const item of d2.completed_channels || []) items.push(directChannelItem(person2, item, show));
-    for (const c of d2.centers_activated_with_natal || []) {
-      if (seen2.has(c)) continue;
-      seen2.add(c);
-      items.push(directCenterItem(person2, c, show));
-    }
-    couple = coupleDynamics(person1, person2, tUse);
-    for (const h of couple.shared_transit_hooks || []) {
-      if (h.in_a || h.in_b) items.push(directCoupleHookItem(person1, person2, h, show));
-    }
-    for (const ch of couple.transit_amplified_channels || []) {
-      items.push(directAmplifiedItem(person1, person2, ch, show));
-    }
+    addPersonItems(person2, d2);
+    couple = addPairItems(person1, person2);
   }
-  return { items: items.map((s) => String(s).replace(/\s+/g, " ").trim()), d1, d2, couple, tUse };
+  if (person3) {
+    d3 = analyzeDay(person3, tUse);
+    addPersonItems(person3, d3);
+    addPairItems(person1, person3);
+    if (person2) addPairItems(person2, person3);
+  }
+  return { items: items.map((s) => String(s).replace(/\s+/g, " ").trim()), d1, d2, d3, couple, tUse };
 }
 function reportStyleMode() {
   return "full";
@@ -3649,7 +3750,7 @@ function weaveDayParagraphs(person1, person2, shifts, tracker, opts) {
   }
   let paras = packParagraphs(sentences);
   if (!paras.length) {
-    paras = ["With the activations entered, this sky does not show a loud practical hook into " + (person2 ? person1.name + " or " + person2.name : person1.name) + "\u2019s design. Keep decisions on strategy and authority."];
+    paras = ["With the activations entered, this sky does not show a loud practical hook into " + peopleOrString(person1, person2, person3Of(typeof meta !== "undefined" ? meta : null)) + "\u2019s design. Keep decisions on strategy and authority."];
   }
   return paras.slice(0, 4);
 }
@@ -3840,7 +3941,7 @@ function singleGateCenterOptions(person, center, theme, personName) {
     "Open " + center + " is where " + theme + " operates for " + personName + " under this sky"
   ];
 }
-function describeHitParagraph(person, hit, tracker, transit, meta) {
+function describeHitParagraph(person, hit, tracker, transit, meta2) {
   if (!verifyHitAgainstChart(person, hit)) return "";
   if (!claimHitSpeech(tracker, person, hit)) return "";
   const theme = prettyTheme(hit.gateInfo && hit.gateInfo.name || gateThemeName(hit.gate));
@@ -3907,7 +4008,7 @@ function describeHitParagraph(person, hit, tracker, transit, meta) {
     }
   }
   const ill = nextIllustration(tracker);
-  const _tz = transitTzOf(transit, meta);
+  const _tz = transitTzOf(transit, meta2);
   const _at = transitAtMs(transit);
   const _span = spanForPlanetAt(hit.planet, _at, _tz);
   const _fromUntil = formatFromUntil(_span, _tz);
@@ -4161,7 +4262,7 @@ function packHitParagraphs(hitParas) {
   for (let i = 0; i < hitParas.length; i += per) out.push(hitParas.slice(i, i + per).join(" "));
   return out.slice(0, 4);
 }
-function renderPersonIndepthSections(person, transit, tracker, otherPerson, otherDay, meta) {
+function renderPersonIndepthSections(person, transit, tracker, otherPerson, otherDay, meta2) {
   const parts = [];
   const pack = collectDirectHits(person, transit);
   const day = pack.day;
@@ -4182,7 +4283,7 @@ function renderPersonIndepthSections(person, transit, tracker, otherPerson, othe
   const hitParas = [];
   for (const hit of pack.hits) {
     if (!verifyHitAgainstChart(person, hit)) continue;
-    const p = describeHitParagraph(person, hit, tracker, transit, meta);
+    const p = describeHitParagraph(person, hit, tracker, transit, meta2);
     if (p) hitParas.push(p);
   }
   if (!hitParas.length) {
@@ -4202,19 +4303,20 @@ function renderPersonIndepthSections(person, transit, tracker, otherPerson, othe
   }
   return { html: parts.join("\n"), day, hits: pack.hits };
 }
-function renderIndepthDayHtml(person1, person2, transitRaw, tracker, meta) {
-  meta = meta || {};
+function renderIndepthDayHtml(person1, person2, transitRaw, tracker, meta2) {
+  meta2 = meta2 || {};
+  const person3 = person3Of(meta2);
   const transit = transitWithoutLights(transitRaw);
   const parts = [];
   const when = transitRaw.display_when || transitRaw.display_date || transitRaw.date || "";
-  if (meta && meta.dayHeading) parts.push("<h3>" + escapeHtml(meta.dayHeading) + "</h3>");
-  if (meta && meta.ingressNote) parts.push("<p><em>" + escapeHtml(meta.ingressNote) + "</em></p>");
+  if (meta2 && meta2.dayHeading) parts.push("<h3>" + escapeHtml(meta2.dayHeading) + "</h3>");
+  if (meta2 && meta2.ingressNote) parts.push("<p><em>" + escapeHtml(meta2.ingressNote) + "</em></p>");
   const otherDayPre = person2 ? analyzeDay(person2, transit) : null;
-  const r1 = renderPersonIndepthSections(person1, transit, tracker, person2, otherDayPre, meta);
+  const r1 = renderPersonIndepthSections(person1, transit, tracker, person2, otherDayPre, meta2);
   parts.push(r1.html);
   let r2 = null;
   if (person2) {
-    r2 = renderPersonIndepthSections(person2, transit, tracker, person1, r1.day, meta);
+    r2 = renderPersonIndepthSections(person2, transit, tracker, person1, r1.day, meta2);
     parts.push(r2.html);
     const couple = coupleDynamics(person1, person2, transit);
     parts.push("<h3>" + escapeHtml("Between " + person1.name + " and " + person2.name) + "</h3>");
@@ -4226,9 +4328,28 @@ function renderIndepthDayHtml(person1, person2, transitRaw, tracker, meta) {
       }
     }
   }
-  const showField = wantTransitFieldSections(meta);
+  let r3 = null;
+  if (person3) {
+    let pushPair2 = function(a, b, da, db) {
+      const couple = coupleDynamics(a, b, transit);
+      parts.push("<h3>" + escapeHtml("Between " + a.name + " and " + b.name) + "</h3>");
+      parts.push("<p>" + escapeHtml(describeCoupleComparison(a, b, da, db, couple, tracker, transit)) + "</p>");
+      if (realWorldOn()) {
+        parts.push("<h4>" + escapeHtml("How they condition each other under this sky") + "</h4>");
+        for (const para of describeExpandedCoupleNotSelf(a, b, da, db, couple, tracker)) {
+          if (para) parts.push("<p>" + escapeHtml(para) + "</p>");
+        }
+      }
+    };
+    var pushPair = pushPair2;
+    r3 = renderPersonIndepthSections(person3, transit, tracker, person1, r1.day, meta2);
+    parts.push(r3.html);
+    pushPair2(person1, person3, r1.day, r3.day);
+    if (person2 && r2) pushPair2(person2, person3, r2.day, r3.day);
+  }
+  const showField = wantTransitFieldSections(meta2);
   if (showField) {
-    parts.push(renderTransitPositionsHtml(transitRaw, meta));
+    parts.push(renderTransitPositionsHtml(transitRaw, meta2));
   }
   if (showField) {
     let centerTechLine2 = function(p) {
@@ -4238,12 +4359,23 @@ function renderIndepthDayHtml(person1, person2, transitRaw, tracker, meta) {
       return p.name + " centers (channel-derived): defined [" + def + "]; open [" + open + "]; natal channels [" + ch + "]";
     };
     var centerTechLine = centerTechLine2;
-    let tech = technicalBlock(transit, [r1.day].concat(r2 ? [r2.day] : []), person2 ? coupleDynamics(person1, person2, transit) : null, { includeTransitField: true });
+    const days = [r1.day].concat(r2 ? [r2.day] : []).concat(r3 ? [r3.day] : []);
+    let tech = technicalBlock(transit, person3 ? days : [r1.day].concat(r2 ? [r2.day] : []), person2 ? coupleDynamics(person1, person2, transit) : null, { includeTransitField: true });
     const mismatches = [];
     if (person1.center_mismatch) mismatches.push(person1.center_mismatch);
     if (person2 && person2.center_mismatch) mismatches.push(person2.center_mismatch);
+    if (person3 && person3.center_mismatch) mismatches.push(person3.center_mismatch);
     tech += "\n" + centerTechLine2(person1);
     if (person2) tech += "\n" + centerTechLine2(person2);
+    if (person3) {
+      tech += "\n" + centerTechLine2(person3);
+      const extraPairs = [[person1, person3]].concat(person2 ? [[person2, person3]] : []);
+      for (const pr of extraPairs) {
+        const c = coupleDynamics(pr[0], pr[1], transit);
+        tech += "\n" + pr[0].name + " & " + pr[1].name + " shared hooks: " + (c.shared_transit_hooks || []).map((h) => h.planet + " " + h.gl).join(", ");
+        tech += "\nAmplified: " + (c.transit_amplified_channels || []).map((ch) => ch.id).join(", ");
+      }
+    }
     if (mismatches.length) tech += "\n" + mismatches.join("\n");
     parts.push('<div class="tech"><details class="tech"><summary>Technical details (gates, channels, ephemeris)</summary><pre>' + escapeHtml(tech) + "</pre></details></div>");
   }
@@ -4300,13 +4432,13 @@ function oneBridgeLine(person, day) {
   }
   return "";
 }
-function renderOverviewHitItem(person, hit, whenLabel, transit, meta, tracker) {
+function renderOverviewHitItem(person, hit, whenLabel, transit, meta2, tracker) {
   if (!verifyHitAgainstChart(person, hit)) return "";
   if (!claimHitSpeech(tracker, person, hit)) return "";
   const gate = +hit.gate || +String(hit.gl || "").split(".")[0] || 0;
   const theme = prettyTheme(hit.gateInfo && hit.gateInfo.name || gateThemeName(gate));
   const planet = planetLabel(hit.planet);
-  const tz = transitTzOf(transit, meta);
+  const tz = transitTzOf(transit, meta2);
   const at = transitAtMs(transit);
   const span = spanForPlanetAt(hit.planet, at, tz);
   const fromUntil = formatFromUntil(span, tz);
@@ -4320,8 +4452,8 @@ function renderOverviewHitItem(person, hit, whenLabel, transit, meta, tracker) {
   }
   return "<li>" + escapeHtml(sentence) + "</li>";
 }
-function renderRangeOverviewDayHtml(person1, person2, transitRaw, meta, tracker) {
-  meta = meta || {};
+function renderRangeOverviewDayHtml(person1, person2, transitRaw, meta2, tracker) {
+  meta2 = meta2 || {};
   tracker = tracker || makeProseTracker();
   const transit = transitWithoutLights(transitRaw);
   const parts = [];
@@ -4333,7 +4465,7 @@ function renderRangeOverviewDayHtml(person1, person2, transitRaw, meta, tracker)
     const pack = collectDirectHits(person, transit);
     const items = [];
     for (const hit of pack.hits || []) {
-      const li = renderOverviewHitItem(person, hit, when, transitRaw, meta, tracker);
+      const li = renderOverviewHitItem(person, hit, when, transitRaw, meta2, tracker);
       if (li) items.push(li);
     }
     parts.push('<div class="ov-person">' + escapeHtml(firstNameOnly(person.name)) + "</div>");
@@ -4352,19 +4484,21 @@ function renderRangeOverviewDayHtml(person1, person2, transitRaw, meta, tracker)
   }
   addPerson(person1);
   if (person2) addPerson(person2);
-  const showField = wantTransitFieldSections(meta);
+  const person3 = person3Of(meta2);
+  if (person3) addPerson(person3);
+  const showField = wantTransitFieldSections(meta2);
   if (showField) {
-    parts.push(renderTransitPositionsHtml(transitRaw, meta));
+    parts.push(renderTransitPositionsHtml(transitRaw, meta2));
   }
   parts.push("</div>");
   return parts.join("\n");
 }
-function renderRangeOverviewHtml(person1, person2, transits, meta) {
-  meta = meta || {};
+function renderRangeOverviewHtml(person1, person2, transits, meta2) {
+  meta2 = meta2 || {};
   const parts = [];
-  const names = person2 ? firstNameOnly(person1.name) + " & " + firstNameOnly(person2.name) : firstNameOnly(person1.name);
+  const names = peopleNameString(person1, person2, person3Of(meta2), true);
   let titleDates;
-  if (transits.length === 1) titleDates = transits[0].display_when || meta.timeLabel || "";
+  if (transits.length === 1) titleDates = transits[0].display_when || meta2.timeLabel || "";
   else {
     const a = transits[0].display_date || transits[0].date;
     const b = transits[transits.length - 1].display_date || transits[transits.length - 1].date;
@@ -4375,7 +4509,7 @@ function renderRangeOverviewHtml(person1, person2, transits, meta) {
   parts.push("<p><em>" + escapeHtml(titleDates) + "</em></p>");
   parts.push("<p><em>" + escapeHtml("Brief descriptions: gate time spans woven into short keynotes\u2014not a full narrative reading.") + "</em></p>");
   if (omitLightsOn()) parts.push("<p><em>" + escapeHtml("Sun, Earth, and Moon are omitted from this analysis.") + "</em></p>");
-  const fieldMode = meta && meta.rangeTransitFieldMode || rangeTransitFieldMode(transits.length);
+  const fieldMode = meta2 && meta2.rangeTransitFieldMode || rangeTransitFieldMode(transits.length);
   const ovTracker = makeProseTracker();
   parts.push('<div class="range-overview">');
   for (let ti = 0; ti < transits.length; ti++) {
@@ -4386,22 +4520,23 @@ function renderRangeOverviewHtml(person1, person2, transits, meta) {
     parts.push(renderRangeOverviewDayHtml(person1, person2, t, {
       includePositions,
       includeTransitField: includePositions,
-      tz: meta && meta.tz || t && t.tz || "local"
+      tz: meta2 && meta2.tz || t && t.tz || "local",
+      person3: person3Of(meta2)
     }, ovTracker));
   }
   parts.push("</div>");
   return parts.join("\n");
 }
-function renderStructuredSnapshotHtml(person1, person2, transits, meta) {
-  meta = meta || {};
-  if (transits.length > 1 && wantRangeOverview(meta)) {
-    return renderRangeOverviewHtml(person1, person2, transits, meta);
+function renderStructuredSnapshotHtml(person1, person2, transits, meta2) {
+  meta2 = meta2 || {};
+  if (transits.length > 1 && wantRangeOverview(meta2)) {
+    return renderRangeOverviewHtml(person1, person2, transits, meta2);
   }
   const tracker = makeProseTracker();
   const parts = [];
-  const names = person2 ? person1.name + " & " + person2.name : person1.name;
+  const names = peopleNameString(person1, person2, person3Of(meta2));
   let titleDates;
-  if (transits.length === 1) titleDates = transits[0].display_when || meta.timeLabel || "";
+  if (transits.length === 1) titleDates = transits[0].display_when || meta2.timeLabel || "";
   else {
     const a = transits[0].display_date || transits[0].date;
     const b = transits[transits.length - 1].display_date || transits[transits.length - 1].date;
@@ -4413,9 +4548,9 @@ function renderStructuredSnapshotHtml(person1, person2, transits, meta) {
   parts.push("<p><em>" + escapeHtml("In-depth potentials from natal activations plus this sky\u2014not predictions.") + "</em></p>");
   if (omitLightsOn()) parts.push("<p><em>" + escapeHtml("Sun, Earth, and Moon are omitted from this analysis.") + "</em></p>");
   if (transits.length === 1) {
-    parts.push(renderIndepthDayHtml(person1, person2, transits[0], tracker, { includePositions: true, includeTransitField: true }));
+    parts.push(renderIndepthDayHtml(person1, person2, transits[0], tracker, { includePositions: true, includeTransitField: true, person3: person3Of(meta2) }));
   } else {
-    const fieldMode = meta && meta.rangeTransitFieldMode || rangeTransitFieldMode(transits.length);
+    const fieldMode = meta2 && meta2.rangeTransitFieldMode || rangeTransitFieldMode(transits.length);
     for (let ti = 0; ti < transits.length; ti++) {
       const t = transits[ti];
       const dayTracker = makeProseTracker();
@@ -4431,18 +4566,19 @@ function renderStructuredSnapshotHtml(person1, person2, transits, meta) {
       parts.push(renderIndepthDayHtml(person1, person2, t, dayTracker, {
         dayHeading: t.display_when || t.display_date || t.date,
         includePositions,
-        includeTransitField: includePositions
+        includeTransitField: includePositions,
+        person3: person3Of(meta2)
       }));
       tracker.seq = dayTracker.seq;
     }
   }
   return parts.join("\n");
 }
-function renderStructuredTimelineHtml(person1, person2, meta) {
+function renderStructuredTimelineHtml(person1, person2, meta2) {
   const tracker = makeProseTracker();
   const parts = [];
-  const names = person2 ? person1.name + " & " + person2.name : person1.name;
-  let events = (meta.events || []).slice();
+  const names = peopleNameString(person1, person2, person3Of(meta2));
+  let events = (meta2.events || []).slice();
   if (omitLightsOn()) events = events.filter((e) => !isLightPlanet(e.planet));
   if (allGateOnlyOn()) events = events.filter((e) => e.gateChanged);
   else if (!omitLightsOn()) {
@@ -4460,7 +4596,7 @@ function renderStructuredTimelineHtml(person1, person2, meta) {
     });
   }
   parts.push("<h2>" + escapeHtml((realWorldOn() ? "Real-world transit timeline: " : "Transit timeline: ") + names) + "</h2>");
-  parts.push("<p><em>" + escapeHtml(meta.rangeLabel || "") + "</em></p>");
+  parts.push("<p><em>" + escapeHtml(meta2.rangeLabel || "") + "</em></p>");
   parts.push("<p><em>" + escapeHtml("In-depth day readings with gate time spans woven into the prose\u2014not a one-line event list.") + "</em></p>");
   if (omitLightsOn()) parts.push("<p><em>" + escapeHtml("Sun, Earth, and Moon are omitted from this analysis.") + "</em></p>");
   const byDay = /* @__PURE__ */ new Map();
@@ -4469,7 +4605,7 @@ function renderStructuredTimelineHtml(person1, person2, meta) {
     if (!byDay.has(k)) byDay.set(k, []);
     byDay.get(k).push(ev);
   }
-  if (!byDay.size && meta.startField) {
+  if (!byDay.size && meta2.startField) {
     const dayTracker = makeProseTracker();
     dayTracker.usedExamples = tracker.usedExamples;
     dayTracker.usedNgrams = tracker.usedNgrams;
@@ -4479,15 +4615,16 @@ function renderStructuredTimelineHtml(person1, person2, meta) {
     dayTracker.spokenHits = tracker.spokenHits;
     dayTracker.seq = tracker.seq;
     const _tlShow = wantTransitFieldSections({ includePositions: isRangeWhenActive() ? includeRangeTransitFieldOn() : true });
-    parts.push(renderIndepthDayHtml(person1, person2, meta.startField, dayTracker, {
-      dayHeading: meta.startField.display_when || "Range start",
+    parts.push(renderIndepthDayHtml(person1, person2, meta2.startField, dayTracker, {
+      dayHeading: meta2.startField.display_when || "Range start",
       includePositions: _tlShow,
-      includeTransitField: _tlShow
+      includeTransitField: _tlShow,
+      person3: person3Of(meta2)
     }));
   }
   for (const [day, list] of byDay) {
     list.sort((a, b) => parseStampSortKey(a.stamp) - parseStampSortKey(b.stamp));
-    const field = list.find((e) => e.afterField) && list.find((e) => e.afterField).afterField || meta.startField || null;
+    const field = list.find((e) => e.afterField) && list.find((e) => e.afterField).afterField || meta2.startField || null;
     let dayField = field;
     if (!dayField && list.length) {
       const last = list[list.length - 1];
@@ -4513,7 +4650,8 @@ function renderStructuredTimelineHtml(person1, person2, meta) {
       dayHeading: day,
       ingressNote,
       includePositions: _tlShowDay,
-      includeTransitField: _tlShowDay
+      includeTransitField: _tlShowDay,
+      person3: person3Of(meta2)
     }));
     tracker.seq = dayTracker.seq;
   }
@@ -4524,8 +4662,8 @@ function planetLabel(p) {
   if (p === "SouthNode") return "South Node";
   return p;
 }
-function renderTransitPositionsHtml(transit, meta) {
-  if (!wantTransitFieldSections(meta)) return "";
+function renderTransitPositionsHtml(transit, meta2) {
+  if (!wantTransitFieldSections(meta2)) return "";
   if (!transit || !transit.planets) return "";
   const when = transit.display_when || transit.display_date || transit.date || "";
   const rows = [];
@@ -4546,12 +4684,12 @@ function renderTransitPositionsHtml(transit, meta) {
   rows.push("</tbody></table></div>");
   return rows.join("\n");
 }
-function renderDirectEffectsNarrativeHtml(person1, person2, transits, meta) {
+function renderDirectEffectsNarrativeHtml(person1, person2, transits, meta2) {
   const parts = [];
-  const names = person2 ? person1.name + " & " + person2.name : person1.name;
+  const names = peopleNameString(person1, person2, person3Of(meta2));
   let titleDates;
   if (transits.length === 1) {
-    titleDates = transits[0].display_when || meta.timeLabel || "";
+    titleDates = transits[0].display_when || meta2.timeLabel || "";
   } else {
     const a = transits[0].display_date || transits[0].date;
     const b = transits[transits.length - 1].display_date || transits[transits.length - 1].date;
@@ -4568,7 +4706,7 @@ function renderDirectEffectsNarrativeHtml(person1, person2, transits, meta) {
       parts.push("<h3>" + escapeHtml(transit.display_when || transit.display_date || transit.date) + "</h3>");
       parts.push(renderTransitPositionsHtml(transit));
     }
-    const collected = collectDirectEffectItems(person1, person2, transit);
+    const collected = collectDirectEffectItems(person1, person2, transit, person3Of(meta2));
     if (!collected.items.length) {
       parts.push("<p>" + escapeHtml("No direct transit hits" + (person2 ? " or transit-triggered interactions" : "") + " for the activations entered.") + "</p>");
     } else {
@@ -4578,7 +4716,7 @@ function renderDirectEffectsNarrativeHtml(person1, person2, transits, meta) {
       }
       parts.push("</ul>");
     }
-    const days = [collected.d1].concat(collected.d2 ? [collected.d2] : []);
+    const days = [collected.d1].concat(collected.d2 ? [collected.d2] : []).concat(collected.d3 ? [collected.d3] : []);
     allTech.push(technicalBlock(collected.tUse, days, collected.couple));
   }
   parts.push('<div class="tech"><details class="tech"><summary>Technical details (gates, channels, ephemeris)</summary><pre>' + escapeHtml(allTech.join("\n\n---\n\n")) + "</pre></details></div>");
@@ -4616,10 +4754,10 @@ function describeDirectTimelineEvent(ev, person1, person2) {
   const rw = directRwBit(theme, gi && gi.center);
   return hook + " \u2014 " + bits.join("; ") + rw;
 }
-function renderDirectEffectsTimelineHtml(person1, person2, meta) {
+function renderDirectEffectsTimelineHtml(person1, person2, meta2) {
   const parts = [];
-  const names = person2 ? person1.name + " & " + person2.name : person1.name;
-  let events = (meta.events || []).filter((e) => isDirectTimelineEvent(e, person1, person2));
+  const names = peopleNameString(person1, person2, person3Of(meta2));
+  let events = (meta2.events || []).filter((e) => isDirectTimelineEvent(e, person1, person2));
   if (omitLightsOn()) {
     events = events.filter((e) => !isLightPlanet(e.planet));
   }
@@ -4630,7 +4768,7 @@ function renderDirectEffectsTimelineHtml(person1, person2, meta) {
     if (sunGateOnlyOn()) events = events.filter((e) => e.planet !== "Sun" && e.planet !== "Earth" || e.gateChanged);
   }
   parts.push("<h2>" + escapeHtml("Direct effects timeline: " + names) + "</h2>");
-  parts.push("<p><em>" + escapeHtml(meta.rangeLabel || "") + "</em></p>");
+  parts.push("<p><em>" + escapeHtml(meta2.rangeLabel || "") + "</em></p>");
   if (!events.length) {
     parts.push("<p>" + escapeHtml("No direct-effect gate/line ingresses in this window.") + "</p>");
   } else {
@@ -4645,7 +4783,7 @@ function renderDirectEffectsTimelineHtml(person1, person2, meta) {
     }
   }
   const tech = [];
-  tech.push("Timeline window: " + meta.rangeLabel);
+  tech.push("Timeline window: " + meta2.rangeLabel);
   tech.push("Mode: direct-effects-only");
   tech.push("Events shown: " + events.length);
   for (const ev of events) {
@@ -4654,12 +4792,12 @@ function renderDirectEffectsTimelineHtml(person1, person2, meta) {
   parts.push('<div class="tech"><details class="tech"><summary>Technical details (gates, channels, ephemeris)</summary><pre>' + escapeHtml(tech.join("\n")) + "</pre></details></div>");
   return parts.join("\n");
 }
-function renderNarrativeHtml(person1, person2, transits, meta) {
+function renderNarrativeHtml(person1, person2, transits, meta2) {
   try {
     clearPlanetSpanCache();
   } catch (e) {
   }
-  return renderStructuredSnapshotHtml(person1, person2, transits, meta || {});
+  return renderStructuredSnapshotHtml(person1, person2, transits, meta2 || {});
   const parts = [];
   const wantIx = interactionsOnlyOn();
   const shortCouple = wantIx && !!person2;
@@ -4668,7 +4806,7 @@ function renderNarrativeHtml(person1, person2, transits, meta) {
   const names = person2 ? `${person1.name} & ${person2.name}` : person1.name;
   let titleDates;
   if (transits.length === 1) {
-    titleDates = transits[0].display_when || meta.timeLabel || "";
+    titleDates = transits[0].display_when || meta2.timeLabel || "";
   } else {
     const a = transits[0].display_date || transits[0].date;
     const b = transits[transits.length - 1].display_date || transits[transits.length - 1].date;
@@ -4753,8 +4891,8 @@ function renderNarrativeHtml(person1, person2, transits, meta) {
   parts.push(`<div class="tech"><details class="tech"><summary>Technical details (gates, channels, ephemeris)</summary><pre>${escapeHtml(allTech.join("\n\n---\n\n"))}</pre></details></div>`);
   return parts.join("\n");
 }
-function renderNarrativeMarkdown(person1, person2, transits, meta) {
-  const tmp = renderNarrativeHtml(person1, person2, transits, meta);
+function renderNarrativeMarkdown(person1, person2, transits, meta2) {
+  const tmp = renderNarrativeHtml(person1, person2, transits, meta2);
   return tmp.replace(/<h2>/g, "# ").replace(/<\/h2>/g, "\n").replace(/<h3>/g, "## ").replace(/<\/h3>/g, "\n").replace(/<p><em>/g, "").replace(/<\/em><\/p>/g, "\n").replace(/<p>/g, "").replace(/<\/p>/g, "\n\n").replace(/<div class="tech"><details class="tech"><summary>Technical details (gates, channels, ephemeris)<\/summary><pre>/g, "\n\n<details><summary>Technical details</summary>\n\n```\n").replace(/<\/pre><\/details><\/div>/g, "\n```\n</details>\n").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"');
 }
 function dateRangeList(start, end) {
@@ -5059,7 +5197,6 @@ function describeExpandedCoupleNotSelf(person1, person2, day1, day2, couple, tra
 }
 function extraOutputLandscapeOn() {
   try {
-    if (!realWorldOn()) return false;
     const wrap = document.getElementById("extraOutputOpts");
     if (wrap) {
       const hidden = wrap.getAttribute("hidden") != null || wrap.style && wrap.style.display === "none";
@@ -5073,7 +5210,6 @@ function extraOutputLandscapeOn() {
 }
 function extraOutputBetweenOn() {
   try {
-    if (!realWorldOn()) return false;
     const wrap = document.getElementById("extraOutputOpts");
     if (wrap) {
       const hidden = wrap.getAttribute("hidden") != null || wrap.style && wrap.style.display === "none";
@@ -5100,9 +5236,9 @@ function extraFilt(tracker, s) {
   }
   return s;
 }
-function weekdayDateForTransit(transit, meta) {
+function weekdayDateForTransit(transit, meta2) {
   if (transit && transit.display_date) return transit.display_date;
-  const tz = transitTzOf(transit, meta);
+  const tz = transitTzOf(transit, meta2);
   const ms = transitAtMs(transit);
   try {
     let zone = "UTC";
@@ -5122,9 +5258,9 @@ function extraChLabel(ch) {
   const centers = (ch && ch.centers || []).map(normalizeCenterName);
   return theme + (centers.length ? " (" + centers.join("\u2013") + ")" : "");
 }
-function spanLeadForPlanetGate(planet, gate, transit, meta, tracker) {
+function spanLeadForPlanetGate(planet, gate, transit, meta2, tracker) {
   const theme = prettyTheme(gateThemeName(gate));
-  const tz = transitTzOf(transit, meta);
+  const tz = transitTzOf(transit, meta2);
   const at = transitAtMs(transit);
   const span = spanForPlanetAt(planet, at, tz);
   if (tracker && !claimGateSpan(tracker, planet, gate)) {
@@ -5149,7 +5285,7 @@ function profileOnceParagraph(person, tracker) {
   s += " The notes below are potentials for how a given day may touch that landscape, not a forecast of events.";
   return extraFilt(tracker, s);
 }
-function describeNotSelfDayForPerson(person, transit, tracker, meta) {
+function describeNotSelfDayForPerson(person, transit, tracker, meta2) {
   const name = firstNameOnly(person.name);
   const sky = transitWithoutLights(transit);
   const day = analyzeDay(person, sky);
@@ -5166,7 +5302,7 @@ function describeNotSelfDayForPerson(person, transit, tracker, meta) {
     for (let i = 0; i < n; i++) {
       const p = planets[i] || planets[0];
       const g = tGates[i] || tGates[0];
-      if (p && g) leads.push(spanLeadForPlanetGate(p, g, transit, meta, tracker));
+      if (p && g) leads.push(spanLeadForPlanetGate(p, g, transit, meta2, tracker));
     }
     const hit = { centers, channelInfo: item.info, kind: item.kind === "electromagnetic" ? "channel_em" : item.kind === "transit_overlay_on_natal_channel" ? "channel_overlay" : "channel_supply" };
     const centerOpts = channelCenterEffectOptions(person, hit, theme);
@@ -5214,7 +5350,7 @@ function describeNotSelfDayForPerson(person, transit, tracker, meta) {
     const hooks = byOpenCenter[c] || [];
     let s;
     if (hooks.length) {
-      const leads = hooks.slice(0, 3).map((h) => spanLeadForPlanetGate(h.planet, h.gate, transit, meta, tracker));
+      const leads = hooks.slice(0, 3).map((h) => spanLeadForPlanetGate(h.planet, h.gate, transit, meta2, tracker));
       s = leads[0];
       if (leads.length > 1) s += ", while " + leads.slice(1).join(", ");
       s += " \u2014 this weather sits in " + name + "'s open " + c + " center (conditioning, not a completed-channel definition by itself).";
@@ -5292,7 +5428,7 @@ function relationKindForChannel(dyn, chId) {
   if (has(dyn.compromise)) return "dominance";
   return "relationship";
 }
-function describeBetweenDay(p1, p2, transit, tracker, meta) {
+function describeBetweenDay(p1, p2, transit, tracker, meta2) {
   const n1 = firstNameOnly(p1.name), n2 = firstNameOnly(p2.name);
   const sky = transitWithoutLights(transit);
   const dyn = coupleDynamics(p1, p2, sky);
@@ -5309,7 +5445,7 @@ function describeBetweenDay(p1, p2, transit, tracker, meta) {
       for (const [pname, p] of Object.entries(sky.planets || {})) {
         if (gates.indexOf(p.gate) >= 0) planets.push({ planet: pname, gate: p.gate });
       }
-      const leads = planets.slice(0, 2).map((h) => spanLeadForPlanetGate(h.planet, h.gate, transit, meta, tracker));
+      const leads = planets.slice(0, 2).map((h) => spanLeadForPlanetGate(h.planet, h.gate, transit, meta2, tracker));
       const lead = leads.length ? leads[0] + ", " : "";
       return lead + "the " + kind + " channel of " + extraChLabel(c) + " between them is lit by this sky";
     });
@@ -5325,7 +5461,7 @@ function describeBetweenDay(p1, p2, transit, tracker, meta) {
         const planets = item.transit_planets || [];
         const tGates = item.transit_gates || [];
         const p = planets[0], g = tGates[0];
-        const lead = p && g ? spanLeadForPlanetGate(p, g, transit, meta, tracker) + ", " : "";
+        const lead = p && g ? spanLeadForPlanetGate(p, g, transit, meta2, tracker) + ", " : "";
         const theme = prettyTheme(plainChannelName(item.info));
         const info = centerNotSelfInfo(c);
         const ampName = firstNameOnly(ampPerson.name);
@@ -5354,7 +5490,7 @@ function describeBetweenDay(p1, p2, transit, tracker, meta) {
     const bits = both.slice(0, 3).map((h) => {
       const theme = prettyTheme(h.gate && h.gate.name || gateThemeName(h.gate && h.gate.number || h.gate));
       const gNum = h.gate && (h.gate.number || h.gate) || (h.gl ? +String(h.gl).split(".")[0] : 0);
-      return spanLeadForPlanetGate(h.planet, gNum, transit, meta, tracker) + " lands in both charts on " + theme;
+      return spanLeadForPlanetGate(h.planet, gNum, transit, meta2, tracker) + " lands in both charts on " + theme;
     });
     paras.push(extraFilt(tracker, bits.filter(Boolean).join("; ") + ". Shared hooks can raise the same pressure on both sides at once; volume is weather, not a verdict on the relationship."));
   }
@@ -5363,16 +5499,16 @@ function describeBetweenDay(p1, p2, transit, tracker, meta) {
   }
   return paras.filter(Boolean);
 }
-function sectionDayHeading(transit, meta) {
+function sectionDayHeading(transit, meta2) {
   if (transit && transit.display_when) return transit.display_when;
-  const date = weekdayDateForTransit(transit, meta);
+  const date = weekdayDateForTransit(transit, meta2);
   const time = transit && transit.display_time;
   if (date && time) return date + " at " + String(time).replace(/^at\s+/, "");
   return date || transit && transit.date || "";
 }
-function sectionRangeLabel(transits, meta) {
-  if (meta && meta.rangeLabel) return meta.rangeLabel;
-  if (meta && meta.timeLabel) return meta.timeLabel;
+function sectionRangeLabel(transits, meta2) {
+  if (meta2 && meta2.rangeLabel) return meta2.rangeLabel;
+  if (meta2 && meta2.timeLabel) return meta2.timeLabel;
   const days = transits && transits.length ? transits : [];
   if (!days.length) return "";
   if (days.length === 1) return days[0].display_when || days[0].display_date || days[0].date || "";
@@ -5381,26 +5517,28 @@ function sectionRangeLabel(transits, meta) {
   const tm = days[0].display_time || "";
   return a + (b && b !== a ? " to " + b : "") + (tm ? " \xB7 " + tm : "");
 }
-function sectionReportTitle(wantL, wantB, person1, person2) {
-  const names = person2 ? firstNameOnly(person1.name) + " & " + firstNameOnly(person2.name) : firstNameOnly(person1.name);
+function sectionReportTitle(wantL, wantB, person1, person2, person3) {
+  const names = peopleNameString(person1, person2, person3, true);
   if (wantL && wantB) return "Not-Self landscape and Between members: " + names;
   if (wantL) return "Not-Self landscape (full chart), day by day: " + names;
   return "Between members selected, day by day: " + names;
 }
-function sectionShowPositions(meta, dayCount) {
-  return wantTransitFieldSections(meta || {});
+function sectionShowPositions(meta2, dayCount) {
+  return wantTransitFieldSections(meta2 || {});
 }
-function buildExtraOutputBlocks(person1, person2, transits, meta) {
+function buildExtraOutputBlocks(person1, person2, transits, meta2) {
   const wantL = extraOutputLandscapeOn();
   const wantB = extraOutputBetweenOn();
   if (!wantL && !wantB) return [];
   const days = transits && transits.length ? transits.slice() : [];
   const tracker = makeProseTracker();
   const blocks = [];
-  const people = [person1].concat(person2 ? [person2] : []);
-  const names = person2 ? firstNameOnly(person1.name) + " & " + firstNameOnly(person2.name) : firstNameOnly(person1.name);
-  blocks.push({ tag: "h2", text: sectionReportTitle(wantL, wantB, person1, person2) });
-  const range = sectionRangeLabel(days, meta || {});
+  const person3 = person3Of(meta2);
+  const people = allPeople(person1, person2, person3);
+  const names = peopleNameString(person1, person2, person3, true);
+  const pairs = peoplePairs(person1, person2, person3);
+  blocks.push({ tag: "h2", text: sectionReportTitle(wantL, wantB, person1, person2, person3) });
+  const range = sectionRangeLabel(days, meta2 || {});
   if (range) blocks.push({ tag: "p-em", text: range });
   if (wantL && wantB) {
     blocks.push({ tag: "p-em", text: "Potentials only\u2014Not-Self landscape, then how the members condition each other, day by day. Not predictions." });
@@ -5422,36 +5560,40 @@ function buildExtraOutputBlocks(person1, person2, transits, meta) {
     if (!person2) {
       blocks.push({ tag: "p", text: "Select a second member to see a day-by-day summary of the conditioning between them. With one chart loaded, there is no second design to compare." });
     } else {
-      const base = describeBetweenBaseline(person1, person2, tracker);
-      if (base) blocks.push({ tag: "p", text: base });
+      for (const pr of pairs) {
+        const base = describeBetweenBaseline(pr[0], pr[1], tracker);
+        if (base) blocks.push({ tag: "p", text: base });
+      }
     }
   }
   if (!days.length) {
     blocks.push({ tag: "p", text: "No daily transit field was available to walk this picture day by day." });
     return blocks;
   }
-  const showPos = sectionShowPositions(meta || {}, days.length);
+  const showPos = sectionShowPositions(meta2 || {}, days.length);
   for (const transit of days) {
     blocks.push({ tag: "day-start" });
-    blocks.push({ tag: "h3", cls: "ns-day-title", text: sectionDayHeading(transit, meta) });
+    blocks.push({ tag: "h3", cls: "ns-day-title", text: sectionDayHeading(transit, meta2) });
     if (wantL) {
       for (const person of people) {
         blocks.push({ tag: "h3", cls: "ns-person", text: firstNameOnly(person.name) });
-        const paras = describeNotSelfDayForPerson(person, transit, tracker, meta);
+        const paras = describeNotSelfDayForPerson(person, transit, tracker, meta2);
         for (const para of paras) {
           if (para) blocks.push({ tag: "p", text: para });
         }
       }
     }
     if (wantB && person2) {
-      blocks.push({ tag: "h3", cls: "ns-between", text: "Between " + firstNameOnly(person1.name) + " and " + firstNameOnly(person2.name) });
-      const paras = describeBetweenDay(person1, person2, transit, tracker, meta);
-      for (const para of paras) {
-        if (para) blocks.push({ tag: "p", text: para });
+      for (const pr of pairs) {
+        blocks.push({ tag: "h3", cls: "ns-between", text: "Between " + firstNameOnly(pr[0].name) + " and " + firstNameOnly(pr[1].name) });
+        const paras = describeBetweenDay(pr[0], pr[1], transit, tracker, meta2);
+        for (const para of paras) {
+          if (para) blocks.push({ tag: "p", text: para });
+        }
       }
     }
     if (showPos) {
-      const pos = renderTransitPositionsHtml(transit, { includePositions: true, includeTransitField: true, tz: meta && meta.tz || transit.tz });
+      const pos = renderTransitPositionsHtml(transit, { includePositions: true, includeTransitField: true, tz: meta2 && meta2.tz || transit.tz });
       if (pos) blocks.push({ tag: "html", html: pos });
     }
     blocks.push({ tag: "day-end" });
@@ -5501,9 +5643,9 @@ function extraBlocksToMarkdown(blocks) {
   }
   return lines.join("");
 }
-function appendExtraOutputSections(html, md, person1, person2, transits, meta) {
+function appendExtraOutputSections(html, md, person1, person2, transits, meta2) {
   if (!extraOutputWanted()) return { html, md };
-  const blocks = buildExtraOutputBlocks(person1, person2, transits, meta || {});
+  const blocks = buildExtraOutputBlocks(person1, person2, transits, meta2 || {});
   if (!blocks.length) return { html, md };
   const extraHtml = extraBlocksToHtml(blocks);
   const extraMd = extraBlocksToMarkdown(blocks);

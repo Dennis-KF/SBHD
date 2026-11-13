@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta http-equiv="Cache-Control" content="202611111645" />
-  <meta name="ta-build" content="202611111645" />
+  <meta http-equiv="Cache-Control" content="202611121715" />
+  <meta name="ta-build" content="202611121715" />
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -55,6 +55,16 @@ button:disabled{opacity:.5;cursor:not-allowed;filter:none}
 .calendar .day.selected,.calendar .day.start,.calendar .day.end{background:var(--accent);color:#111;font-weight:700;border-color:var(--accent)}
 .calendar .day.start.end{box-shadow:inset 0 0 0 2px #111}
 .range-fields{display:grid;grid-template-columns:1fr 1fr;gap:.45rem;margin-top:.45rem}
+.range-dt{display:flex;flex-direction:column;gap:.28rem;min-width:0}
+.range-dt .range-dt-row{display:flex;gap:.35rem;align-items:end;flex-wrap:wrap;min-width:0}
+.range-dt .range-dt-row > div{flex:1 1 8rem;min-width:0}
+.range-dt input[type=time]{width:100%;min-width:7rem;min-height:44px;cursor:pointer;touch-action:manipulation}
+.range-dt .time12-readout{display:block;font-size:.75rem;color:var(--muted);margin-top:.15rem}
+body.when-mode-single .range-time-only{display:none}
+body.when-mode-range #timeSingleWrap{display:none}
+@media(max-width:600px){
+  .range-fields{grid-template-columns:1fr}
+}
 .range-hint{font-size:.78rem;color:var(--muted);margin:.35rem 0 0}
 .range-hint.warn{color:var(--err)}
 #selectionLabel{font-weight:600;color:var(--accent)}
@@ -103,6 +113,10 @@ button.secondary#nowBtn.active{opacity:1;font-weight:750;background:var(--accent
 #extraOutputOpts{margin:.65rem 0 0;padding:.75rem 0 0;border-top:1px solid var(--border);background:var(--panel);position:static;max-height:none;overflow:visible}
 #extraOutputOpts .check input{margin-top:.2rem}
 #extraOutputOpts .hint{max-width:100%}
+#extraOutputNeedReportHint,#betweenMembersDisabledHint{margin:.15rem 0 .45rem;color:var(--muted);font-size:.85rem;line-height:1.35;max-width:100%}
+#extraOutputNeedReportHint[hidden],#betweenMembersDisabledHint[hidden]{display:none!important}
+#extraOutputOpts label.check.is-disabled{opacity:.65}
+#extraOutputOpts input[disabled]{cursor:not-allowed}
 #askGrokPanel{margin:.4rem 0 .15rem}
 #askGrokQuestion{width:100%;min-height:5.6rem;resize:vertical;max-width:100%;box-sizing:border-box}
 .ask-grok-actions{display:flex;align-items:center;gap:.6rem;margin-top:.35rem;flex-wrap:wrap}
@@ -222,8 +236,11 @@ button,.secondary{touch-action:manipulation;-webkit-tap-highlight-color:transpar
   #controls .quick-load button,
   #controls .ql-remove{width:auto;max-width:100%;min-width:0;flex:1 1 auto}
   #controls button.clear-btn{width:auto;min-width:1.7rem;flex:0 0 auto}
-  /* Keep the bottom refine bar usable: long hints stay available on larger screens. */
+  /* Keep the bottom refine bar usable: long hints stay available on larger screens.
+     Pre-report and “need a second member” notices must remain visible on phones. */
   #extraOutputOpts > p.hint{display:none}
+  #extraOutputNeedReportHint:not([hidden]),
+  #betweenMembersDisabledHint:not([hidden]){display:block!important}
   #askGrokBtn{min-width:5.5rem}
   #askGrokQuestion{min-height:5.5rem}
 }
@@ -297,6 +314,7 @@ label.check,label.check input{cursor:pointer}
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', flush);
   else flush();
   window.onerror=function(msg,src,line,col,err){
+    if(!src && /^script error\.?$/i.test(String(msg||'').replace(/^Uncaught\s+/,''))) return false; /* opaque cross-site error (e.g. visit counter or browser add-on), not the app */
     var parts=['Error: '+msg];
     if(src) parts.push(String(src)+(line?(':'+line+(col!==undefined && col!==null?(':'+col):'')):''));
     if(err && err.stack) parts.push(String(err.stack));
@@ -401,6 +419,45 @@ label.check,label.check input{cursor:pointer}
       <button type="button" class="secondary" id="applyMan2">Apply manual gates</button>
     </div>
 
+
+    <div class="label-row">
+      <label for="person3">Person / Input 3 (optional)</label>
+      <button type="button" class="clear-btn" id="clearPerson3" title="Remove" aria-label="Remove Person 3">×</button>
+    </div>
+    <textarea id="person3"></textarea>
+    <div class="chart-status" id="chartStatus3" aria-live="polite"></div>
+    <div class="row">
+      <div>
+        <label>Upload .json / .txt / .docx / .png</label>
+        <input type="file" id="file3" accept=".json,.txt,.docx,.doc,.png,image/png,image/*,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword" />
+      </div>
+    </div>
+    <div class="quick-load" id="quickLoad3" role="group" aria-label="Quick-load sample for Person 3">
+      <span class="quick-load-label">Quick load</span>
+      <div class="quick-load-grid" id="quickLoadGrid3">
+        <div class="ql-slot" data-index="1"><button type="button" class="secondary quick-sample" data-slot="3" data-index="1" data-sample="dennis" id="ql3-dennis" aria-pressed="false">Dennis</button></div>
+        <div class="ql-slot" data-index="2"><button type="button" class="secondary quick-sample" data-slot="3" data-index="2" data-sample="eike" id="ql3-eike" aria-pressed="false">Eike</button></div>
+        <div class="ql-slot" data-index="3"><button type="button" class="secondary quick-sample" data-slot="3" data-index="3" data-sample="judy" id="ql3-judy" aria-pressed="false">Judy</button></div>
+        <div class="ql-slot" data-index="4"><button type="button" class="secondary quick-sample" data-slot="3" data-index="4" data-sample="carolyn" id="ql3-carolyn" aria-pressed="false">Carolyn</button></div>
+        <div class="ql-slot" data-index="5"><button type="button" class="secondary quick-sample" data-slot="3" data-index="5" data-sample="milena" id="ql3-milena" aria-pressed="false">Milena</button></div>
+        <div class="ql-slot" data-index="6"><button type="button" class="secondary quick-sample" data-slot="3" data-index="6" data-sample="teresa" id="ql3-teresa" aria-pressed="false">Teresa</button></div>
+        <div class="ql-slot empty-slot" data-index="7"><button type="button" class="secondary quick-sample empty" data-slot="3" data-index="7" data-sample="" id="ql3-empty7" disabled title="Empty custom slot — upload a .docx / .json / .txt chart to save here">Empty</button></div>
+        <div class="ql-slot empty-slot" data-index="8"><button type="button" class="secondary quick-sample empty" data-slot="3" data-index="8" data-sample="" id="ql3-empty8" disabled title="Empty custom slot — upload a .docx / .json / .txt chart to save here">Empty</button></div>
+        <div class="ql-slot empty-slot" data-index="9"><button type="button" class="secondary quick-sample empty" data-slot="3" data-index="9" data-sample="" id="ql3-empty9" disabled title="Empty custom slot — upload a .docx / .json / .txt chart to save here">Empty</button></div>
+        <div class="ql-slot empty-slot" data-index="10"><button type="button" class="secondary quick-sample empty" data-slot="3" data-index="10" data-sample="" id="ql3-empty10" disabled title="Empty custom slot — upload a .docx / .json / .txt chart to save here">Empty</button></div>
+        <div class="ql-slot empty-slot" data-index="11"><button type="button" class="secondary quick-sample empty" data-slot="3" data-index="11" data-sample="" id="ql3-empty11" disabled title="Empty custom slot — upload a .docx / .json / .txt chart to save here">Empty</button></div>
+        <div class="ql-slot empty-slot" data-index="12"><button type="button" class="secondary quick-sample empty" data-slot="3" data-index="12" data-sample="" id="ql3-empty12" disabled title="Empty custom slot — upload a .docx / .json / .txt chart to save here">Empty</button></div>
+      </div>
+    </div>
+
+    <div class="png-box" id="pngBox3">
+      <img id="pngImg3" alt="Chart 3 preview" />
+      <label>Manual gates (from image)</label>
+      <input id="manName3" placeholder="Name" />
+      <input id="manGates3" placeholder="Earth:27.2, Mars:14.2, Venus:34.5" />
+      <button type="button" class="secondary" id="applyMan3">Apply manual gates</button>
+    </div>
+
     <h2 style="margin-top:1rem">When</h2>
     <div class="mode-toggle" id="whenModeToggle" role="group" aria-label="When">
       <button type="button" class="secondary" id="modeSingle" aria-pressed="false">Single day</button>
@@ -412,7 +469,7 @@ label.check,label.check input{cursor:pointer}
       <input type="checkbox" id="includeRangeFullDesc" checked />
       Full descriptions
     </label>
-    <p class="hint" id="rangeFullDescHint" style="margin:.05rem 0 .45rem">Per event: gate.line, weekday date, local AM/PM time, and the full reading—channel completions, other transit interactions, chart touches, and couple comparison when two charts are loaded. Does not add positions tables. Checked by default. Mutually exclusive with Brief descriptions. If neither Full nor Brief is checked, the report uses Full descriptions.</p>
+    <p class="hint" id="rangeFullDescHint" style="margin:.05rem 0 .45rem">Per event: gate.line, weekday date, local AM/PM time, and the full reading—channel completions, other transit interactions, chart touches, and couple comparison when two or three charts are loaded. Does not add positions tables. Checked by default. Mutually exclusive with Brief descriptions. If neither Full nor Brief is checked, the report uses Full descriptions.</p>
     <label class="check" id="rangeBriefDescOpt" style="margin:.15rem 0 .15rem">
       <input type="checkbox" id="includeRangeBriefDesc" />
       Brief descriptions
@@ -435,13 +492,31 @@ label.check,label.check input{cursor:pointer}
       </div>
       <div class="cal-dual" id="calendar"></div>
       <div class="range-fields" id="rangeFields">
-        <div>
-          <label id="fromLabel">From</label>
-          <input type="date" id="dateFrom" value="" />
+        <div class="range-dt">
+          <div class="range-dt-row">
+            <div>
+              <label for="dateFrom" id="fromLabel">From date</label>
+              <input type="date" id="dateFrom" value="" />
+            </div>
+            <div class="range-time-only">
+              <label for="timeFrom">Start time</label>
+              <input type="time" id="timeFrom" step="60" value="" aria-describedby="timeFromLabel" />
+              <span class="time12-readout" id="timeFromLabel"></span>
+            </div>
+          </div>
         </div>
-        <div>
-          <label id="toLabel">To</label>
-          <input type="date" id="dateTo" value="" />
+        <div class="range-dt">
+          <div class="range-dt-row">
+            <div>
+              <label for="dateTo" id="toLabel">To date</label>
+              <input type="date" id="dateTo" value="" />
+            </div>
+            <div class="range-time-only">
+              <label for="timeTo">End time</label>
+              <input type="time" id="timeTo" step="60" value="" aria-describedby="timeToLabel" />
+              <span class="time12-readout" id="timeToLabel"></span>
+            </div>
+          </div>
         </div>
       </div>
       <div class="selection-row">
@@ -451,7 +526,7 @@ label.check,label.check input{cursor:pointer}
       <p class="range-hint" id="rangeHint"></p>
     </div>
     <div class="row3" style="margin-top:.5rem">
-      <div>
+      <div id="timeSingleWrap">
         <label>Time</label>
         <div class="time12" style="display:flex;gap:.35rem;align-items:center">
           <select id="hour12" aria-label="Hour" style="width:auto;flex:1"></select>
@@ -523,23 +598,25 @@ label.check,label.check input{cursor:pointer}
     </div>
     <h2>Story</h2>
     <div id="reportWrap"><div id="report">Load the ephemeris, choose people and a time, then run analysis. The report reads as plain-language paragraphs; technical gate lists stay folded at the bottom.</div></div>
-    <div id="extraOutputOpts" class="no-print" style="display:none">
+    <div id="extraOutputOpts" class="no-print">
       <div style="margin:.1rem 0 .35rem"><strong>Refine output</strong></div>
+      <p id="extraOutputNeedReportHint">Generate a report to use these options.</p>
       <label class="check" style="display:flex;align-items:flex-start;gap:.5rem;margin:.25rem 0 .1rem">
         <input type="checkbox" id="notSelfLandscape" />
         Not-Self landscape (full chart), day by day
       </label>
-      <p class="hint" id="notSelfLandscapeHint" style="margin:.05rem 0 .45rem">Unchecked by default. When on, the report above shows only the Not-Self landscape, date by date, not the full regular report. Type, Strategy, and Authority are restated once, then each day (weekday date, local AM/PM times, gate time spans in the prose) shows how that day's transits touch open or undefined centers. Shown only while Real-World Influence is checked.</p>
-      <label class="check" style="display:flex;align-items:flex-start;gap:.5rem;margin:.15rem 0 .1rem">
+      <p class="hint" id="notSelfLandscapeHint" style="margin:.05rem 0 .45rem">Unchecked by default. When on, the report above shows only the Not-Self landscape, date by date, not the full regular report. Type, Strategy, and Authority are restated once, then each day (weekday date, local AM/PM times, gate time spans in the prose) shows how that day's transits touch open or undefined centers. Always available here, whether or not Real-World Influence is checked.</p>
+      <label class="check" id="betweenMembersLabel" style="display:flex;align-items:flex-start;gap:.5rem;margin:.15rem 0 .1rem">
         <input type="checkbox" id="betweenMembers" />
         Between members selected, day by day
       </label>
-      <p class="hint" id="betweenMembersHint" style="margin:.05rem 0 .35rem">Unchecked by default. When on, the report above shows only the Between members section, date by date, not the full regular report. With two members selected, each day (weekday date, local AM/PM times, gate time spans in the prose) describes how they condition each other—electromagnetic, companionship, and dominance channels, and which open centers each fills in the other—plus how that day's transits change it. If only one member is selected, a short note appears instead. Shown only while Real-World Influence is checked.</p>
+      <p id="betweenMembersDisabledHint" hidden>Select a second or third member to compare. With only one member selected, Between members is unavailable.</p>
+      <p class="hint" id="betweenMembersHint" style="margin:.05rem 0 .35rem">Unchecked by default. When on, the report above shows only the Between members section, date by date, not the full regular report. With two members selected, each day (weekday date, local AM/PM times, gate time spans in the prose) describes how they condition each other—electromagnetic, companionship, and dominance channels, and which open centers each fills in the other—plus how that day's transits change it. With three members selected, each day covers all three pairs (1–2, 1–3, and 2–3). Always available here, whether or not Real-World Influence is checked.</p>
       <label class="check" style="display:flex;align-items:flex-start;gap:.5rem;margin:.15rem 0 .1rem">
         <input type="checkbox" id="askGrokBox" />
         Ask a question about Advantages and Difficulties
       </label>
-      <p class="hint" id="askGrokHint" style="margin:.05rem 0 .35rem">Unchecked by default. When on, a question box appears. The question is answered from the checked sections' output (or the full regular report if neither section is checked). The date range and member names are included. The answer is added under its heading in the report above so it prints and saves as PDF. Shown only while Real-World Influence is checked.</p>
+      <p class="hint" id="askGrokHint" style="margin:.05rem 0 .35rem">Unchecked by default. When on, a question box appears. The question is answered from the checked sections' output (or the full regular report if neither section is checked). The date range and member names are included. The answer is added under its heading in the report above so it prints and saves as PDF. Always available here, whether or not Real-World Influence is checked.</p>
       <div id="askGrokPanel" class="no-print" style="display:none">
         <label for="askGrokQuestion">Your question</label>
         <textarea id="askGrokQuestion" rows="4" placeholder="Ask about advantages and difficulties in the selected output…"></textarea>
@@ -564,8 +641,8 @@ label.check,label.check input{cursor:pointer}
 </div>
 
 <!-- Data is separate from the UI. Script order matters. Works via file:// on Windows and via https on iPhone/iPad Firefox. -->
-<script src="astronomy.browser.min.js?v=202611111645"></script>
-<script src="data.js?v=202611111645"></script>
+<script src="astronomy.browser.min.js?v=202611121715"></script>
+<script src="data.js?v=202611121715"></script>
 
 <script>
 /* ES5 quick-load + Full/Brief bootstrap: works even if later scripts fail. */
@@ -589,7 +666,7 @@ label.check,label.check input{cursor:pointer}
   }
   function setHighlight(n, key){
     try{
-      var grid=byId(n===1?'quickLoadGrid1':'quickLoadGrid2');
+      var grid=byId('quickLoadGrid'+n);
       if(!grid) return;
       var buttons=grid.getElementsByTagName('button');
       var i,b,on;
@@ -611,7 +688,7 @@ label.check,label.check input{cursor:pointer}
       try{
         var samples=(rootData().samples)||{};
         var src=samples[key];
-        var ta=byId(n===1?'person1':'person2');
+        var ta=byId('person'+n);
         if(src && ta) ta.value=typeof src==='string'?src:JSON.stringify(src,null,2);
       }catch(e){}
     }
@@ -675,15 +752,17 @@ label.check,label.check input{cursor:pointer}
   function boot(){
     try{ fillIfEmpty('quickLoadGrid1',1); }catch(e){}
     try{ fillIfEmpty('quickLoadGrid2',2); }catch(e){}
+    try{ fillIfEmpty('quickLoadGrid3',3); }catch(e){}
     try{ wireGrid('quickLoadGrid1',1); }catch(e){}
     try{ wireGrid('quickLoadGrid2',2); }catch(e){}
+    try{ wireGrid('quickLoadGrid3',3); }catch(e){}
     try{ wireRangeDesc(); }catch(e){}
   }
   if(document.readyState==='loading'){ document.addEventListener('DOMContentLoaded', boot); }
   else { boot(); }
 })();
 </script>
-<script src="analyzer.js?v=202611111645"></script>
-<script src="app.js?v=202611111645"></script>
+<script src="analyzer.js?v=202611121715"></script>
+<script src="app.js?v=202611121715"></script>
 </body>
 </html>

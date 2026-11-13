@@ -27,6 +27,36 @@ let lastHtml = "";
 let lastMd = "";
 let engReady = false;
 const $ = (id) => document.getElementById(id);
+function personBoxId(n) {
+  return "person" + n;
+}
+function loadParsedFromBox(n) {
+  try {
+    const el = $(personBoxId(n));
+    const raw = el && String(el.value || "").trim();
+    if (!raw) return null;
+    return parseInput(raw) || null;
+  } catch (e) {
+    return null;
+  }
+}
+function selectedPeopleFromBoxes() {
+  const p1 = loadParsedFromBox(1);
+  const extras = [];
+  const a = loadParsedFromBox(2);
+  if (a) extras.push({ raw: a, slot: 2 });
+  const b = loadParsedFromBox(3);
+  if (b) extras.push({ raw: b, slot: 3 });
+  return {
+    p1,
+    p2: extras[0] ? extras[0].raw : null,
+    p3: extras[1] ? extras[1].raw : null,
+    p2slot: extras[0] ? extras[0].slot : null,
+    p3slot: extras[1] ? extras[1].slot : null,
+    extraCount: extras.length,
+    anyExtra: extras.length > 0
+  };
+}
 const status = (msg, cls = "") => {
   const s = $("status");
   if (!s) return;
@@ -112,6 +142,89 @@ function formatDisplayTimeOnly(date, timeZone) {
 }
 function pad2(n) {
   return String(n).padStart(2, "0");
+}
+function normalizeHm(s, fallback) {
+  const m = String(s || "").trim().match(/^(\d{1,2}):(\d{2})/);
+  if (!m) return fallback || "00:00";
+  let h = +m[1], mi = +m[2];
+  if (!(h >= 0 && h <= 23)) h = 0;
+  if (!(mi >= 0 && mi <= 59)) mi = 0;
+  return pad2(h) + ":" + pad2(mi);
+}
+function formatHm12(hm) {
+  const parts = normalizeHm(hm, "00:00").split(":");
+  const h = +parts[0], mi = +parts[1];
+  const ap = h >= 12 ? "PM" : "AM";
+  let h12 = h % 12;
+  if (h12 === 0) h12 = 12;
+  return h12 + ":" + pad2(mi) + " " + ap;
+}
+function getRangeStartHm() {
+  const el = $("timeFrom");
+  return normalizeHm(el && el.value, typeof initialLocalToday === "function" && initialLocalToday().hm || "12:00");
+}
+function getRangeEndHm() {
+  const el = $("timeTo");
+  return normalizeHm(el && el.value, "23:59");
+}
+function updateTimeReadout(inputId, labelId) {
+  const el = $(inputId), lab = $(labelId);
+  if (!lab) return;
+  lab.textContent = el && el.value ? formatHm12(el.value) : "";
+}
+function syncRangeTimeReadouts() {
+  updateTimeReadout("timeFrom", "timeFromLabel");
+  updateTimeReadout("timeTo", "timeToLabel");
+}
+function setRangeTimeInputs(startHm, endHm) {
+  const a = $("timeFrom"), b = $("timeTo");
+  if (a) a.value = normalizeHm(startHm, "12:00");
+  if (b) b.value = normalizeHm(endHm, "23:59");
+  syncRangeTimeReadouts();
+}
+function getQueryWindow(tz) {
+  tz = tz || ($("tz") && $("tz").value || "local");
+  if (mode !== "range") {
+    const startMs2 = zonedTimeToUtc(startDate, "00:00", tz).getTime();
+    const endExclusiveMs = zonedTimeToUtc(typeof addCalendarDays === "function" ? addCalendarDays(startDate, 1) : startDate, "00:00", tz).getTime();
+    return { tz, startMs: startMs2, endMs: endExclusiveMs - 6e4, endExclusiveMs, startDate, endDate: startDate, startHm: "00:00", endHm: "23:59", isRange: false };
+  }
+  const from = startDate;
+  const to = endDate || startDate;
+  const startHm = getRangeStartHm();
+  const endHm = getRangeEndHm();
+  const startMs = zonedTimeToUtc(from, startHm, tz).getTime();
+  const endMs = zonedTimeToUtc(to, endHm, tz).getTime();
+  return { tz, startMs, endMs, endExclusiveMs: endMs + 6e4, startDate: from, endDate: to, startHm, endHm, isRange: true };
+}
+function queryWindowIsValid(w) {
+  return !!(w && w.startMs != null && w.endMs != null && w.endMs > w.startMs);
+}
+function formatQueryWindowLabel(w) {
+  if (!w) return "";
+  if (!w.isRange) return formatDisplayDateOnly(new Date(w.startMs), w.tz) + " \xB7 full local day";
+  return formatDisplayDateTime(new Date(w.startMs), w.tz) + " to " + formatDisplayDateTime(new Date(w.endMs), w.tz);
+}
+function applyQueryWindowGlobal(w) {
+  try {
+    if (w && w.isRange) {
+      window.__RANGE_WINDOW__ = {
+        startMs: w.startMs,
+        endMs: w.endMs,
+        endExclusiveMs: w.endExclusiveMs,
+        tz: w.tz,
+        startLabel: formatDisplayDateTime(new Date(w.startMs), w.tz),
+        endLabel: formatDisplayDateTime(new Date(w.endMs), w.tz)
+      };
+    } else {
+      window.__RANGE_WINDOW__ = null;
+    }
+  } catch (e) {
+    try {
+      window.__RANGE_WINDOW__ = null;
+    } catch (_e) {
+    }
+  }
 }
 function syncTimeHiddenFrom12() {
   var _a, _b, _c;
@@ -222,7 +335,7 @@ function formatFriendlyDate(isoStr) {
 function selectionRangeText() {
   if (!startDate) return "No date selected";
   if (mode === "single" || !endDate) return formatFriendlyDate(startDate);
-  return formatFriendlyDate(startDate) + " to " + formatFriendlyDate(endDate);
+  return formatFriendlyDate(startDate) + " at " + formatHm12(getRangeStartHm()) + " to " + formatFriendlyDate(endDate) + " at " + formatHm12(getRangeEndHm());
 }
 function rangeDayCount() {
   if (!startDate) return 0;
@@ -248,7 +361,20 @@ function updateRangeHint() {
     el.classList.add("warn");
     el.textContent = "Selected range is " + n + " days. " + (reportMode === "timeline" ? "Timeline is limited to 31 days \u2014 shorten the range before running." : "This browser build allows at most 62 days \u2014 shorten the range before running.");
   } else {
-    el.textContent = n + " day" + (n === 1 ? "" : "s") + " selected" + (reportMode === "timeline" ? " (timeline cap 31)" : "") + ".";
+    let msg = n + " day" + (n === 1 ? "" : "s") + " selected" + (reportMode === "timeline" ? " (timeline cap 31)" : "") + ".";
+    try {
+      const w = getQueryWindow();
+      if (w && w.isRange) {
+        msg += " Window: " + formatHm12(w.startHm) + " to " + formatHm12(w.endHm) + " (local to the selected timezone).";
+        if (!queryWindowIsValid(w)) {
+          el.classList.add("warn");
+          el.textContent = "The end date and time must be after the start date and time. Please adjust From/To.";
+          return;
+        }
+      }
+    } catch (e) {
+    }
+    el.textContent = msg;
   }
 }
 function syncDateInputsFromState() {
@@ -424,7 +550,7 @@ function calNextMonth() {
   renderCalendar();
 }
 function clearPerson(n) {
-  const ta = $(n === 1 ? "person1" : "person2");
+  const ta = $(personBoxId(n));
   if (ta) ta.value = "";
   const file = $("file" + n);
   if (file) file.value = "";
@@ -448,6 +574,10 @@ function clearPerson(n) {
     st.className = "chart-status";
   }
   clearQuickLoadHighlight(n);
+  try {
+    if (typeof syncExtraOutputOpts === "function") syncExtraOutputOpts();
+  } catch (e) {
+  }
   status("Cleared Person " + n + " \u2014 slot is empty", "ok");
 }
 function omitLightsOn() {
@@ -518,6 +648,19 @@ function syncWhenModeHighlight() {
   if (mr) {
     mr.classList.toggle("active", !isSingle);
     mr.setAttribute("aria-pressed", !isSingle ? "true" : "false");
+  }
+  try {
+    document.body.classList.toggle("when-mode-single", isSingle);
+    document.body.classList.toggle("when-mode-range", !isSingle);
+  } catch (e) {
+  }
+  try {
+    syncRangeTimeReadouts();
+  } catch (e) {
+  }
+  try {
+    if (typeof updateRangeHint === "function") updateRangeHint();
+  } catch (e) {
   }
   syncRangeTransitFieldOpt();
 }
@@ -741,7 +884,7 @@ function sampleButtonLabel(key) {
 function renderQuickLoadGrids() {
   try {
     const order = sampleOrderList();
-    for (let n = 1; n <= 2; n++) {
+    for (let n = 1; n <= 3; n++) {
       try {
         const grid = $("quickLoadGrid" + n) || $("quickLoad" + n) && $("quickLoad" + n).querySelector(".quick-load-grid");
         if (!grid) continue;
@@ -874,21 +1017,29 @@ function loadSampleInto(n, sampleKey) {
   }
 }
 function setPersonText(n, obj, sampleKey) {
-  const ta = $(n === 1 ? "person1" : "person2");
+  const ta = $(personBoxId(n));
   const fresh = typeof obj === "string" ? obj : JSON.stringify(obj, null, 2);
   ta.value = fresh;
   updateChartStatus(n);
   if (sampleKey) setQuickLoadHighlight(n, sampleKey);
   else clearQuickLoadHighlight(n);
+  try {
+    if (typeof syncExtraOutputOpts === "function") syncExtraOutputOpts();
+  } catch (e) {
+  }
 }
 function updateChartStatus(n) {
   const el = $("chartStatus" + n);
-  const ta = $(n === 1 ? "person1" : "person2");
+  const ta = $(personBoxId(n));
   if (!el || !ta) return;
   const raw = (ta.value || "").trim();
   if (!raw) {
     el.textContent = "";
     el.className = "chart-status";
+    try {
+      if (typeof syncExtraOutputOpts === "function") syncExtraOutputOpts();
+    } catch (e) {
+    }
     return;
   }
   try {
@@ -916,6 +1067,10 @@ function updateChartStatus(n) {
   } catch (e) {
     el.textContent = "Could not parse chart: " + (e && e.message ? e.message : e);
     el.className = "chart-status err";
+  }
+  try {
+    if (typeof syncExtraOutputOpts === "function") syncExtraOutputOpts();
+  } catch (e) {
   }
 }
 function readFileAsText(file) {
@@ -1022,7 +1177,7 @@ function chartObjectFromLoadedText(text, fallbackName) {
 async function handleFile(n, file) {
   if (!file) return;
   const name = (file.name || "").toLowerCase();
-  const ta = $(n === 1 ? "person1" : "person2");
+  const ta = $(personBoxId(n));
   const box = $("pngBox" + n);
   const img = $("pngImg" + n);
   const fallbackName = file.name.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ");
@@ -1040,7 +1195,7 @@ async function handleFile(n, file) {
     if (mem && mem.ok && mem.key) setQuickLoadHighlight(n, mem.key);
     else clearQuickLoadHighlight(n);
     if (mem && mem.full) {
-    } else if (mem && mem.ok && !mem.builtin) status("Loaded " + file.name + " \xB7 saved \u201C" + mem.label + "\u201D to quick-load slot " + (mem.replaced ? "(updated)" : mem.slotIndex + 7) + " (both inputs).", "ok");
+    } else if (mem && mem.ok && !mem.builtin) status("Loaded " + file.name + " \xB7 saved \u201C" + mem.label + "\u201D to quick-load slot " + (mem.replaced ? "(updated)" : mem.slotIndex + 7) + " (all member inputs).", "ok");
     else status("Loaded " + file.name, "ok");
     return;
   }
@@ -1055,7 +1210,7 @@ async function handleFile(n, file) {
       if (mem && mem.ok && mem.key) setQuickLoadHighlight(n, mem.key);
       else clearQuickLoadHighlight(n);
       if (mem && mem.full) {
-      } else if (mem && mem.ok && !mem.builtin) status("Loaded " + file.name + " \xB7 saved \u201C" + mem.label + "\u201D to quick-load slot " + (mem.replaced ? "(updated)" : mem.slotIndex + 7) + " (both inputs).", "ok");
+      } else if (mem && mem.ok && !mem.builtin) status("Loaded " + file.name + " \xB7 saved \u201C" + mem.label + "\u201D to quick-load slot " + (mem.replaced ? "(updated)" : mem.slotIndex + 7) + " (all member inputs).", "ok");
       else status("Loaded " + file.name, "ok");
     } catch (e) {
       if (e && e.message === "LEGACY_DOC") {
@@ -1139,13 +1294,21 @@ function buildTransitsForSelection(Astronomy2) {
   syncTimeHiddenFrom12();
   const timeStr = $("timeOfDay").value || "15:00";
   const tz = $("tz").value || "local";
+  const w = mode === "range" ? getQueryWindow(tz) : null;
   const dates = mode === "range" ? HD.dateRangeList(startDate, endDate || startDate) : [startDate];
   if (dates.length > 62) throw new Error("Date ranges are limited to 62 days in this browser build (you selected " + dates.length + "). Shorten From/To or click a nearer end date.");
-  return dates.map((ds) => {
-    const utcDate = zonedTimeToUtc(ds, timeStr, tz);
+  return dates.map((ds, i, arr) => {
+    let hm = timeStr;
+    if (w && w.isRange) {
+      if (arr.length === 1 || i === 0) hm = w.startHm;
+      else if (i === arr.length - 1) hm = w.endHm;
+      else hm = w.startHm;
+    }
+    const utcDate = zonedTimeToUtc(ds, hm, tz);
     const field = HD.computeTransitField(Astronomy2, utcDate);
     field.date = ds;
     field.tz = tz;
+    field._atMs = utcDate.getTime();
     field.display_when = formatDisplayDateTime(utcDate, tz);
     field.display_date = formatDisplayDateOnly(utcDate, tz);
     field.display_time = formatDisplayTimeOnly(utcDate, tz);
@@ -1216,25 +1379,71 @@ function rerunFromRefine() {
     }
   }
 }
-function extraOutputOptsShouldShow() {
-  var _a;
+function hasGeneratedReport() {
   try {
-    return !!((_a = document.getElementById("realWorldInfluence")) == null ? void 0 : _a.checked);
+    return !!window.__LAST_TRANSIT__;
   } catch (e) {
     return false;
   }
 }
+function extraOutputOptsShouldShow() {
+  return true;
+}
+function filledMemberCount() {
+  try {
+    if (typeof selectedPeopleFromBoxes === "function") {
+      const sel = selectedPeopleFromBoxes();
+      return (sel.p1 ? 1 : 0) + (sel.p2 ? 1 : 0) + (sel.p3 ? 1 : 0);
+    }
+  } catch (e) {
+  }
+  let n = 0;
+  for (let i = 1; i <= 3; i++) {
+    try {
+      const el = document.getElementById("person" + i);
+      if (el && String(el.value || "").trim()) n++;
+    } catch (e) {
+    }
+  }
+  return n;
+}
 function syncExtraOutputOpts() {
   const wrap = $("extraOutputOpts");
   if (!wrap) return;
-  const on = extraOutputOptsShouldShow();
-  wrap.style.display = on ? "block" : "none";
-  if (on) wrap.removeAttribute("hidden");
-  else wrap.setAttribute("hidden", "hidden");
+  wrap.style.display = "block";
+  wrap.removeAttribute("hidden");
+  const ready = hasGeneratedReport();
+  const needHint = $("extraOutputNeedReportHint");
+  if (needHint) {
+    if (ready) needHint.setAttribute("hidden", "hidden");
+    else needHint.removeAttribute("hidden");
+  }
+  const between = $("betweenMembers");
+  const betweenLab = $("betweenMembersLabel") || between && between.closest && between.closest("label");
+  const needTwo = filledMemberCount() < 2;
+  if (between) {
+    between.disabled = !!needTwo;
+    if (needTwo) {
+      between.checked = false;
+      between.setAttribute("aria-disabled", "true");
+      between.title = "Select a second or third member to compare.";
+    } else {
+      between.removeAttribute("aria-disabled");
+      between.removeAttribute("title");
+    }
+  }
+  if (betweenLab) {
+    if (needTwo) betweenLab.classList.add("is-disabled");
+    else betweenLab.classList.remove("is-disabled");
+  }
+  const disHint = $("betweenMembersDisabledHint");
+  if (disHint) {
+    if (needTwo) disHint.removeAttribute("hidden");
+    else disHint.setAttribute("hidden", "hidden");
+  }
   if (typeof syncAskGrokPanel === "function") syncAskGrokPanel();
 }
 function extraOutputRequested() {
-  if (!extraOutputOptsShouldShow()) return { landscape: false, between: false };
   return {
     landscape: !!($("notSelfLandscape") && $("notSelfLandscape").checked),
     between: !!($("betweenMembers") && $("betweenMembers").checked)
@@ -1268,12 +1477,6 @@ let lastGrokAnswerHtml = null;
 let lastHtmlBase = null;
 function askGrokBoxOn() {
   try {
-    if (!extraOutputOptsShouldShow()) return false;
-    const wrap = $("extraOutputOpts");
-    if (wrap) {
-      const hidden = wrap.getAttribute("hidden") != null || wrap.style && wrap.style.display === "none";
-      if (hidden) return false;
-    }
     const box = $("askGrokBox");
     return !!(box && box.checked);
   } catch (e) {
@@ -1422,8 +1625,12 @@ function clipAskDateOrder(s, n, memberNames) {
   const note = "\n[truncated to keep the request size reasonable; excerpts from each date and member kept]";
   const re = /(?=^(?:Sunday|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday), )/m;
   const parts = s.split(re);
-  const pre = parts[0] || "";
-  const days = parts.slice(1);
+  let pre = parts[0] || "";
+  let days = parts.slice(1);
+  if (/^(?:Sunday|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday), /.test(pre)) {
+    days = [pre].concat(days);
+    pre = "";
+  }
   if (!days.length) return clipAsk(s, n);
   const budget = n - pre.length - note.length;
   if (budget < 400) return clipAsk(s, n);
@@ -1543,7 +1750,7 @@ function compactDesignSummary(person) {
 }
 function loadAskPersonFromBox(which) {
   try {
-    const el = $(which === 2 ? "person2" : "person1");
+    const el = $(personBoxId(which));
     const raw = el && String(el.value || "").trim();
     if (!raw) return null;
     if (!window.HD || typeof HD.loadPerson !== "function") return null;
@@ -1554,28 +1761,29 @@ function loadAskPersonFromBox(which) {
 }
 function collectAskDesigns() {
   const out = [];
-  const p1 = loadAskPersonFromBox(1);
-  if (p1) out.push(compactDesignSummary(p1));
-  const p2 = loadAskPersonFromBox(2);
-  if (p2) out.push(compactDesignSummary(p2));
+  const sel = selectedPeopleFromBoxes();
+  const raws = [sel.p1, sel.p2, sel.p3];
+  for (let i = 0; i < raws.length; i++) {
+    if (!raws[i]) continue;
+    try {
+      if (!window.HD || typeof HD.loadPerson !== "function") continue;
+      const person = HD.loadPerson(raws[i]);
+      if (person) out.push(compactDesignSummary(person));
+    } catch (e) {
+    }
+  }
   return out;
 }
 function collectAskMembers() {
   const names = [];
-  try {
-    const p1 = parseInput($("person1") && $("person1").value);
-    const n1 = firstNameMember(p1 && p1.name);
-    if (n1) names.push(n1);
-  } catch (e) {
-  }
-  try {
-    const raw = $("person2") && $("person2").value.trim();
-    if (raw) {
-      const p2 = parseInput(raw);
-      const n2 = firstNameMember(p2 && p2.name);
-      if (n2) names.push(n2);
+  const sel = selectedPeopleFromBoxes();
+  const raws = [sel.p1, sel.p2, sel.p3];
+  for (let i = 0; i < raws.length; i++) {
+    try {
+      const n = firstNameMember(raws[i] && raws[i].name);
+      if (n) names.push(n);
+    } catch (e) {
     }
-  } catch (e) {
   }
   return names;
 }
@@ -1772,17 +1980,22 @@ function runAnalysis() {
       lastHtml = wrap ? wrap.innerHTML : "";
       lastMd = msg;
       status(msg.split("\n")[0], "err");
+    }, attachPerson32 = function(meta) {
+      const out = Object.assign({}, meta || {});
+      if (person3) out.person3 = person3;
+      return out;
     };
-    var stopChart = stopChart2;
+    var stopChart = stopChart2, attachPerson3 = attachPerson32;
     if (!engReady || !window.Astronomy) {
       status("Ephemeris library not loaded", "err");
       return;
     }
-    const p1 = parseInput($("person1").value);
-    const p2raw = $("person2").value.trim();
-    const p2 = p2raw ? parseInput(p2raw) : null;
+    const sel = selectedPeopleFromBoxes();
+    const p1 = sel.p1;
+    const p2 = sel.p2;
+    const p3 = sel.p3;
     if (!p1) {
-      const friendly = !p2raw ? "Add a chart to get started \u2014 paste JSON or text, upload a file, or load a sample for Person 1 (Person 2 is optional for a couple report)." : "Person 1 is empty \u2014 add a chart in Person 1, or clear Person 2 and use Person 1 for a solo report.";
+      const friendly = !sel.anyExtra ? "Add a chart to get started \u2014 paste JSON or text, upload a file, or load a sample for Person 1 (Person 2 and Person 3 are optional)." : "Person 1 is empty \u2014 add a chart in Person 1, or clear the other inputs and use Person 1 for a solo report.";
       const wrap = $("report");
       if (wrap) wrap.innerHTML = '<p class="empty-hint">' + friendly + "</p>";
       lastHtml = wrap ? wrap.innerHTML : "";
@@ -1792,8 +2005,10 @@ function runAnalysis() {
     }
     const person1 = HD.loadPerson(p1);
     const person2 = p2 ? HD.loadPerson(p2) : null;
+    const person3 = p3 ? HD.loadPerson(p3) : null;
     updateChartStatus(1);
-    if (p2) updateChartStatus(2);
+    if (sel.p2slot) updateChartStatus(sel.p2slot);
+    if (sel.p3slot) updateChartStatus(sel.p3slot);
     const v1 = HD.validateNatalOrStop(person1, person1.name || "Person 1");
     if (!v1.ok) {
       stopChart2(v1.message);
@@ -1806,16 +2021,29 @@ function runAnalysis() {
         return;
       }
     }
+    if (person3) {
+      const v3 = HD.validateNatalOrStop(person3, person3.name || "Person 3");
+      if (!v3.ok) {
+        stopChart2(v3.message);
+        return;
+      }
+    }
     const tz = $("tz").value || "local";
+    const queryWin = getQueryWindow(tz);
+    if (mode === "range" && !queryWindowIsValid(queryWin)) {
+      status("The end date and time must be after the start date and time. Please adjust From/To and try again.", "err");
+      return;
+    }
+    applyQueryWindowGlobal(queryWin);
     if (reportMode === "timeline") {
       status("Scanning chart-relevant ingresses\u2026");
       syncTimeHiddenFrom12();
       const dates = mode === "range" ? HD.dateRangeList(startDate, endDate || startDate) : [startDate];
       if (dates.length > 31) throw new Error("Timeline ranges are limited to 31 days (you selected " + dates.length + "). Shorten From/To or click a nearer end date.");
-      const startMs = zonedTimeToUtc(dates[0], "00:00", tz).getTime();
-      const endMs = zonedTimeToUtc(addCalendarDays(dates[dates.length - 1], 1), "00:00", tz).getTime();
-      const found = findChartRelevantEvents(window.Astronomy, person1, person2, startMs, endMs, tz);
-      const rangeLabel = dates.length === 1 ? formatDisplayDateOnly(new Date(startMs), tz) + " \xB7 full local day" : formatDisplayDateOnly(new Date(startMs), tz) + " to " + formatDisplayDateOnly(new Date(endMs - 6e4), tz);
+      const startMs = mode === "range" ? queryWin.startMs : zonedTimeToUtc(dates[0], "00:00", tz).getTime();
+      const endMs = mode === "range" ? queryWin.endExclusiveMs : zonedTimeToUtc(addCalendarDays(dates[dates.length - 1], 1), "00:00", tz).getTime();
+      const found = findChartRelevantEvents(window.Astronomy, person1, person2, startMs, endMs, tz, person3);
+      const rangeLabel = mode === "range" ? formatQueryWindowLabel(queryWin) : formatDisplayDateOnly(new Date(startMs), tz) + " \xB7 full local day";
       const tzLabel = resolveTzId(tz);
       const startField = computeTransitField(window.Astronomy, new Date(startMs));
       startField.tz = tz;
@@ -1835,14 +2063,14 @@ function runAnalysis() {
       }
       if (includeOverview2 && dates.length > 1) {
         const dayTransits = buildTransitsForSelection(window.Astronomy);
-        const ovMeta = {
+        const ovMeta = attachPerson32({
           timeLabel: rangeLabel,
           tz,
           includeTransitField: includeTF2,
           includePositions: includeTF2,
           rangeOverview: true,
           rangeTransitFieldMode: includeTF2 ? "per-day" : "omit"
-        };
+        });
         lastHtml = HD.renderNarrativeHtml(person1, person2, dayTransits, ovMeta);
         lastMd = HD.renderNarrativeMarkdown(person1, person2, dayTransits, ovMeta);
         {
@@ -1858,9 +2086,13 @@ function runAnalysis() {
         window.__LAST_REPORT_MD__ = lastMd;
         window.__LAST_TRANSIT__ = dayTransits[0] || null;
         window.__LAST_EVENTS__ = found.events;
+        try {
+          syncExtraOutputOpts();
+        } catch (e) {
+        }
         return;
       }
-      const meta = { events: found.events, moonSkipped: found.moonSkipped, rawCount: found.rawCount, rangeLabel, tzLabel, tz, startField, includeTransitField: includeTF2, includePositions: includeTF2, rangeOverview: false };
+      const meta = attachPerson32({ events: found.events, moonSkipped: found.moonSkipped, rawCount: found.rawCount, rangeLabel, tzLabel, tz, startField, includeTransitField: includeTF2, includePositions: includeTF2, rangeOverview: false });
       lastHtml = renderTimelineHtml(person1, person2, meta);
       {
         const _x = applyExtraOutput(lastHtml, lastHtml, person1, person2, Object.assign({}, meta, { dayTransits: buildTransitsForSelection(window.Astronomy) }));
@@ -1872,7 +2104,7 @@ function runAnalysis() {
       applyGrokAnswerToReport();
       let _shownN = found.events.length;
       if (interactionsOnlyOn() && person2) {
-        _shownN = found.events.filter((e) => isInteractionTimelineEvent(e, person1, person2)).length;
+        _shownN = found.events.filter((e) => isInteractionTimelineEvent(e, person1, person2, person3)).length;
         $("ephemNote").textContent = "Interaction timeline: " + _shownN + " interaction events (" + found.events.length + " chart-relevant)" + (found.moonSkipped ? " \xB7 " + found.moonSkipped + " quiet Moon shifts omitted" : "") + " \xB7 " + rangeLabel;
       } else {
         $("ephemNote").textContent = "Timeline: " + found.events.length + " chart-relevant events" + (found.moonSkipped ? " \xB7 " + found.moonSkipped + " quiet Moon shifts omitted" : "") + " \xB7 " + rangeLabel;
@@ -1881,6 +2113,10 @@ function runAnalysis() {
       window.__LAST_REPORT_MD__ = lastMd;
       window.__LAST_TRANSIT__ = found.events[0] ? found.events[0].afterField : null;
       window.__LAST_EVENTS__ = found.events;
+      try {
+        syncExtraOutputOpts();
+      } catch (e) {
+      }
       return;
     }
     status("Computing live ephemeris\u2026");
@@ -1896,7 +2132,12 @@ function runAnalysis() {
       window.__INCLUDE_RANGE_FULL__ = computeIncludeRangeFullFlag();
     } catch (e) {
     }
-    const snapMeta = { timeLabel, tz: field0.tz, includeTransitField: includeTF, includePositions: includeTF, rangeOverview: includeOverview };
+    const snapMeta = attachPerson32({ timeLabel, tz: field0.tz, includeTransitField: includeTF, includePositions: includeTF, rangeOverview: includeOverview });
+    if (mode === "range") {
+      const winLabel = formatQueryWindowLabel(queryWin);
+      snapMeta.timeLabel = winLabel;
+      snapMeta.rangeLabel = winLabel;
+    }
     if (mode === "range" && transits.length > 1) {
       snapMeta.rangeTransitFieldMode = includeTF ? "per-day" : "omit";
     }
@@ -1922,6 +2163,10 @@ function runAnalysis() {
     window.__LAST_REPORT_MD__ = lastMd;
     window.__LAST_TRANSIT__ = field;
     window.__LAST_EVENTS__ = null;
+    try {
+      syncExtraOutputOpts();
+    } catch (e) {
+    }
   } catch (e) {
     status(String(e.message || e), "err");
     console.error(e);
@@ -2351,11 +2596,30 @@ function applyBootTodayToInputs() {
   } catch (e) {
   }
   try {
+    setRangeTimeInputs(t.hm, "23:59");
+  } catch (e) {
+  }
+  try {
+    if (mode === "range" && typeof getQueryWindow === "function") {
+      const w = getQueryWindow();
+      if (w && !queryWindowIsValid(w) && typeof addCalendarDays === "function") {
+        endDate = addCalendarDays(t.iso, 1);
+        const dt2 = $("dateTo");
+        if (dt2) dt2.value = endDate;
+      }
+    }
+  } catch (e) {
+  }
+  try {
     syncDateInputsFromState && syncDateInputsFromState();
   } catch (e) {
   }
   try {
     if (typeof updateRangeHint === "function") updateRangeHint();
+  } catch (e) {
+  }
+  try {
+    syncRangeTimeReadouts();
   } catch (e) {
   }
 }
@@ -2389,6 +2653,35 @@ function wire() {
     const dateFrom = $("dateFrom"), dateTo = $("dateTo");
     if (dateFrom) dateFrom.onchange = applyDateInputsToState;
     if (dateTo) dateTo.onchange = applyDateInputsToState;
+    ;
+    ["timeFrom", "timeTo"].forEach((id) => {
+      const el = $(id);
+      if (!el) return;
+      const onTime = () => {
+        try {
+          syncRangeTimeReadouts();
+        } catch (e) {
+        }
+        try {
+          if (typeof updateRangeHint === "function") updateRangeHint();
+        } catch (e) {
+        }
+        try {
+          const sl = $("selectionLabel");
+          if (sl) {
+            if (sl.tagName === "INPUT") sl.value = selectionRangeText();
+            else sl.textContent = selectionRangeText();
+          }
+        } catch (e) {
+        }
+        try {
+          clearNowReading();
+        } catch (e) {
+        }
+      };
+      el.addEventListener("change", onTime);
+      el.addEventListener("input", onTime);
+    });
     const ms = $("modeSingle"), mr = $("modeRange");
     if (ms) ms.onclick = () => {
       mode = "single";
@@ -2405,22 +2698,28 @@ function wire() {
       syncWhenModeHighlight();
       renderCalendar();
     };
-    const f1 = $("file1"), f2 = $("file2");
+    const f1 = $("file1"), f2 = $("file2"), f3 = $("file3");
     if (f1) f1.onchange = (e) => handleFile(1, e.target.files && e.target.files[0]);
     if (f2) f2.onchange = (e) => handleFile(2, e.target.files && e.target.files[0]);
-    const cp1 = $("clearPerson1"), cp2 = $("clearPerson2"), cd = $("clearDates");
+    if (f3) f3.onchange = (e) => handleFile(3, e.target.files && e.target.files[0]);
+    const cp1 = $("clearPerson1"), cp2 = $("clearPerson2"), cp3 = $("clearPerson3"), cd = $("clearDates");
     if (cp1) cp1.onclick = () => clearPerson(1);
     if (cp2) cp2.onclick = () => clearPerson(2);
+    if (cp3) cp3.onclick = () => clearPerson(3);
     if (cd) cd.onclick = () => clearDates();
   });
   safe("quickLoad2", renderQuickLoadGrids);
   safe("quickLoadInput", () => {
     ;
-    [1, 2].forEach((n) => {
-      const ta = $(n === 1 ? "person1" : "person2");
+    [1, 2, 3].forEach((n) => {
+      const ta = $(personBoxId(n));
       if (ta) {
-        ta.addEventListener("input", () => clearQuickLoadHighlight(n));
-        ta.addEventListener("change", () => clearQuickLoadHighlight(n));
+        const onPersonEdit = () => {
+          clearQuickLoadHighlight(n);
+          if (typeof syncExtraOutputOpts === "function") syncExtraOutputOpts();
+        };
+        ta.addEventListener("input", onPersonEdit);
+        ta.addEventListener("change", onPersonEdit);
       }
     });
   });
@@ -2586,6 +2885,8 @@ function wire() {
     if (am1) am1.onclick = () => applyManualGates(1);
     const am2 = $("applyMan2");
     if (am2) am2.onclick = () => applyManualGates(2);
+    const am3 = $("applyMan3");
+    if (am3) am3.onclick = () => applyManualGates(3);
   });
   safe("export", () => {
     const em = $("exportMd");
@@ -2685,7 +2986,7 @@ window.__TA_SHARE__ = {
   MAILTO_SAFE,
   SMS_SAFE
 };
-window.__CAL_TEST__ = { getState: () => ({ mode, startDate, endDate, calViewYear, calViewMonth, label: selectionRangeText(), days: rangeDayCount() }), setMode: (m) => {
+window.__CAL_TEST__ = { getState: () => ({ mode, startDate, endDate, calViewYear, calViewMonth, startHm: getRangeStartHm(), endHm: getRangeEndHm(), label: selectionRangeText(), days: rangeDayCount(), window: getQueryWindow() }), setMode: (m) => {
   mode = m;
   if (m === "single") {
     endDate = null;
