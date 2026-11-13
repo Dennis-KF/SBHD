@@ -5843,6 +5843,272 @@ function appendExtraOutputSections(html, md, person1, person2, transits, meta2) 
   const extraMd = extraBlocksToMarkdown(blocks);
   return { html: extraHtml, md: extraMd };
 }
+function natalTypeNotSelf(person) {
+  const profile = deriveHdProfile(person);
+  const map = TYPE_NOT_SELF || {};
+  const t = profile && profile.type;
+  if (t && map[t]) return Object.assign({ type: t }, map[t]);
+  const lower = String(t || "").toLowerCase();
+  const keys = Object.keys(map);
+  for (let i = 0; i < keys.length; i++) {
+    if (keys[i].toLowerCase() === lower) return Object.assign({ type: keys[i] }, map[keys[i]]);
+  }
+  try {
+    return typeNotSelfInfo(person);
+  } catch (e) {
+    return null;
+  }
+}
+function natalPeopleList(people) {
+  const out = [];
+  for (let i = 0; i < (people || []).length; i++) {
+    if (people[i]) out.push(people[i]);
+  }
+  return out;
+}
+function natalNameList(people) {
+  return natalPeopleList(people).map(function(p) {
+    return firstNameOnly(p.name);
+  });
+}
+function natalTitleNames(people) {
+  const names = natalNameList(people);
+  if (!names.length) return "";
+  if (names.length === 1) return names[0];
+  if (names.length === 2) return names[0] + " & " + names[1];
+  return names.slice(0, names.length - 1).join(", ") + " & " + names[names.length - 1];
+}
+function natalPairs(people, meta2) {
+  const list = natalPeopleList(people);
+  if (typeof selectedPeoplePairs === "function" && list[0]) {
+    try {
+      const pairs2 = selectedPeoplePairs(list[0], list[1] || null, list[2] || null, meta2 || {});
+      if (pairs2 && pairs2.length) return pairs2;
+    } catch (e) {
+    }
+  }
+  const pairs = [];
+  for (let i = 0; i < list.length; i++) {
+    for (let j = i + 1; j < list.length; j++) pairs.push([list[i], list[j]]);
+  }
+  return pairs;
+}
+function natalFilt(tracker, s) {
+  if (typeof extraFilt === "function") return extraFilt(tracker, s);
+  if (typeof registerAndFilterSentence === "function") {
+    const f = registerAndFilterSentence(tracker, s);
+    return f || s;
+  }
+  return s;
+}
+function describeNatalBetweenPair(p1, p2, tracker, brief) {
+  const n1 = firstNameOnly(p1.name), n2 = firstNameOnly(p2.name);
+  const dyn = coupleDynamics(p1, p2, { planets: {} });
+  const electro = dyn.electromagnetic || [];
+  const comp = dyn.companionship || [];
+  const dom = dyn.compromise || [];
+  let s = n1 + " and " + n2 + " condition each other through the channels they already form together.";
+  function list(arr, label) {
+    if (!arr.length) return "";
+    if (brief) return " " + label + " channels: " + arr.map(extraChLabel).join("; ") + ".";
+    const bits = arr.map(function(ch) {
+      const lab = extraChLabel(ch);
+      const clip2 = typeof channelMeaningClip === "function" ? channelMeaningClip(ch) : "";
+      return lab + (clip2 ? ": " + clip2 : "");
+    });
+    return " " + label + " channels: " + bits.join(" ") + ".";
+  }
+  s += list(electro, "Electromagnetic");
+  s += list(comp, "Companionship");
+  s += list(dom, "Dominance");
+  if (!electro.length && !comp.length && !dom.length) {
+    s += " They do not currently form electromagnetic, companionship, or dominance channels from the activations entered.";
+  }
+  const fill2 = conditionCentersFromTo(p1, p2);
+  const fill1 = conditionCentersFromTo(p2, p1);
+  if (fill2.length) s += " " + n1 + "'s defined " + fill2.join(", ") + " can condition " + n2 + " where those centers are open.";
+  if (fill1.length) s += " " + n2 + "'s defined " + fill1.join(", ") + " can condition " + n1 + " where those centers are open.";
+  if (!brief) {
+    try {
+      const a = deriveHdProfile(p1), b = deriveHdProfile(p2);
+      s += " This is a potential in how their defined and open centers meet\u2014" + n1 + " as a " + a.type + " with " + a.authority + " Authority, " + n2 + " as a " + b.type + " with " + b.authority + " Authority\u2014not a prediction of what will happen.";
+    } catch (e) {
+    }
+  }
+  return natalFilt(tracker, s);
+}
+function describeNatalPerson(person, tracker, brief) {
+  const name = firstNameOnly(person.name);
+  const profile = deriveHdProfile(person);
+  const open = openCentersOf(person);
+  const defSorted = [...new Set([...person.defined_centers || []].map(normalizeCenterName))].sort();
+  const paras = [];
+  let p1 = name + " is a " + profile.type + ' with Strategy "' + profile.strategy + '" and ' + profile.authority + " Authority";
+  if (profile.definition && profile.definition !== "No Definition") p1 += " (" + profile.definition + " definition)";
+  p1 += ". Defined centers: " + (defSorted.length ? defSorted.join(", ") : "none") + ". Open centers: " + (open.length ? open.join(", ") : "none") + ".";
+  const chans = person.natal_channel_list || [];
+  if (brief) {
+    if (chans.length) p1 += " Natal channels: " + chans.map(function(c) {
+      return prettyTheme(c.name) + " (" + (c.centers || []).join("\u2013") + ")";
+    }).join("; ") + ".";
+    else p1 += " This chart does not complete a natal channel from the activations entered.";
+    const hanging2 = hangingGatesList(person).slice(0, 8);
+    if (hanging2.length) p1 += " Hanging gates include " + hanging2.map(function(g) {
+      return "Gate " + g + " (" + prettyTheme(gateThemeName(g)) + ")";
+    }).join(", ") + ".";
+    paras.push(natalFilt(tracker, p1));
+    return paras;
+  }
+  if (profile.signature) p1 += " The Type signature to watch is " + profile.signature + (profile.theme ? " \u2014 " + profile.theme : "") + ".";
+  const tns = natalTypeNotSelf(person);
+  if (tns && tns.everyday_pull) {
+    p1 += " In everyday life that Type pressure can look like " + String(tns.everyday_pull).replace(/\.+$/, "") + ".";
+  }
+  paras.push(natalFilt(tracker, p1));
+  if (chans.length) {
+    const bits = chans.map(function(c) {
+      const lab = prettyTheme(c.name) + " (" + (c.centers || []).join("\u2013") + ")";
+      const clip2 = typeof channelMeaningClip === "function" ? channelMeaningClip(c) : "";
+      return lab + (clip2 ? ": " + clip2 : "");
+    });
+    paras.push(natalFilt(tracker, name + "'s natal channels include " + bits.join(" ")));
+  } else {
+    paras.push(natalFilt(tracker, name + "'s activations do not complete a natal channel in the chart as entered."));
+  }
+  const hanging = hangingGatesList(person);
+  if (hanging.length) {
+    const bits = hanging.slice(0, 12).map(function(g) {
+      const theme = prettyTheme(gateThemeName(g));
+      let s = "Gate " + g + " (" + theme + ")";
+      try {
+        const gi = gateInfo(g);
+        const gs = meaningSentences(gi && (gi.description || gi.lcn_intro) || "", 2, 360);
+        if (gs) s += ": " + gs;
+      } catch (e) {
+      }
+      return s;
+    });
+    paras.push(natalFilt(tracker, name + "'s hanging gates include " + bits.join(" ")));
+  }
+  if (open.length) {
+    const bits = open.map(function(c) {
+      const info = centerNotSelfInfo(c);
+      let s = "Open " + c;
+      if (info && info.not_self_theme) s += ": " + info.not_self_theme;
+      if (info && info.conditioning) {
+        const cond = meaningSentences(info.conditioning, 2, 320);
+        if (cond) s += " " + cond;
+      }
+      if (info && info.everyday_pull) {
+        const pull = meaningSentences(info.everyday_pull, 1, 200);
+        if (pull) s += " Everyday pull: " + pull;
+      }
+      return s;
+    });
+    paras.push(natalFilt(tracker, "In " + name + "'s open centers, " + bits.join(" ")));
+  }
+  return paras;
+}
+function describeNatalNotSelfPerson(person, tracker, brief) {
+  const name = firstNameOnly(person.name);
+  const profile = deriveHdProfile(person);
+  const open = openCentersOf(person);
+  const paras = [];
+  const tns = natalTypeNotSelf(person);
+  let p1 = name + " is a " + profile.type + ' with Strategy "' + profile.strategy + '" and ' + profile.authority + " Authority.";
+  if (tns && tns.theme) p1 += " A Type not-self theme is " + tns.theme + ".";
+  if (tns && tns.everyday_pull && !brief) p1 += " In everyday life that can look like " + String(tns.everyday_pull).replace(/\.+$/, "") + ".";
+  if (profile.signature) p1 += " The signature to watch is " + profile.signature + ".";
+  paras.push(natalFilt(tracker, p1));
+  if (open.length) {
+    const bits = open.map(function(c) {
+      const info = centerNotSelfInfo(c);
+      let s = "open " + c;
+      if (info && info.not_self_theme) s += " may lean toward " + info.not_self_theme;
+      if (!brief && info && info.not_self_question) s += " (" + info.not_self_question + ")";
+      if (!brief && info && info.conditioning) {
+        const cond = meaningSentences(info.conditioning, 2, 320);
+        if (cond) s += "; " + cond;
+      }
+      if (!brief && info && info.everyday_pull) {
+        const pull = meaningSentences(info.everyday_pull, 1, 200);
+        if (pull) s += "; everyday pull: " + pull;
+      }
+      return s;
+    });
+    paras.push(natalFilt(tracker, "In this natal chart, " + bits.join(". ") + "."));
+  } else {
+    paras.push(natalFilt(tracker, name + " does not leave a center open, so not-self themes here sit more in Type pressure than in open-center conditioning."));
+  }
+  return paras;
+}
+function natalPeopleFromMeta(people, meta2) {
+  const list = natalPeopleList(people);
+  if (list.length) return list;
+  const m = meta2 || {};
+  if (m.members && m.members.length) return natalPeopleList(m.members);
+  const out = [];
+  if (m.person1) out.push(m.person1);
+  if (m.person2) out.push(m.person2);
+  if (m.person3) out.push(m.person3);
+  if (m.extraPeople) out.push.apply(out, m.extraPeople);
+  return natalPeopleList(out);
+}
+function renderNatalOnlyHtml(people, meta2) {
+  meta2 = meta2 || {};
+  const list = natalPeopleFromMeta(people, meta2);
+  const brief = !!meta2.brief;
+  const wantNS = !!meta2.wantNotSelf;
+  const wantBetween = !!meta2.wantBetween;
+  const tracker = makeProseTracker();
+  const title = natalTitleNames(list) || "Selected charts";
+  const parts = ['<div class="natal-only-report">'];
+  if (wantNS && !wantBetween) {
+    parts.push("<h2>Not-Self landscape (natal): " + escapeHtml(title) + "</h2>");
+    parts.push("<p><em>Open-center and Type themes in these charts, uninfluenced by transit activity. Potentials, not predictions.</em></p>");
+    for (let i = 0; i < list.length; i++) {
+      parts.push("<h3>" + escapeHtml(firstNameOnly(list[i].name)) + "</h3>");
+      const paras = describeNatalNotSelfPerson(list[i], tracker, brief);
+      for (let p = 0; p < paras.length; p++) parts.push("<p>" + escapeHtml(paras[p]) + "</p>");
+    }
+  } else if (wantBetween) {
+    parts.push("<h2>Between members (natal): " + escapeHtml(title) + "</h2>");
+    parts.push("<p><em>How these charts condition each other, uninfluenced by transit activity. Potentials, not predictions.</em></p>");
+    if (list.length < 2) {
+      parts.push("<p>Select a second member to see how the charts condition each other. With one chart loaded, there is no second design to compare.</p>");
+    } else {
+      const pairs = natalPairs(list, meta2);
+      for (let i = 0; i < pairs.length; i++) {
+        const a = pairs[i][0], b = pairs[i][1];
+        parts.push("<h3>Between " + escapeHtml(firstNameOnly(a.name)) + " and " + escapeHtml(firstNameOnly(b.name)) + "</h3>");
+        parts.push("<p>" + escapeHtml(describeNatalBetweenPair(a, b, tracker, brief)) + "</p>");
+      }
+    }
+  } else {
+    parts.push("<h2>Natal designs" + (list.length > 1 ? " and interactions" : "") + ": " + escapeHtml(title) + "</h2>");
+    parts.push("<p><em>A reading of the selected charts" + (list.length > 1 ? " and how they condition each other" : "") + ", uninfluenced by transit activity. Potentials, not predictions.</em></p>");
+    for (let i = 0; i < list.length; i++) {
+      parts.push("<h3>" + escapeHtml(firstNameOnly(list[i].name)) + "</h3>");
+      const paras = describeNatalPerson(list[i], tracker, brief);
+      for (let p = 0; p < paras.length; p++) parts.push("<p>" + escapeHtml(paras[p]) + "</p>");
+    }
+    if (list.length > 1) {
+      parts.push("<h2>Between members</h2>");
+      const pairs = natalPairs(list, meta2);
+      for (let i = 0; i < pairs.length; i++) {
+        const a = pairs[i][0], b = pairs[i][1];
+        parts.push("<h3>Between " + escapeHtml(firstNameOnly(a.name)) + " and " + escapeHtml(firstNameOnly(b.name)) + "</h3>");
+        parts.push("<p>" + escapeHtml(describeNatalBetweenPair(a, b, tracker, brief)) + "</p>");
+      }
+    }
+  }
+  parts.push("</div>");
+  return parts.join("\n");
+}
+function renderNatalOnlyMarkdown(people, meta2) {
+  const html = renderNatalOnlyHtml(people, meta2);
+  return String(html || "").replace(/<\/h2>/gi, "\n\n").replace(/<\/h3>/gi, "\n\n").replace(/<\/p>/gi, "\n\n").replace(/<br\s*\/?>/gi, "\n").replace(/<[^>]+>/g, "").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/\n{3,}/g, "\n\n").trim();
+}
 window.HD = {
   PLANET_ORDER,
   lonToGateLine,
@@ -5874,5 +6140,7 @@ window.HD = {
   extraOutputLandscapeOn,
   extraOutputBetweenOn,
   normalizePronouns,
-  personPronouns
+  personPronouns,
+  renderNatalOnlyHtml,
+  renderNatalOnlyMarkdown
 };
