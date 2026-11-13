@@ -1872,13 +1872,24 @@ function buildHighlightIndex() {
   window.__TA_HIGHLIGHT__ = index;
   return index;
 }
+function highlightControlsReady() {
+  const ready = typeof hasGeneratedReport === "function" && hasGeneratedReport();
+  const natal = typeof timeTransitBasedOn === "function" && !timeTransitBasedOn() || !!window.__NATAL_ONLY__;
+  return !!(ready && !natal);
+}
 function highlightAffectedOn() {
   const el = document.getElementById("hlAffectedMembers");
-  return !!(el && el.checked);
+  return !!(el && el.checked && highlightControlsReady());
 }
 function highlightBetweenOn() {
   const el = document.getElementById("hlBetweenInteractions");
-  return !!(el && el.checked);
+  let two = false;
+  try {
+    two = filledMemberCount() >= 2;
+  } catch (e) {
+    two = false;
+  }
+  return !!(el && el.checked && highlightControlsReady() && two);
 }
 function applyHighlightToggles() {
   const b = document.body;
@@ -1887,11 +1898,34 @@ function applyHighlightToggles() {
   else b.classList.remove("hl-affected-on");
   if (highlightBetweenOn()) b.classList.add("hl-between-on");
   else b.classList.remove("hl-between-on");
+  try {
+    updateHighlightStatus();
+  } catch (e) {
+  }
+}
+function updateHighlightStatus() {
+  const el = document.getElementById("hlToggleStatus");
+  if (!el) return;
+  if (!highlightControlsReady()) {
+    el.textContent = "Available after a transit report is generated.";
+    return;
+  }
+  const aOn = highlightAffectedOn();
+  const bOn = highlightBetweenOn();
+  if (!aOn && !bOn) {
+    el.textContent = "Highlighting is off. Check a box to underline transits and mark affected members.";
+    return;
+  }
+  const bits = [];
+  if (aOn) bits.push("affected members are bold");
+  if (bOn) bits.push("between-member transit interactions are bold and italic");
+  const t = document.querySelectorAll("#report span.hl-transit").length;
+  const a = document.querySelectorAll("#report span.hl-affected").length;
+  const n = document.querySelectorAll("#report .hl-between-block").length;
+  el.textContent = "Highlighting on: " + bits.join("; ") + " (" + t + " underlined transit" + (t === 1 ? "" : "s") + ", " + a + " bold name" + (a === 1 ? "" : "s") + ", " + n + " interaction" + (n === 1 ? "" : "s") + ").";
 }
 function syncHighlightChecks() {
-  const ready = typeof hasGeneratedReport === "function" && hasGeneratedReport();
-  const natal = typeof timeTransitBasedOn === "function" && !timeTransitBasedOn() || !!window.__NATAL_ONLY__;
-  const hlReady = ready && !natal;
+  const hlReady = highlightControlsReady();
   let two = false;
   try {
     two = filledMemberCount() >= 2;
@@ -1902,14 +1936,20 @@ function syncHighlightChecks() {
   const b = document.getElementById("hlBetweenInteractions");
   const aLab = a && a.closest ? a.closest("label") : null;
   const bLab = b && b.closest ? b.closest("label") : null;
-  if (a) {
-    a.disabled = !hlReady;
-    if (!hlReady) a.checked = false;
+  function arm(el, on, keepChecked) {
+    if (!el) return;
+    try {
+      el.disabled = false;
+      el.removeAttribute("disabled");
+    } catch (e) {
+    }
+    el.setAttribute("aria-disabled", on ? "false" : "true");
+    if (!on) el.checked = false;
+    else if (keepChecked) {
+    }
   }
-  if (b) {
-    b.disabled = !(hlReady && two);
-    if (!(hlReady && two)) b.checked = false;
-  }
+  arm(a, hlReady, true);
+  arm(b, hlReady && two, true);
   if (aLab) {
     if (!hlReady) aLab.classList.add("is-disabled");
     else aLab.classList.remove("is-disabled");
@@ -1917,6 +1957,10 @@ function syncHighlightChecks() {
   if (bLab) {
     if (!(hlReady && two)) bLab.classList.add("is-disabled");
     else bLab.classList.remove("is-disabled");
+  }
+  try {
+    wireHighlightChecks();
+  } catch (e) {
   }
   applyHighlightToggles();
 }
@@ -1986,7 +2030,7 @@ function prefixLooksNatal(text, idx) {
   return /natal\s+$/.test(pre) || /design\s+$/.test(pre) || /personality\s+$/.test(pre) || /\(design\)\s*$/.test(pre) || /\(personality\)\s*$/.test(pre);
 }
 function wrapTransitMentions(root, index) {
-  const planetNames = ["North Node", "South Node", "Sun", "Earth", "Moon", "Mercury", "Venus", "Mars", "Jupiter", "Saturn", "Uranus", "Neptune", "Pluto"];
+  const planetNames = ["North Node", "South Node", "True Node", "Mean Node", "Sun", "Earth", "Moon", "Mercury", "Venus", "Mars", "Jupiter", "Saturn", "Uranus", "Neptune", "Pluto"];
   const planetRe = new RegExp("\\b(" + planetNames.join("|") + ")\\b(?:\\s+(?:moves through|remains in|stays in|is in|in|on|through))?\\s*(?:[Gg]ate\\s+)?(\\d{1,2})?(?:\\.(\\d))?(?:\\s*\\(([^\\)]{1,40})\\))?", "g");
   const knownGates = {};
   const knownGl = {};
@@ -2192,15 +2236,53 @@ function markupHighlightReport() {
   markBetweenBlocks(root, index);
   applyHighlightToggles();
 }
-function wireHighlightChecks() {
+function onHighlightUserInput(ev) {
+  const hlReady = highlightControlsReady();
+  let two = false;
+  try {
+    two = filledMemberCount() >= 2;
+  } catch (e) {
+    two = false;
+  }
   const a = document.getElementById("hlAffectedMembers");
   const b = document.getElementById("hlBetweenInteractions");
-  if (a) a.onchange = function() {
-    applyHighlightToggles();
+  if (!hlReady) {
+    if (a) a.checked = false;
+    if (b) b.checked = false;
+  } else if (b && !two) {
+    b.checked = false;
+  }
+  applyHighlightToggles();
+  try {
+    if (typeof markupHighlightReport === "function" && (highlightAffectedOn() || highlightBetweenOn())) {
+      markupHighlightReport();
+    }
+  } catch (e) {
+  }
+}
+function bindHighlightEl(el) {
+  if (!el || el.getAttribute("data-hl-wired") === "1") return;
+  el.setAttribute("data-hl-wired", "1");
+  const fn = function() {
+    onHighlightUserInput();
   };
-  if (b) b.onchange = function() {
-    applyHighlightToggles();
-  };
+  el.addEventListener("change", fn);
+  el.addEventListener("input", fn);
+  el.addEventListener("click", fn);
+  const lab = el.closest && el.closest("label");
+  if (lab && lab.getAttribute("data-hl-wired") !== "1") {
+    lab.setAttribute("data-hl-wired", "1");
+    lab.addEventListener("click", function() {
+      setTimeout(onHighlightUserInput, 0);
+    });
+    lab.addEventListener("touchend", function() {
+      setTimeout(onHighlightUserInput, 0);
+    }, { passive: true });
+  }
+}
+function wireHighlightChecks() {
+  bindHighlightEl(document.getElementById("hlAffectedMembers"));
+  bindHighlightEl(document.getElementById("hlBetweenInteractions"));
 }
 window.__TA_HIGHLIGHT_TEST__ = {
   build: buildHighlightIndex,

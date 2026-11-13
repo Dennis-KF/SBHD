@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta http-equiv="Cache-Control" content="202611130915" />
-  <meta name="ta-build" content="202611130915" />
+  <meta http-equiv="Cache-Control" content="202611131000" />
+  <meta name="ta-build" content="202611131000" />
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -118,9 +118,26 @@ button.secondary#nowBtn.active{opacity:1;font-weight:750;background:var(--accent
 #extraOutputOpts label.check.is-disabled{opacity:.65}
 #extraOutputOpts label.check{min-height:44px}
 #extraOutputOpts input[type=checkbox]{width:auto;min-width:22px;min-height:22px;flex-shrink:0;margin-top:.2rem}
-body.hl-affected-on span.hl-transit,body.hl-between-on span.hl-transit{text-decoration:underline;text-underline-offset:.12em;text-decoration-thickness:from-font}
-body.hl-affected-on span.hl-affected{font-weight:700}
-body.hl-between-on .hl-between-block{font-weight:700;font-style:italic}
+body.hl-affected-on span.hl-transit,body.hl-between-on span.hl-transit,
+body.hl-affected-on #report span.hl-transit,body.hl-between-on #report span.hl-transit,
+body.hl-affected-on #displayOverlay span.hl-transit,body.hl-between-on #displayOverlay span.hl-transit{
+  text-decoration:underline!important;
+  text-underline-offset:.12em;
+  text-decoration-thickness:from-font;
+}
+body.hl-affected-on span.hl-affected,
+body.hl-affected-on #report span.hl-affected,
+body.hl-affected-on #displayOverlay span.hl-affected{
+  font-weight:700!important;
+  font-style:normal;
+}
+body.hl-between-on .hl-between-block,
+body.hl-between-on #report .hl-between-block,
+body.hl-between-on #displayOverlay .hl-between-block{
+  font-weight:700!important;
+  font-style:italic!important;
+}
+#hlToggleStatus{margin:.15rem 0 .35rem;font-size:.9rem;color:var(--muted);min-height:1.2em}
 @media print{
   body.hl-affected-on span.hl-transit,body.hl-between-on span.hl-transit{text-decoration:underline!important}
   body.hl-affected-on span.hl-affected{font-weight:700!important}
@@ -697,15 +714,17 @@ label.check,label.check input{cursor:pointer}
       <p id="betweenMembersDisabledHint" hidden>Select a second or third member to compare. With only one member selected, Between members is unavailable.</p>
       <p class="hint" id="betweenMembersHint" style="margin:.05rem 0 .35rem">Unchecked by default. When on, the report above shows only the Between members section, date by date, not the full regular report. With two members selected, each day (weekday date, local AM/PM times, gate time spans in the prose) describes how they condition each other—electromagnetic, companionship, and dominance channels, and which open centers each fills in the other—plus how that day's transits change it. With three members selected, each day covers all three pairs (1–2, 1–3, and 2–3). Always available here, whether or not Real-World Influence is checked.</p>
       <label class="check" style="display:flex;align-items:flex-start;gap:.5rem;margin:.15rem 0 .1rem">
-        <input type="checkbox" id="hlAffectedMembers" disabled />
+        <input type="checkbox" id="hlAffectedMembers" />
         Bold members directly affected by the underlined transit
       </label>
       <p class="hint" style="margin:.05rem 0 .35rem">Unchecked by default. When on, transits in the report and in answers are underlined, and a member's first name is bold only where that member is directly affected by that transit (it hits a natal gate, completes a channel with their gate, or touches their center). This does not replace the report.</p>
       <label class="check" id="hlBetweenInteractionsLabel" style="display:flex;align-items:flex-start;gap:.5rem;margin:.15rem 0 .1rem">
-        <input type="checkbox" id="hlBetweenInteractions" disabled />
+        <input type="checkbox" id="hlBetweenInteractions" />
         Bold + italic between-member interactions from the underlined transit
       </label>
       <p class="hint" style="margin:.05rem 0 .35rem">Unchecked by default. When on, transits are underlined, and text about how members interact because of that transit (for example electromagnetic or completed channels between them) is bold and italic. You can use this together with the bold-members box. Available once two members are selected and a report exists.</p>
+      <p class="hint" id="hlToggleStatus" aria-live="polite"></p>
+
       <label class="check" style="display:flex;align-items:flex-start;gap:.5rem;margin:.15rem 0 .1rem">
         <input type="checkbox" id="askGrokBox" />
         Ask a question about Advantages and Difficulties
@@ -753,8 +772,8 @@ label.check,label.check input{cursor:pointer}
 </div>
 
 <!-- Data is separate from the UI. Script order matters. Works via file:// on Windows and via https on iPhone/iPad Firefox. -->
-<script src="astronomy.browser.min.js?v=202611130915"></script>
-<script src="data.js?v=202611130915"></script>
+<script src="astronomy.browser.min.js?v=202611131000"></script>
+<script src="data.js?v=202611131000"></script>
 
 <script>
 /* ES5 quick-load + Full/Brief bootstrap: works even if later scripts fail. */
@@ -874,7 +893,7 @@ label.check,label.check input{cursor:pointer}
   else { boot(); }
 })();
 </script>
-<script src="analyzer.js?v=202611130915"></script>
-<script src="app.js?v=202611130915"></script>
+<script src="analyzer.js?v=202611131000"></script>
+<script src="app.js?v=202611131000"></script>
 </body>
 </html>
