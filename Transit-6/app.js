@@ -1540,7 +1540,632 @@ function syncExtraOutputOpts() {
   } catch (e) {
   }
   if (typeof syncAskGrokPanel === "function") syncAskGrokPanel();
+  try {
+    if (typeof syncHighlightChecks === "function") syncHighlightChecks();
+  } catch (e) {
+  }
 }
+function highlightPlanetLabel(p) {
+  if (p === "NorthNode") return "North Node";
+  if (p === "SouthNode") return "South Node";
+  return String(p || "");
+}
+function highlightFirstName(person) {
+  try {
+    if (typeof firstNameOnly === "function") return firstNameOnly(person && person.name);
+  } catch (e) {
+  }
+  const n = String(person && (person.name || person.fullName) || "").trim();
+  return n.split(/\s+/)[0] || "";
+}
+function highlightGateCenter(gate) {
+  try {
+    const g = window.HD_DATA && window.HD_DATA.gates && window.HD_DATA.gates[String(gate)];
+    return g && g.center || "";
+  } catch (e) {
+    return "";
+  }
+}
+function highlightGateTheme(gate) {
+  try {
+    const g = window.HD_DATA && window.HD_DATA.gates && window.HD_DATA.gates[String(gate)];
+    return g && g.name || "";
+  } catch (e) {
+    return "";
+  }
+}
+function highlightChannelName(info) {
+  if (!info) return "";
+  const n = (info.name || info.id || "").replace(/^The\s+/i, "");
+  return n;
+}
+function collectLoadedPeople() {
+  const out = [];
+  if (!window.HD || typeof HD.loadPerson !== "function") return out;
+  try {
+    const sel = selectedPeopleFromBoxes();
+    const raws = [];
+    if (sel.p1) raws.push(sel.p1);
+    if (sel.extrasRaw && sel.extrasRaw.length) {
+      for (let i = 0; i < sel.extrasRaw.length; i++) raws.push(sel.extrasRaw[i]);
+    } else {
+      if (sel.p2) raws.push(sel.p2);
+      if (sel.p3) raws.push(sel.p3);
+    }
+    for (let i = 0; i < raws.length; i++) {
+      try {
+        const p = HD.loadPerson(raws[i]);
+        if (p) out.push(p);
+      } catch (e) {
+      }
+    }
+  } catch (e) {
+  }
+  return out;
+}
+function collectReportTransits() {
+  const out = [];
+  const seen = {};
+  function add(t) {
+    if (!t || !t.planets) return;
+    const keys = Object.keys(t.planets).sort();
+    let key = "";
+    for (let i = 0; i < keys.length; i++) {
+      const p = t.planets[keys[i]];
+      key += keys[i] + ":" + (p && (p.gl || p.gate)) + ";";
+    }
+    if (!key || seen[key]) return;
+    seen[key] = 1;
+    out.push(t);
+  }
+  try {
+    const days = window.__LAST_DAY_TRANSITS__;
+    if (days && days.length) {
+      for (let i = 0; i < days.length; i++) add(days[i]);
+    }
+  } catch (e) {
+  }
+  try {
+    const ev = window.__LAST_EVENTS__;
+    if (ev && ev.length) {
+      for (let i = 0; i < ev.length; i++) add(ev[i].afterField || ev[i].transit || ev[i].field);
+    }
+  } catch (e) {
+  }
+  try {
+    add(window.__LAST_TRANSIT__);
+  } catch (e) {
+  }
+  if (!out.length && typeof buildTransitsForSelection === "function" && window.Astronomy) {
+    try {
+      const days = buildTransitsForSelection(window.Astronomy) || [];
+      for (let i = 0; i < days.length; i++) add(days[i]);
+    } catch (e) {
+    }
+  }
+  return out;
+}
+function memberAffectedRecords(person, transit) {
+  const recs = [];
+  if (!person || !transit || !transit.planets) return recs;
+  function hasGate(g) {
+    try {
+      return !!(person.gates && person.gates.has && person.gates.has(g));
+    } catch (e) {
+      return false;
+    }
+  }
+  const open = {};
+  try {
+    const oc = window.HD && HD.openCentersOf ? HD.openCentersOf(person) : [];
+    for (let i = 0; i < oc.length; i++) open[String(oc[i])] = 1;
+  } catch (e) {
+  }
+  const pnames = Object.keys(transit.planets);
+  for (let i = 0; i < pnames.length; i++) {
+    const pname = pnames[i];
+    const p = transit.planets[pname];
+    if (!p) continue;
+    const gate = p.gate;
+    if (hasGate(gate)) recs.push({ kind: "natal-gate", planet: pname, gate, gl: p.gl || "" });
+    const center = highlightGateCenter(gate);
+    if (center && open[center]) recs.push({ kind: "open-center", planet: pname, gate, center, gl: p.gl || "" });
+  }
+  try {
+    if (window.HD && typeof HD.analyzeDay === "function") {
+      const day = HD.analyzeDay(person, transit);
+      const chs = day.completed_channels || [];
+      for (let c = 0; c < chs.length; c++) {
+        const item = chs[c];
+        recs.push({
+          kind: "channel",
+          channel: highlightChannelName(item.info || item),
+          planets: item.transit_planets || [],
+          gates: item.transit_gates || []
+        });
+      }
+      const temp = day.centers_defined_by_transit || [];
+      for (let t = 0; t < temp.length; t++) recs.push({ kind: "temp-defined", center: temp[t] });
+      const amp = day.centers_activated_with_natal || [];
+      for (let t = 0; t < amp.length; t++) recs.push({ kind: "amplified-center", center: amp[t] });
+      const touches = day.touches || [];
+      for (let t = 0; t < touches.length; t++) {
+        const hit = touches[t];
+        recs.push({ kind: "touch", planet: hit.planet, gate: hit.transit && hit.transit.gate });
+      }
+    }
+  } catch (e) {
+  }
+  return recs;
+}
+function recordMatchesMention(rec, mention) {
+  if (!rec || !mention) return false;
+  if (mention.planet) {
+    const a = highlightPlanetLabel(rec.planet || "");
+    const b = highlightPlanetLabel(mention.planet);
+    if (rec.planet && (rec.planet === mention.planet || a === b)) {
+      if (!mention.gate || rec.gate == null || Number(rec.gate) === Number(mention.gate)) return true;
+    }
+    if (rec.planets) {
+      for (let i = 0; i < rec.planets.length; i++) {
+        if (rec.planets[i] === mention.planet || highlightPlanetLabel(rec.planets[i]) === b) return true;
+      }
+    }
+  }
+  if (mention.gate != null) {
+    if (rec.gate != null && Number(rec.gate) === Number(mention.gate)) return true;
+    if (rec.gates) {
+      for (let i = 0; i < rec.gates.length; i++) {
+        if (Number(rec.gates[i]) === Number(mention.gate)) return true;
+      }
+    }
+  }
+  if (mention.channel && rec.channel) {
+    if (String(rec.channel).toLowerCase() === String(mention.channel).toLowerCase()) return true;
+  }
+  if (mention.center && rec.center && String(rec.center) === String(mention.center)) return true;
+  return false;
+}
+function isMemberAffectedByMentions(member, mentions) {
+  if (!member || !mentions || !mentions.length) return false;
+  const recs = member.records || [];
+  for (let i = 0; i < recs.length; i++) {
+    for (let j = 0; j < mentions.length; j++) {
+      if (recordMatchesMention(recs[i], mentions[j])) return true;
+    }
+  }
+  return false;
+}
+function pairHasInteraction(a, b, transit) {
+  if (!a || !b || !transit || !window.HD || typeof HD.coupleDynamics !== "function") return null;
+  try {
+    const dyn = HD.coupleDynamics(a, b, transit);
+    const amplified = dyn.transit_amplified_channels || [];
+    const hooks = dyn.shared_transit_hooks || [];
+    const both = hooks.filter(function(h) {
+      return h.in_a && h.in_b;
+    });
+    let bridge = false;
+    try {
+      let bridges2 = function(day, openOther) {
+        const chs = day.completed_channels || [];
+        for (let i = 0; i < chs.length; i++) {
+          const centers = chs[i].info && chs[i].info.centers || [];
+          for (let j = 0; j < centers.length; j++) {
+            if (openOther[centers[j]]) return true;
+          }
+        }
+        return false;
+      };
+      var bridges = bridges2;
+      const d1 = HD.analyzeDay(a, transit);
+      const d2 = HD.analyzeDay(b, transit);
+      const openB = {};
+      const openA = {};
+      (HD.openCentersOf(b) || []).forEach(function(c) {
+        openB[c] = 1;
+      });
+      (HD.openCentersOf(a) || []).forEach(function(c) {
+        openA[c] = 1;
+      });
+      bridge = bridges2(d1, openB) || bridges2(d2, openA);
+    } catch (e) {
+    }
+    if (amplified.length || both.length || bridge) {
+      return { amplified, bothHooks: both, bridge };
+    }
+  } catch (e) {
+  }
+  return null;
+}
+function buildHighlightIndex() {
+  const people = collectLoadedPeople();
+  const transits = collectReportTransits();
+  const members = [];
+  const transitList = [];
+  const channelNames = {};
+  const seenRef = {};
+  for (let t = 0; t < transits.length; t++) {
+    const planets = transits[t].planets || {};
+    const pnames = Object.keys(planets);
+    for (let i = 0; i < pnames.length; i++) {
+      const p = planets[pnames[i]];
+      if (!p) continue;
+      const ref = { planet: pnames[i], label: highlightPlanetLabel(pnames[i]), gate: p.gate, line: p.line, gl: p.gl || p.gate + "." + p.line, theme: highlightGateTheme(p.gate), center: highlightGateCenter(p.gate) };
+      const key = ref.label + "|" + ref.gate + "|" + ref.gl;
+      if (!seenRef[key]) {
+        seenRef[key] = 1;
+        transitList.push(ref);
+      }
+    }
+  }
+  for (let i = 0; i < people.length; i++) {
+    const person = people[i];
+    const first = highlightFirstName(person);
+    const records = [];
+    for (let t = 0; t < transits.length; t++) {
+      const recs = memberAffectedRecords(person, transits[t]);
+      for (let r = 0; r < recs.length; r++) {
+        records.push(recs[r]);
+        if (recs[r].channel) channelNames[recs[r].channel] = 1;
+      }
+    }
+    members.push({ first, person, records });
+  }
+  const interactions = [];
+  for (let i = 0; i < people.length; i++) {
+    for (let j = i + 1; j < people.length; j++) {
+      const a = people[i], b = people[j];
+      for (let t = 0; t < transits.length; t++) {
+        const hit = pairHasInteraction(a, b, transits[t]);
+        if (!hit) continue;
+        const chans = [];
+        (hit.amplified || []).forEach(function(ch) {
+          const n = highlightChannelName(ch);
+          if (n) {
+            chans.push(n);
+            channelNames[n] = 1;
+          }
+        });
+        interactions.push({
+          names: [highlightFirstName(a), highlightFirstName(b)],
+          channels: chans,
+          hook: !!(hit.bothHooks && hit.bothHooks.length),
+          bridge: !!hit.bridge
+        });
+      }
+    }
+  }
+  const index = { members, transits: transitList, interactions, channelNames: Object.keys(channelNames) };
+  window.__TA_HIGHLIGHT__ = index;
+  return index;
+}
+function highlightAffectedOn() {
+  const el = document.getElementById("hlAffectedMembers");
+  return !!(el && el.checked);
+}
+function highlightBetweenOn() {
+  const el = document.getElementById("hlBetweenInteractions");
+  return !!(el && el.checked);
+}
+function applyHighlightToggles() {
+  const b = document.body;
+  if (!b) return;
+  if (highlightAffectedOn()) b.classList.add("hl-affected-on");
+  else b.classList.remove("hl-affected-on");
+  if (highlightBetweenOn()) b.classList.add("hl-between-on");
+  else b.classList.remove("hl-between-on");
+}
+function syncHighlightChecks() {
+  const ready = typeof hasGeneratedReport === "function" && hasGeneratedReport();
+  let two = false;
+  try {
+    two = filledMemberCount() >= 2;
+  } catch (e) {
+    two = false;
+  }
+  const a = document.getElementById("hlAffectedMembers");
+  const b = document.getElementById("hlBetweenInteractions");
+  const aLab = a && a.closest ? a.closest("label") : null;
+  const bLab = b && b.closest ? b.closest("label") : null;
+  if (a) {
+    a.disabled = !ready;
+    if (!ready) a.checked = false;
+  }
+  if (b) {
+    b.disabled = !(ready && two);
+    if (!(ready && two)) b.checked = false;
+  }
+  if (aLab) {
+    if (!ready) aLab.classList.add("is-disabled");
+    else aLab.classList.remove("is-disabled");
+  }
+  if (bLab) {
+    if (!(ready && two)) bLab.classList.add("is-disabled");
+    else bLab.classList.remove("is-disabled");
+  }
+  applyHighlightToggles();
+}
+function unwrapHighlightSpans(root) {
+  if (!root || !root.querySelectorAll) return;
+  const spans = root.querySelectorAll("span.hl-transit, span.hl-affected");
+  for (let i = spans.length - 1; i >= 0; i--) {
+    const sp = spans[i];
+    const parent = sp.parentNode;
+    if (!parent) continue;
+    while (sp.firstChild) parent.insertBefore(sp.firstChild, sp);
+    parent.removeChild(sp);
+  }
+  const blocks = root.querySelectorAll(".hl-between-block");
+  for (let i = 0; i < blocks.length; i++) blocks[i].classList.remove("hl-between-block");
+  try {
+    root.normalize();
+  } catch (e) {
+  }
+}
+function highlightSkipParent(el) {
+  while (el) {
+    const tag = (el.nodeName || "").toLowerCase();
+    if (tag === "script" || tag === "style" || tag === "textarea" || tag === "noscript") return true;
+    const cls = el.className && String(el.className) || "";
+    if (/\btech\b/.test(cls) || el.id === "timelineEventsJson") return true;
+    el = el.parentNode;
+  }
+  return false;
+}
+function wrapRangesInTextNode(node, ranges, className, dataFn) {
+  if (!ranges || !ranges.length || !node || !node.parentNode) return;
+  ranges.sort(function(a, b) {
+    return a.start - b.start;
+  });
+  const text = node.nodeValue;
+  const frag = document.createDocumentFragment();
+  let last = 0;
+  for (let i = 0; i < ranges.length; i++) {
+    const r = ranges[i];
+    if (r.start < last || r.end <= r.start) continue;
+    if (r.start > last) frag.appendChild(document.createTextNode(text.slice(last, r.start)));
+    const sp = document.createElement("span");
+    sp.className = className;
+    if (dataFn) dataFn(sp, r);
+    sp.appendChild(document.createTextNode(text.slice(r.start, r.end)));
+    frag.appendChild(sp);
+    last = r.end;
+  }
+  if (last < text.length) frag.appendChild(document.createTextNode(text.slice(last)));
+  node.parentNode.replaceChild(frag, node);
+}
+function collectHighlightTextNodes(root) {
+  const nodes = [];
+  if (!root || !document.createTreeWalker) return nodes;
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null, false);
+  while (walker.nextNode()) {
+    const n = walker.currentNode;
+    if (!n.nodeValue || !String(n.nodeValue).trim()) continue;
+    if (highlightSkipParent(n.parentNode)) continue;
+    nodes.push(n);
+  }
+  return nodes;
+}
+function prefixLooksNatal(text, idx) {
+  const pre = text.slice(Math.max(0, idx - 22), idx).toLowerCase();
+  return /natal\s+$/.test(pre) || /design\s+$/.test(pre) || /personality\s+$/.test(pre) || /\(design\)\s*$/.test(pre) || /\(personality\)\s*$/.test(pre);
+}
+function wrapTransitMentions(root, index) {
+  const planetNames = ["North Node", "South Node", "Sun", "Earth", "Moon", "Mercury", "Venus", "Mars", "Jupiter", "Saturn", "Uranus", "Neptune", "Pluto"];
+  const planetRe = new RegExp("\\b(" + planetNames.join("|") + ")\\b(?:\\s+(?:moves through|remains in|stays in|is in|in|on|through))?\\s*(?:[Gg]ate\\s+)?(\\d{1,2})?(?:\\.(\\d))?(?:\\s*\\(([^\\)]{1,40})\\))?", "g");
+  const knownGates = {};
+  const knownGl = {};
+  const transits = index.transits || [];
+  for (let i = 0; i < transits.length; i++) {
+    if (transits[i].gate != null) knownGates[String(transits[i].gate)] = transits[i];
+    if (transits[i].gl) knownGl[String(transits[i].gl)] = transits[i];
+  }
+  const gateRe = /\b[Gg]ate\s+(\d{1,2})\b/g;
+  const glRe = /\b(\d{1,2}\.\d)\b/g;
+  const chNames = (index.channelNames || []).slice().sort(function(a, b) {
+    return b.length - a.length;
+  });
+  const nodes = collectHighlightTextNodes(root);
+  for (let n = 0; n < nodes.length; n++) {
+    const node = nodes[n];
+    if (!node.parentNode) continue;
+    const text = node.nodeValue;
+    const ranges = [];
+    const taken = function(s, e) {
+      for (let i = 0; i < ranges.length; i++) {
+        if (!(e <= ranges[i].start || s >= ranges[i].end)) return true;
+      }
+      return false;
+    };
+    let m;
+    planetRe.lastIndex = 0;
+    while (m = planetRe.exec(text)) {
+      if (prefixLooksNatal(text, m.index)) continue;
+      const start = m.index, end = m.index + m[0].length;
+      if (taken(start, end)) continue;
+      ranges.push({ start, end, planet: m[1], gate: m[2] ? Number(m[2]) : null, gl: m[2] && m[3] ? m[2] + "." + m[3] : "", theme: m[4] || "" });
+    }
+    gateRe.lastIndex = 0;
+    while (m = gateRe.exec(text)) {
+      if (!knownGates[String(m[1])]) continue;
+      const start = m.index, end = m.index + m[0].length;
+      if (taken(start, end)) continue;
+      ranges.push({ start, end, planet: "", gate: Number(m[1]), gl: "", theme: "" });
+    }
+    glRe.lastIndex = 0;
+    while (m = glRe.exec(text)) {
+      if (!knownGl[m[1]]) continue;
+      const start = m.index, end = m.index + m[0].length;
+      if (taken(start, end)) continue;
+      ranges.push({ start, end, planet: "", gate: Number(m[1].split(".")[0]), gl: m[1], theme: "" });
+    }
+    if (chNames.length) {
+      for (let c = 0; c < chNames.length; c++) {
+        const name = chNames[c];
+        if (!name || name.length < 3) continue;
+        const re = new RegExp("(?:the\\s+)?channel of\\s+" + name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "ig");
+        let cm;
+        while (cm = re.exec(text)) {
+          const start = cm.index, end = cm.index + cm[0].length;
+          if (taken(start, end)) continue;
+          ranges.push({ start, end, planet: "", gate: null, gl: "", channel: name });
+        }
+      }
+    }
+    if (ranges.length) wrapRangesInTextNode(node, ranges, "hl-transit", function(sp, r) {
+      if (r.planet) sp.setAttribute("data-planet", r.planet);
+      if (r.gate != null) sp.setAttribute("data-gate", String(r.gate));
+      if (r.gl) sp.setAttribute("data-gl", r.gl);
+      if (r.channel) sp.setAttribute("data-channel", r.channel);
+    });
+  }
+}
+function closestHighlightBlock(el) {
+  while (el && el.nodeType === 1) {
+    const tag = el.nodeName.toLowerCase();
+    if (/^(p|li|h1|h2|h3|h4|h5|td|th|blockquote|div)$/.test(tag)) {
+      if (tag === "div" && el.id === "report") return el;
+      if (tag !== "div" || /ov-person|grok-answer|ns-/.test(el.className || "")) return el;
+      if (tag === "div") return el;
+    }
+    el = el.parentNode;
+  }
+  return null;
+}
+function mentionsFromBlock(block) {
+  const mentions = [];
+  if (!block || !block.querySelectorAll) return mentions;
+  const spans = block.querySelectorAll("span.hl-transit");
+  for (let i = 0; i < spans.length; i++) {
+    const sp = spans[i];
+    mentions.push({
+      planet: sp.getAttribute("data-planet") || "",
+      gate: sp.getAttribute("data-gate") ? Number(sp.getAttribute("data-gate")) : null,
+      gl: sp.getAttribute("data-gl") || "",
+      channel: sp.getAttribute("data-channel") || ""
+    });
+  }
+  return mentions;
+}
+function wrapAffectedNames(root, index) {
+  const members = (index.members || []).filter(function(m) {
+    return m.first;
+  });
+  members.sort(function(a, b) {
+    return b.first.length - a.first.length;
+  });
+  if (!members.length) return;
+  const nodes = collectHighlightTextNodes(root);
+  for (let n = 0; n < nodes.length; n++) {
+    const node = nodes[n];
+    if (!node.parentNode) continue;
+    if ((node.parentNode.className || "").indexOf("hl-affected") >= 0) continue;
+    const block = closestHighlightBlock(node.parentNode);
+    const mentions = mentionsFromBlock(block || root);
+    if (!mentions.length) continue;
+    const text = node.nodeValue;
+    const ranges = [];
+    const taken = function(s, e) {
+      for (let i = 0; i < ranges.length; i++) {
+        if (!(e <= ranges[i].start || s >= ranges[i].end)) return true;
+      }
+      return false;
+    };
+    for (let m = 0; m < members.length; m++) {
+      const mem = members[m];
+      if (!isMemberAffectedByMentions(mem, mentions)) continue;
+      const re = new RegExp("\\b" + mem.first.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "(?=\\b|'s|\u2019s|'|\u2019)", "g");
+      let hit;
+      while (hit = re.exec(text)) {
+        const start = hit.index, end = start + mem.first.length;
+        if (taken(start, end)) continue;
+        ranges.push({ start, end, name: mem.first });
+      }
+    }
+    if (ranges.length) wrapRangesInTextNode(node, ranges, "hl-affected", function(sp, r) {
+      sp.setAttribute("data-member", r.name);
+    });
+  }
+}
+function headingIsBetween(el) {
+  if (!el) return false;
+  const cls = el.className && String(el.className) || "";
+  if (/\bns-between\b/.test(cls)) return true;
+  const t = (el.textContent || "").trim();
+  return /^Between\b/i.test(t);
+}
+function blockLooksBetween(el, index) {
+  if (!el) return false;
+  if (headingIsBetween(el)) return true;
+  const text = String(el.textContent || "");
+  const names = (index && index.members || []).map(function(m) {
+    return m.first;
+  }).filter(Boolean);
+  let nameHits = 0;
+  for (let i = 0; i < names.length; i++) {
+    const re = new RegExp("\\b" + names[i].replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\b");
+    if (re.test(text)) nameHits++;
+  }
+  const twoNames = nameHits >= 2;
+  const betweenPhrase = /\bbetween\s+them\b/i.test(text) || /\bbetween\s+[A-Z][a-z]+\s+and\s+[A-Z][a-z]+/i.test(text);
+  const keywords = /electromagnetic|companionship|dominance|compromise|shared hooks?|lands in both charts|holds the bridge|temporarily define|lit by this sky|natal bond|condition(?:s|ed|ing)? one another|condition(?:s|ed)?\s+[A-Z][a-z]+/i.test(text);
+  let inBetweenSection = false;
+  let prev = el.previousElementSibling;
+  let steps = 0;
+  while (prev && steps < 8) {
+    if (/^(h2|h3|h4)$/i.test(prev.nodeName)) {
+      inBetweenSection = headingIsBetween(prev);
+      break;
+    }
+    prev = prev.previousElementSibling;
+    steps++;
+  }
+  if (!(inBetweenSection || betweenPhrase || twoNames && keywords)) return false;
+  if (!(inBetweenSection || twoNames || betweenPhrase)) return false;
+  const mentions = mentionsFromBlock(el);
+  if (inBetweenSection) return true;
+  if (mentions.length) return true;
+  const chans = index && index.channelNames || [];
+  const low = text.toLowerCase();
+  for (let i = 0; i < chans.length; i++) {
+    if (chans[i] && low.indexOf(chans[i].toLowerCase()) >= 0) return true;
+  }
+  return keywords && (twoNames || betweenPhrase);
+}
+function markBetweenBlocks(root, index) {
+  if (!root || !root.querySelectorAll) return;
+  const els = root.querySelectorAll("p, li, h3, h4, blockquote");
+  for (let i = 0; i < els.length; i++) {
+    if (blockLooksBetween(els[i], index)) els[i].classList.add("hl-between-block");
+  }
+}
+function markupHighlightReport() {
+  const root = document.getElementById("report");
+  if (!root) return;
+  const index = buildHighlightIndex();
+  unwrapHighlightSpans(root);
+  wrapTransitMentions(root, index);
+  wrapAffectedNames(root, index);
+  markBetweenBlocks(root, index);
+  applyHighlightToggles();
+}
+function wireHighlightChecks() {
+  const a = document.getElementById("hlAffectedMembers");
+  const b = document.getElementById("hlBetweenInteractions");
+  if (a) a.onchange = function() {
+    applyHighlightToggles();
+  };
+  if (b) b.onchange = function() {
+    applyHighlightToggles();
+  };
+}
+window.__TA_HIGHLIGHT_TEST__ = {
+  build: buildHighlightIndex,
+  markup: markupHighlightReport,
+  isMemberAffectedByMentions,
+  memberAffectedRecords
+};
 function extraOutputRequested() {
   return {
     landscape: !!($("notSelfLandscape") && $("notSelfLandscape").checked),
@@ -1930,11 +2555,19 @@ function stripGrokFromHtml(html) {
 function setReportHtml(html) {
   const wrap = $("report");
   if (wrap) wrap.innerHTML = html;
+  try {
+    if (typeof markupHighlightReport === "function") markupHighlightReport();
+  } catch (e) {
+  }
 }
 function applyGrokAnswerToReport() {
   const wrap = $("report");
   if (!wrap) {
     if (typeof syncAnswerShareButtons === "function") syncAnswerShareButtons();
+    try {
+      if (typeof markupHighlightReport === "function") markupHighlightReport();
+    } catch (e) {
+    }
     return;
   }
   const base = lastHtmlBase != null ? lastHtmlBase : stripGrokFromHtml(wrap.innerHTML);
@@ -1942,6 +2575,10 @@ function applyGrokAnswerToReport() {
     if (wrap.innerHTML !== base) wrap.innerHTML = base;
     if (typeof lastHtml !== "undefined" && lastHtmlBase != null) lastHtml = lastHtmlBase;
     if (typeof syncAnswerShareButtons === "function") syncAnswerShareButtons();
+    try {
+      if (typeof markupHighlightReport === "function") markupHighlightReport();
+    } catch (e) {
+    }
     return;
   }
   const next = stripGrokFromHtml(base) + "\n" + lastGrokAnswerHtml;
@@ -1952,6 +2589,10 @@ function applyGrokAnswerToReport() {
     lastMd = mdBase + "\n\n## Question \u2014 Advantages and Difficulties\n\n*Asked: " + lastGrokQuestion + "*\n\n" + (lastGrokAnswerText || "") + (lastGrokAnswerHtml && /grok-length-note/.test(lastGrokAnswerHtml) ? "\n\n*This answer reached the length limit; ask a narrower follow-up for more.*" : "") + "\n";
   }
   if (typeof syncAnswerShareButtons === "function") syncAnswerShareButtons();
+  try {
+    if (typeof markupHighlightReport === "function") markupHighlightReport();
+  } catch (e) {
+  }
 }
 let lastGrokAnswerText = "";
 function rememberReportBase() {
@@ -2192,6 +2833,10 @@ function runAnalysis() {
         $("report").innerHTML = lastHtml;
         rememberReportBase();
         applyGrokAnswerToReport();
+        try {
+          if (typeof markupHighlightReport === "function") markupHighlightReport();
+        } catch (e) {
+        }
         $("ephemNote").textContent = "Brief descriptions \xB7 " + dayTransits.length + " days \xB7 " + rangeLabel + (includeTF2 ? " \xB7 transit field/day" : "");
         status("Done \u2014 overview \xB7 " + dayTransits.length + " days", "ok");
         window.__LAST_REPORT_MD__ = lastMd;
@@ -2213,6 +2858,10 @@ function runAnalysis() {
       $("report").innerHTML = lastHtml;
       rememberReportBase();
       applyGrokAnswerToReport();
+      try {
+        if (typeof markupHighlightReport === "function") markupHighlightReport();
+      } catch (e) {
+      }
       let _shownN = found.events.length;
       if (interactionsOnlyOn() && person2) {
         _shownN = found.events.filter((e) => isInteractionTimelineEvent(e, person1, person2, extraAfterTwo)).length;
@@ -2262,6 +2911,10 @@ function runAnalysis() {
     $("report").innerHTML = lastHtml;
     rememberReportBase();
     applyGrokAnswerToReport();
+    try {
+      if (typeof markupHighlightReport === "function") markupHighlightReport();
+    } catch (e) {
+    }
     const field = transits[0];
     if (mode === "range" && includeOverview) {
       $("ephemNote").textContent = "Brief descriptions \xB7 " + transits.length + " day" + (transits.length === 1 ? "" : "s") + " @ " + timeLabel + (includeTF ? " \xB7 transit field/day" : "");
@@ -2381,14 +3034,9 @@ function hasDisplayableReport() {
   if (/Load the ephemeris|Add a chart to get started|no natal planets/i.test(t) && t.length < 200) return false;
   return t.length > 80;
 }
-function displayContentHtml() {
+function displayReportHtml() {
   const report = $("report");
   if (!report) return "<p>Nothing to display yet.</p>";
-  if (typeof hasSuccessfulGrokAnswer === "function" && hasSuccessfulGrokAnswer()) {
-    const ans = report.querySelector(".grok-answer");
-    if (ans) return ans.innerHTML;
-    if (typeof lastGrokAnswerHtml !== "undefined" && lastGrokAnswerHtml) return lastGrokAnswerHtml;
-  }
   const clone = report.cloneNode(true);
   try {
     clone.querySelectorAll(".tech, #timelineEventsJson").forEach(function(el) {
@@ -2398,11 +3046,23 @@ function displayContentHtml() {
   }
   return clone.innerHTML || "<p>Nothing to display yet.</p>";
 }
+function displayContentHtml(mode2) {
+  if (mode2 === "report") return displayReportHtml();
+  const report = $("report");
+  if (!report) return "<p>Nothing to display yet.</p>";
+  if (typeof hasSuccessfulGrokAnswer === "function" && hasSuccessfulGrokAnswer()) {
+    const ans = report.querySelector(".grok-answer");
+    if (ans) return ans.innerHTML;
+    if (typeof lastGrokAnswerHtml !== "undefined" && lastGrokAnswerHtml) return lastGrokAnswerHtml;
+  }
+  return displayReportHtml();
+}
 function syncAnswerShareButtons() {
   const row = $("askAnswerActions");
   const pb = $("answerPrintBtn");
   const sb = $("answerShareBtn");
   const db = $("answerDisplayBtn");
+  const rb = $("reportDisplayBtn");
   const on = typeof hasSuccessfulGrokAnswer === "function" && hasSuccessfulGrokAnswer();
   const canDisplay = on || hasDisplayableReport();
   if (row) {
@@ -2412,6 +3072,7 @@ function syncAnswerShareButtons() {
   if (pb) pb.disabled = !on;
   if (sb) sb.disabled = !on;
   if (db) db.disabled = !canDisplay;
+  if (rb) rb.disabled = !hasDisplayableReport();
 }
 let displaySavedHtml = "";
 let displayMatches = [];
@@ -2519,11 +3180,13 @@ function displayApplyFind() {
   if (displayMatches.length) displayMarkCurrent();
   else displayUpdateCount();
 }
-function openDisplayView() {
+let displayReturnFocusId = "reportDisplayBtn";
+function openDisplayView(mode2) {
   const overlay = $("displayOverlay");
   const body = $("displayOverlayBody");
   if (!overlay || !body) return;
-  displaySavedHtml = displayContentHtml();
+  displayReturnFocusId = mode2 === "report" ? "reportDisplayBtn" : "answerDisplayBtn";
+  displaySavedHtml = displayContentHtml(mode2);
   body.innerHTML = displaySavedHtml;
   displayMatches = [];
   displayIndex = 0;
@@ -2566,12 +3229,16 @@ function closeDisplayView() {
   displayMatches = [];
   displaySavedHtml = "";
   try {
-    const db = $("answerDisplayBtn");
+    const db = $(displayReturnFocusId) || $("reportDisplayBtn") || $("answerDisplayBtn");
     if (db) db.focus();
   } catch (e) {
   }
 }
 function wireDisplayOverlay() {
+  const rb = $("reportDisplayBtn");
+  if (rb) rb.onclick = function() {
+    openDisplayView("report");
+  };
   const db = $("answerDisplayBtn");
   if (db) db.onclick = function() {
     openDisplayView();
@@ -3199,6 +3866,12 @@ function wire() {
   safe("askBox", () => {
     const askBox = $("askGrokBox");
     if (askBox) askBox.onchange = () => syncAskGrokPanel();
+  });
+  safe("hlChecks", () => {
+    try {
+      wireHighlightChecks();
+    } catch (e) {
+    }
   });
   safe("askTa", () => {
     const askTa = $("askGrokQuestion");

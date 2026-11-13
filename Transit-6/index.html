@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta http-equiv="Cache-Control" content="202611122030" />
-  <meta name="ta-build" content="202611122030" />
+  <meta http-equiv="Cache-Control" content="202611122200" />
+  <meta name="ta-build" content="202611122200" />
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -116,6 +116,17 @@ button.secondary#nowBtn.active{opacity:1;font-weight:750;background:var(--accent
 #extraOutputNeedReportHint,#betweenMembersDisabledHint{margin:.15rem 0 .45rem;color:var(--muted);font-size:.85rem;line-height:1.35;max-width:100%}
 #extraOutputNeedReportHint[hidden],#betweenMembersDisabledHint[hidden]{display:none!important}
 #extraOutputOpts label.check.is-disabled{opacity:.65}
+#extraOutputOpts label.check{min-height:44px}
+#extraOutputOpts input[type=checkbox]{width:auto;min-width:22px;min-height:22px;flex-shrink:0;margin-top:.2rem}
+body.hl-affected-on span.hl-transit,body.hl-between-on span.hl-transit{text-decoration:underline;text-underline-offset:.12em;text-decoration-thickness:from-font}
+body.hl-affected-on span.hl-affected{font-weight:700}
+body.hl-between-on .hl-between-block{font-weight:700;font-style:italic}
+@media print{
+  body.hl-affected-on span.hl-transit,body.hl-between-on span.hl-transit{text-decoration:underline!important}
+  body.hl-affected-on span.hl-affected{font-weight:700!important}
+  body.hl-between-on .hl-between-block{font-weight:700!important;font-style:italic!important}
+}
+
 #extraOutputOpts input[disabled]{cursor:not-allowed}
 .more-members{margin:.75rem 0 .55rem;border:1px solid var(--border);border-radius:8px;padding:.25rem .7rem .55rem;background:rgba(0,0,0,.15)}
 .more-members > summary{cursor:pointer;font-weight:600;color:var(--accent);padding:.4rem 0;list-style:disclosure-closed}
@@ -177,6 +188,7 @@ mark.display-hl-current{background:#e6c44c;color:#111;outline:2px solid #fff;}
 .png-box img{max-width:100%;border-radius:6px;display:block;margin-bottom:.5rem}
 .toolbar{display:flex;flex-wrap:wrap;gap:.35rem;margin-bottom:.6rem}
 .toolbar button{width:auto;margin-top:0;padding:.4rem .7rem;font-size:.82rem}
+.toolbar #reportDisplayBtn{min-height:44px;min-width:44px;padding:.55rem .9rem;font-size:.95rem}
 .label-row{display:flex;align-items:center;justify-content:space-between;gap:.5rem;margin:.55rem 0 .22rem}
 .label-row label{margin:0;flex:1}
 .clear-btn{width:auto;min-width:1.7rem;height:1.7rem;padding:0 .35rem;margin:0;flex-shrink:0;border-radius:6px;border:1px solid var(--border);background:#1a2433;color:var(--muted);font-size:.85rem;line-height:1;cursor:pointer;font-weight:700}
@@ -219,7 +231,7 @@ mark.display-hl-current{background:#e6c44c;color:#111;outline:2px solid #fff;}
   #report .grok-answer{ border-top:1px solid #ccc!important; margin:1.1em 0 0.8em; page-break-inside:avoid; break-inside:avoid; }
   #askGrokPanel{ display:none!important; }
 
-  #shareBtn,#answerPrintBtn,#answerShareBtn,#answerDisplayBtn,.share-menu,.ask-answer-actions,#answerPrintRoot,#displayOverlay{ display:none!important; }
+  #shareBtn,#reportDisplayBtn,#answerPrintBtn,#answerShareBtn,#answerDisplayBtn,.share-menu,.ask-answer-actions,#answerPrintRoot,#displayOverlay{ display:none!important; }
   body.print-answer-only header,#controls,.toolbar,.banner,#cdnBanner,.status,.no-print{ display:none!important; }
   body.print-answer-only #reportWrap,body.print-answer-only #report,body.print-answer-only #storyPanel > h2,body.print-answer-only #extraOutputOpts{ display:none!important; }
   body.print-answer-only #storyPanel > :not(#answerPrintRoot){ display:none!important; }
@@ -744,6 +756,7 @@ label.check,label.check input{cursor:pointer}
       <button type="button" class="secondary" id="exportHtml">Export .html</button>
       <button type="button" class="secondary no-print" id="printBtn" title="Print or save the report as PDF">Print / Save as PDF</button>
       <button type="button" class="secondary no-print" id="shareBtn" title="Email or text the current report">Email / Text</button>
+      <button type="button" class="secondary no-print" id="reportDisplayBtn" disabled title="Open the current report in a full-screen readable view with Find">Display / Find</button>
     </div>
     <h2>Story</h2>
     <div id="reportWrap"><div id="report">Load the ephemeris, choose people and a time, then run analysis. The report reads as plain-language paragraphs; technical gate lists stay folded at the bottom.</div></div>
@@ -765,6 +778,16 @@ label.check,label.check input{cursor:pointer}
         <div id="betweenPairList" class="between-pair-list"></div>
       </div>
       <p class="hint" id="betweenMembersHint" style="margin:.05rem 0 .35rem">Unchecked by default. When on, the report above shows only the Between members section, date by date, not the full regular report. With two members selected, each day (weekday date, local AM/PM times, gate time spans in the prose) describes how they condition each other—electromagnetic, companionship, and dominance channels, and which open centers each fills in the other—plus how that day's transits change it. With three members, each day covers the selected pairs (all pairs on by default). With four to six members, Between uses a shorter form per selected pair per day (all pairs on by default). Always available here, whether or not Real-World Influence is checked.</p>
+      <label class="check" style="display:flex;align-items:flex-start;gap:.5rem;margin:.15rem 0 .1rem">
+        <input type="checkbox" id="hlAffectedMembers" disabled />
+        Bold members directly affected by the underlined transit
+      </label>
+      <p class="hint" style="margin:.05rem 0 .35rem">Unchecked by default. When on, transits in the report and in answers are underlined, and a member's first name is bold only where that member is directly affected by that transit (it hits a natal gate, completes a channel with their gate, or touches their center). This does not replace the report.</p>
+      <label class="check" id="hlBetweenInteractionsLabel" style="display:flex;align-items:flex-start;gap:.5rem;margin:.15rem 0 .1rem">
+        <input type="checkbox" id="hlBetweenInteractions" disabled />
+        Bold + italic between-member interactions from the underlined transit
+      </label>
+      <p class="hint" style="margin:.05rem 0 .35rem">Unchecked by default. When on, transits are underlined, and text about how members interact because of that transit (for example electromagnetic or completed channels between them) is bold and italic. You can use this together with the bold-members box. Available once two members are selected and a report exists.</p>
       <label class="check" style="display:flex;align-items:flex-start;gap:.5rem;margin:.15rem 0 .1rem">
         <input type="checkbox" id="askGrokBox" />
         Ask a question about Advantages and Difficulties
@@ -812,8 +835,8 @@ label.check,label.check input{cursor:pointer}
 </div>
 
 <!-- Data is separate from the UI. Script order matters. Works via file:// on Windows and via https on iPhone/iPad Firefox. -->
-<script src="astronomy.browser.min.js?v=202611122030"></script>
-<script src="data.js?v=202611122030"></script>
+<script src="astronomy.browser.min.js?v=202611122200"></script>
+<script src="data.js?v=202611122200"></script>
 
 <script>
 /* ES5 quick-load + Full/Brief bootstrap: works even if later scripts fail. */
@@ -930,7 +953,7 @@ label.check,label.check input{cursor:pointer}
   else { boot(); }
 })();
 </script>
-<script src="analyzer.js?v=202611122030"></script>
-<script src="app.js?v=202611122030"></script>
+<script src="analyzer.js?v=202611122200"></script>
+<script src="app.js?v=202611122200"></script>
 </body>
 </html>
