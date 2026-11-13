@@ -1810,6 +1810,90 @@ function pairHasInteraction(a, b, transit) {
   }
   return null;
 }
+function memberNatalRecords(person) {
+  const recs = [];
+  if (!person) return recs;
+  function hasGateAlready(g) {
+    for (let i = 0; i < recs.length; i++) {
+      if (recs[i].gate != null && Number(recs[i].gate) === Number(g) && recs[i].kind === "natal-gate") return true;
+    }
+    return false;
+  }
+  try {
+    const gates = person.gates && person.gates.forEach ? person.gates : person.gates || [];
+    if (gates.forEach) {
+      gates.forEach(function(g) {
+        const n = Number(g);
+        if (!n) return;
+        recs.push({ kind: "natal-gate", gate: n, theme: highlightGateTheme(n), center: highlightGateCenter(n) });
+      });
+    }
+  } catch (e) {
+  }
+  try {
+    const hanging = typeof hangingGatesList === "function" ? hangingGatesList(person) : [];
+    for (let i = 0; i < hanging.length; i++) {
+      const n = Number(hanging[i]);
+      if (!n || hasGateAlready(n)) continue;
+      recs.push({ kind: "natal-gate", gate: n, theme: highlightGateTheme(n), center: highlightGateCenter(n) });
+    }
+  } catch (e) {
+  }
+  try {
+    const chans = person.natal_channel_list || [];
+    for (let i = 0; i < chans.length; i++) {
+      const ch = chans[i];
+      const name = highlightChannelName(ch);
+      const gates = ch && ch.gates ? ch.gates : [];
+      const centers = ch && ch.centers ? ch.centers : [];
+      recs.push({ kind: "natal-channel", channel: name, gates, centers, center: centers[0] || "" });
+    }
+  } catch (e) {
+  }
+  try {
+    const defined = [...new Set([...person.defined_centers || []].map(function(c) {
+      return String(c);
+    }))];
+    for (let i = 0; i < defined.length; i++) {
+      if (defined[i]) recs.push({ kind: "defined-center", center: defined[i] });
+    }
+  } catch (e) {
+  }
+  try {
+    const open = window.HD && HD.openCentersOf ? HD.openCentersOf(person) : [];
+    for (let i = 0; i < open.length; i++) {
+      if (open[i]) recs.push({ kind: "open-center", center: String(open[i]) });
+    }
+  } catch (e) {
+  }
+  return recs;
+}
+function highlightCenterList(people) {
+  const names = ["Solar Plexus", "Heart/Ego", "Sacral", "Throat", "Spleen", "Ajna", "Head", "Root", "G"];
+  const seen = {};
+  const out = [];
+  function add(n) {
+    const s = String(n || "").trim();
+    if (!s || seen[s]) return;
+    seen[s] = 1;
+    out.push(s);
+  }
+  for (let i = 0; i < names.length; i++) add(names[i]);
+  (people || []).forEach(function(p) {
+    try {
+      (p.defined_centers || []).forEach(add);
+    } catch (e) {
+    }
+    try {
+      (window.HD && HD.openCentersOf ? HD.openCentersOf(p) : []).forEach(add);
+    } catch (e) {
+    }
+  });
+  out.sort(function(a, b) {
+    return b.length - a.length;
+  });
+  return out;
+}
 function buildHighlightIndex() {
   const people = collectLoadedPeople();
   const transits = collectReportTransits();
@@ -1842,6 +1926,20 @@ function buildHighlightIndex() {
         if (recs[r].channel) channelNames[recs[r].channel] = 1;
       }
     }
+    const natalRecs = memberNatalRecords(person);
+    for (let r = 0; r < natalRecs.length; r++) {
+      records.push(natalRecs[r]);
+      if (natalRecs[r].channel) channelNames[natalRecs[r].channel] = 1;
+      if (natalRecs[r].gate != null) {
+        const g = natalRecs[r].gate;
+        const theme = natalRecs[r].theme || highlightGateTheme(g);
+        const key = "natal|" + g;
+        if (!seenRef[key]) {
+          seenRef[key] = 1;
+          transitList.push({ planet: "", label: "", gate: g, line: null, gl: "", theme, center: natalRecs[r].center || highlightGateCenter(g), natal: true });
+        }
+      }
+    }
     members.push({ first, person, records });
   }
   const interactions = [];
@@ -1866,16 +1964,39 @@ function buildHighlightIndex() {
           bridge: !!hit.bridge
         });
       }
+      try {
+        if (window.HD && typeof HD.coupleDynamics === "function") {
+          const dyn = HD.coupleDynamics(a, b, { planets: {} });
+          const chans = [];
+          ["electromagnetic", "companionship", "compromise"].forEach(function(k) {
+            (dyn[k] || []).forEach(function(ch) {
+              const n = highlightChannelName(ch);
+              if (n) {
+                chans.push(n);
+                channelNames[n] = 1;
+              }
+            });
+          });
+          if (chans.length) {
+            interactions.push({
+              names: [highlightFirstName(a), highlightFirstName(b)],
+              channels: chans,
+              hook: false,
+              bridge: false,
+              natal: true
+            });
+          }
+        }
+      } catch (e) {
+      }
     }
   }
-  const index = { members, transits: transitList, interactions, channelNames: Object.keys(channelNames) };
+  const index = { members, transits: transitList, interactions, channelNames: Object.keys(channelNames), centers: highlightCenterList(people) };
   window.__TA_HIGHLIGHT__ = index;
   return index;
 }
 function highlightControlsReady() {
-  const ready = typeof hasGeneratedReport === "function" && hasGeneratedReport();
-  const natal = typeof timeTransitBasedOn === "function" && !timeTransitBasedOn() || !!window.__NATAL_ONLY__;
-  return !!(ready && !natal);
+  return !!(typeof hasGeneratedReport === "function" && hasGeneratedReport());
 }
 function highlightAffectedOn() {
   const el = document.getElementById("hlAffectedMembers");
@@ -1907,22 +2028,22 @@ function updateHighlightStatus() {
   const el = document.getElementById("hlToggleStatus");
   if (!el) return;
   if (!highlightControlsReady()) {
-    el.textContent = "Available after a transit report is generated.";
+    el.textContent = "Available after a report is generated.";
     return;
   }
   const aOn = highlightAffectedOn();
   const bOn = highlightBetweenOn();
   if (!aOn && !bOn) {
-    el.textContent = "Highlighting is off. Check a box to underline transits and mark affected members.";
+    el.textContent = "Highlighting is off. Check a box to underline gates, channels, and centers in the report and mark affected members.";
     return;
   }
   const bits = [];
   if (aOn) bits.push("affected members are bold");
-  if (bOn) bits.push("between-member transit interactions are bold and italic");
+  if (bOn) bits.push("between-member interactions are bold and italic");
   const t = document.querySelectorAll("#report span.hl-transit").length;
   const a = document.querySelectorAll("#report span.hl-affected").length;
   const n = document.querySelectorAll("#report .hl-between-block").length;
-  el.textContent = "Highlighting on: " + bits.join("; ") + " (" + t + " underlined transit" + (t === 1 ? "" : "s") + ", " + a + " bold name" + (a === 1 ? "" : "s") + ", " + n + " interaction" + (n === 1 ? "" : "s") + ").";
+  el.textContent = "Highlighting on: " + bits.join("; ") + " (" + t + " underlined item" + (t === 1 ? "" : "s") + ", " + a + " bold name" + (a === 1 ? "" : "s") + ", " + n + " interaction" + (n === 1 ? "" : "s") + ").";
 }
 function syncHighlightChecks() {
   const hlReady = highlightControlsReady();
@@ -2039,11 +2160,22 @@ function wrapTransitMentions(root, index) {
     if (transits[i].gate != null) knownGates[String(transits[i].gate)] = transits[i];
     if (transits[i].gl) knownGl[String(transits[i].gl)] = transits[i];
   }
+  const members = index.members || [];
+  for (let m = 0; m < members.length; m++) {
+    const recs = members[m].records || [];
+    for (let r = 0; r < recs.length; r++) {
+      if (recs[r].gate != null) knownGates[String(recs[r].gate)] = knownGates[String(recs[r].gate)] || recs[r];
+      if (recs[r].gl) knownGl[String(recs[r].gl)] = knownGl[String(recs[r].gl)] || recs[r];
+    }
+  }
   const gateRe = /\b[Gg]ate\s+(\d{1,2})\b/g;
   const glRe = /\b(\d{1,2}\.\d)\b/g;
   const chNames = (index.channelNames || []).slice().sort(function(a, b) {
     return b.length - a.length;
   });
+  const centers = (index.centers || highlightCenterList((index.members || []).map(function(m) {
+    return m.person;
+  }))).slice();
   const nodes = collectHighlightTextNodes(root);
   for (let n = 0; n < nodes.length; n++) {
     const node = nodes[n];
@@ -2059,7 +2191,6 @@ function wrapTransitMentions(root, index) {
     let m;
     planetRe.lastIndex = 0;
     while (m = planetRe.exec(text)) {
-      if (prefixLooksNatal(text, m.index)) continue;
       const start = m.index, end = m.index + m[0].length;
       if (taken(start, end)) continue;
       ranges.push({ start, end, planet: m[1], gate: m[2] ? Number(m[2]) : null, gl: m[2] && m[3] ? m[2] + "." + m[3] : "", theme: m[4] || "" });
@@ -2069,7 +2200,8 @@ function wrapTransitMentions(root, index) {
       if (!knownGates[String(m[1])]) continue;
       const start = m.index, end = m.index + m[0].length;
       if (taken(start, end)) continue;
-      ranges.push({ start, end, planet: "", gate: Number(m[1]), gl: "", theme: "" });
+      const src = knownGates[String(m[1])] || {};
+      ranges.push({ start, end, planet: "", gate: Number(m[1]), gl: "", theme: "", center: src.center || highlightGateCenter(Number(m[1])) });
     }
     glRe.lastIndex = 0;
     while (m = glRe.exec(text)) {
@@ -2082,7 +2214,8 @@ function wrapTransitMentions(root, index) {
       for (let c = 0; c < chNames.length; c++) {
         const name = chNames[c];
         if (!name || name.length < 3) continue;
-        const re = new RegExp("(?:the\\s+)?channel of\\s+" + name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "ig");
+        const esc = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const re = new RegExp("(?:(?:the\\s+)?channel of\\s+)?" + esc + "(?=\\s*\\(|\\s*$|[.,;:]|\\s+\\()", "ig");
         let cm;
         while (cm = re.exec(text)) {
           const start = cm.index, end = cm.index + cm[0].length;
@@ -2091,11 +2224,28 @@ function wrapTransitMentions(root, index) {
         }
       }
     }
+    for (let c = 0; c < centers.length; c++) {
+      const name = centers[c];
+      if (!name) continue;
+      let re;
+      if (name === "G") {
+        re = /\bG(?:\s+center|\s*[–-]|(?=,|\.|;|:))/g;
+      } else {
+        re = new RegExp(name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace("\\/", "[\\/]"), "g");
+      }
+      let cm;
+      while (cm = re.exec(text)) {
+        const start = cm.index, end = cm.index + cm[0].length;
+        if (taken(start, end)) continue;
+        ranges.push({ start, end, planet: "", gate: null, gl: "", center: name === "G" ? "G" : name });
+      }
+    }
     if (ranges.length) wrapRangesInTextNode(node, ranges, "hl-transit", function(sp, r) {
       if (r.planet) sp.setAttribute("data-planet", r.planet);
       if (r.gate != null) sp.setAttribute("data-gate", String(r.gate));
       if (r.gl) sp.setAttribute("data-gl", r.gl);
       if (r.channel) sp.setAttribute("data-channel", r.channel);
+      if (r.center) sp.setAttribute("data-center", r.center);
     });
   }
 }
@@ -2121,7 +2271,8 @@ function mentionsFromBlock(block) {
       planet: sp.getAttribute("data-planet") || "",
       gate: sp.getAttribute("data-gate") ? Number(sp.getAttribute("data-gate")) : null,
       gl: sp.getAttribute("data-gl") || "",
-      channel: sp.getAttribute("data-channel") || ""
+      channel: sp.getAttribute("data-channel") || "",
+      center: sp.getAttribute("data-center") || ""
     });
   }
   return mentions;
@@ -2186,8 +2337,11 @@ function blockLooksBetween(el, index) {
     if (re.test(text)) nameHits++;
   }
   const twoNames = nameHits >= 2;
-  const betweenPhrase = /\bbetween\s+them\b/i.test(text) || /\bbetween\s+[A-Z][a-z]+\s+and\s+[A-Z][a-z]+/i.test(text);
-  const keywords = /electromagnetic|companionship|dominance|compromise|shared hooks?|lands in both charts|holds the bridge|temporarily define|lit by this sky|natal bond|condition(?:s|ed|ing)? one another|condition(?:s|ed)?\s+[A-Z][a-z]+/i.test(text);
+  const nameAlt = names.map(function(n) {
+    return n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }).join("|");
+  const betweenPhrase = /\bbetween\s+them\b/i.test(text) || !!(nameAlt && new RegExp("\\bbetween\\s+(" + nameAlt + ")\\s+and\\s+(" + nameAlt + ")", "i").test(text));
+  const keywords = /electromagnetic|companionship|dominance|compromise|shared hooks?|lands in both charts|holds the bridge|temporarily define|lit by this sky|natal bond|condition each other|condition one another/i.test(text) || !!(nameAlt && new RegExp("condition(?:s|ed|ing)?\\s+(" + nameAlt + ")", "i").test(text));
   let inBetweenSection = false;
   let prev = el.previousElementSibling;
   let steps = 0;
@@ -2221,14 +2375,6 @@ function markBetweenBlocks(root, index) {
 function markupHighlightReport() {
   const root = document.getElementById("report");
   if (!root) return;
-  if (typeof timeTransitBasedOn === "function" && !timeTransitBasedOn() || window.__NATAL_ONLY__) {
-    unwrapHighlightSpans(root);
-    try {
-      applyHighlightToggles();
-    } catch (e) {
-    }
-    return;
-  }
   const index = buildHighlightIndex();
   unwrapHighlightSpans(root);
   wrapTransitMentions(root, index);

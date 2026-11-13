@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta http-equiv="Cache-Control" content="202611131000" />
-  <meta name="ta-build" content="202611131000" />
+  <meta http-equiv="Cache-Control" content="202611131030" />
+  <meta name="ta-build" content="202611131030" />
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -717,12 +717,12 @@ label.check,label.check input{cursor:pointer}
         <input type="checkbox" id="hlAffectedMembers" />
         Bold members directly affected by the underlined transit
       </label>
-      <p class="hint" style="margin:.05rem 0 .35rem">Unchecked by default. When on, transits in the report and in answers are underlined, and a member's first name is bold only where that member is directly affected by that transit (it hits a natal gate, completes a channel with their gate, or touches their center). This does not replace the report.</p>
+      <p class="hint" style="margin:.05rem 0 .35rem">Unchecked by default. When on, transits, natal gates, channels, and centers in the report and in answers are underlined, and a member's first name is bold where that item involves their chart (a natal gate, a natal or transit-completed channel, or a center). This works in natal-only reports as well as transit reports. This does not replace the report.</p>
       <label class="check" id="hlBetweenInteractionsLabel" style="display:flex;align-items:flex-start;gap:.5rem;margin:.15rem 0 .1rem">
         <input type="checkbox" id="hlBetweenInteractions" />
         Bold + italic between-member interactions from the underlined transit
       </label>
-      <p class="hint" style="margin:.05rem 0 .35rem">Unchecked by default. When on, transits are underlined, and text about how members interact because of that transit (for example electromagnetic or completed channels between them) is bold and italic. You can use this together with the bold-members box. Available once two members are selected and a report exists.</p>
+      <p class="hint" style="margin:.05rem 0 .35rem">Unchecked by default. When on, transits, natal gates, channels, and centers are underlined, and text about how members interact (electromagnetic, companionship, or dominance channels, shared or open centers, and transit-based interactions) is bold and italic. You can use this together with the bold-members box. Available once two members are selected and a report exists, including natal-only reports.</p>
       <p class="hint" id="hlToggleStatus" aria-live="polite"></p>
 
       <label class="check" style="display:flex;align-items:flex-start;gap:.5rem;margin:.15rem 0 .1rem">
@@ -772,8 +772,8 @@ label.check,label.check input{cursor:pointer}
 </div>
 
 <!-- Data is separate from the UI. Script order matters. Works via file:// on Windows and via https on iPhone/iPad Firefox. -->
-<script src="astronomy.browser.min.js?v=202611131000"></script>
-<script src="data.js?v=202611131000"></script>
+<script src="astronomy.browser.min.js?v=202611131030"></script>
+<script src="data.js?v=202611131030"></script>
 
 <script>
 /* ES5 quick-load + Full/Brief bootstrap: works even if later scripts fail. */
@@ -893,7 +893,7 @@ label.check,label.check input{cursor:pointer}
   else { boot(); }
 })();
 </script>
-<script src="analyzer.js?v=202611131000"></script>
-<script src="app.js?v=202611131000"></script>
+<script src="analyzer.js?v=202611131030"></script>
+<script src="app.js?v=202611131030"></script>
 </body>
 </html>
