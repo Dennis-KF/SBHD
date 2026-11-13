@@ -2,7 +2,7 @@
 
 Static web app for GitHub Pages folder `Transit-6` (`https://sbhd.net/Transit-6/index.html`).
 
-Build: **202611130915**. Up to six members (Input 1 required; Inputs 2–6 optional). Forked from Transit Analyzer build 202611121715; this folder is independent of `/Transits/` and `/Transit-Test/`.
+Build: **202611131000**. Up to six members (Input 1 required; Inputs 2–6 optional). Forked from Transit Analyzer build 202611121715; this folder is independent of `/Transits/` and `/Transit-Test/`.
 
 ## Files
 
@@ -18,7 +18,7 @@ Build: **202611130915**. Up to six members (Input 1 required; Inputs 2–6 optio
 | `INSTALL.txt` | Install notes for iPhone / iPad and Windows. |
 | `README.md` | This file. |
 
-Keep these files together in the `Transit-6` folder (same directory). Cache-bust query strings (`?v=202611130915`) are already on the script tags.
+Keep these files together in the `Transit-6` folder (same directory). Cache-bust query strings (`?v=202611131000`) are already on the script tags.
 
 ## Usage notes
 
