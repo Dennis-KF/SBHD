@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta http-equiv="Cache-Control" content="202611122330" />
-  <meta name="ta-build" content="202611122330" />
+  <meta http-equiv="Cache-Control" content="202611130915" />
+  <meta name="ta-build" content="202611130915" />
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -360,6 +360,16 @@ label.check,label.check input{cursor:pointer}
     body.natal-only-mode .time-controls-disabled,
     body.natal-only-mode .time-controls-disabled *{
       pointer-events:none;
+    }
+
+  
+    .model-id{
+      margin:.35rem 0 0;
+      font-size:.95rem;
+      font-weight:650;
+      letter-spacing:.02em;
+      color:var(--muted, #9aa4b2);
+      text-align:center;
     }
 
   </style>
@@ -789,8 +799,8 @@ label.check,label.check input{cursor:pointer}
       <button type="button" class="secondary active" id="reportTimeline" aria-pressed="true">Timeline of chart-relevant changes</button>
     </div>
     <p class="hint" id="timelineHint" style="display:block;margin:.35rem 0 .5rem">Timeline scans the selected day or range in the chosen timezone (from local midnight to midnight) for gate/line ingresses that touch the entered chart(s). Selected by default.</p>
-    <button type="button" id="runBtn">Run transit analysis</button>
-    <button type="button" class="secondary" id="loadCouple">Dennis + Eike · Oct 26, 2026 · 3:00 PM ET</button>
+    <button type="button" id="runBtn">Run Human Design / Transit Analysis</button>
+    <p class="model-id" id="modelLabel">Model HDTA 4.2.6</p>
     <div class="status" id="status"></div>
   </section>
 
@@ -17273,8 +17283,10 @@ function showCdnFail(msg) {
   const b = $("cdnBanner");
   b.textContent = msg || "Could not load the astronomy-engine library from the CDN. Check your internet connection and reopen this file (or try again). Live transit positions cannot be calculated offline.";
   b.classList.add("show");
-  $("runBtn").disabled = true;
-  $("loadCouple").disabled = true;
+  const rb = $("runBtn");
+  if (rb) rb.disabled = true;
+  const lc = $("loadCouple");
+  if (lc) lc.disabled = true;
   engReady = false;
 }
 function loadAstronomy() {
