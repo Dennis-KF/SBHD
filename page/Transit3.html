@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta http-equiv="Cache-Control" content="202611122200" />
-  <meta name="ta-build" content="202611122200" />
+  <meta http-equiv="Cache-Control" content="202611122330" />
+  <meta name="ta-build" content="202611122330" />
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -311,7 +311,44 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 label.check,label.check input{cursor:pointer}
 
 
-</style>
+
+    .time-transit-based-wrap{
+      margin:10px 0 8px;
+      padding:8px 10px;
+      border:1px solid var(--line);
+      border-radius:10px;
+      background:var(--card, #fff);
+    }
+    .time-transit-based-label{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      min-height:44px;
+      font-size:1.12em;
+      font-weight:650;
+      cursor:pointer;
+      line-height:1.3;
+    }
+    .time-transit-based-label input{
+      width:20px;
+      height:20px;
+      flex:0 0 auto;
+    }
+    .time-transit-based-hint{
+      margin:2px 0 0 30px;
+      font-size:1.12em;
+      line-height:1.4;
+      color:var(--muted, #555);
+    }
+    body.natal-only-mode .time-controls-disabled{
+      opacity:.45;
+    }
+    body.natal-only-mode .time-controls-disabled,
+    body.natal-only-mode .time-controls-disabled *{
+      pointer-events:none;
+    }
+
+  </style>
     <script>
 /* Visible on-page error banner for iOS debugging. ES5, no dependencies. */
 (function(){
@@ -509,6 +546,13 @@ label.check,label.check input{cursor:pointer}
       Add transit field after each day
     </label>
     <p class="hint" id="rangeTransitFieldHint" style="margin:.05rem 0 .55rem">Appends the planet positions table at the end of every day in the range (any length). Independent of Full/Brief. Unchecked by default. Single day and Now always include the field.</p>
+    </div>
+    <div class="time-transit-based-wrap" id="timeTransitBasedWrap">
+      <label class="time-transit-based-label" for="timeTransitBased">
+        <input type="checkbox" id="timeTransitBased" checked>
+        <span>Time / Transit Based</span>
+      </label>
+      <p class="time-transit-based-hint" id="timeTransitBasedHint">For regular Human Design interactions that can be studied uninfluenced by transit activity. Uncheck this box to use that natal-only view (no transit activity).</p>
     </div>
     <div class="cal-wrap">
       <div class="cal-toolbar">
@@ -13568,6 +13612,272 @@ function appendExtraOutputSections(html, md, person1, person2, transits, meta2) 
   const extraMd = extraBlocksToMarkdown(blocks);
   return { html: extraHtml, md: extraMd };
 }
+function natalTypeNotSelf(person) {
+  const profile = deriveHdProfile(person);
+  const map = TYPE_NOT_SELF || {};
+  const t = profile && profile.type;
+  if (t && map[t]) return Object.assign({ type: t }, map[t]);
+  const lower = String(t || "").toLowerCase();
+  const keys = Object.keys(map);
+  for (let i = 0; i < keys.length; i++) {
+    if (keys[i].toLowerCase() === lower) return Object.assign({ type: keys[i] }, map[keys[i]]);
+  }
+  try {
+    return typeNotSelfInfo(person);
+  } catch (e) {
+    return null;
+  }
+}
+function natalPeopleList(people) {
+  const out = [];
+  for (let i = 0; i < (people || []).length; i++) {
+    if (people[i]) out.push(people[i]);
+  }
+  return out;
+}
+function natalNameList(people) {
+  return natalPeopleList(people).map(function(p) {
+    return firstNameOnly(p.name);
+  });
+}
+function natalTitleNames(people) {
+  const names = natalNameList(people);
+  if (!names.length) return "";
+  if (names.length === 1) return names[0];
+  if (names.length === 2) return names[0] + " & " + names[1];
+  return names.slice(0, names.length - 1).join(", ") + " & " + names[names.length - 1];
+}
+function natalPairs(people, meta2) {
+  const list = natalPeopleList(people);
+  if (typeof selectedPeoplePairs === "function" && list[0]) {
+    try {
+      const pairs2 = selectedPeoplePairs(list[0], list[1] || null, list[2] || null, meta2 || {});
+      if (pairs2 && pairs2.length) return pairs2;
+    } catch (e) {
+    }
+  }
+  const pairs = [];
+  for (let i = 0; i < list.length; i++) {
+    for (let j = i + 1; j < list.length; j++) pairs.push([list[i], list[j]]);
+  }
+  return pairs;
+}
+function natalFilt(tracker, s) {
+  if (typeof extraFilt === "function") return extraFilt(tracker, s);
+  if (typeof registerAndFilterSentence === "function") {
+    const f = registerAndFilterSentence(tracker, s);
+    return f || s;
+  }
+  return s;
+}
+function describeNatalBetweenPair(p1, p2, tracker, brief) {
+  const n1 = firstNameOnly(p1.name), n2 = firstNameOnly(p2.name);
+  const dyn = coupleDynamics(p1, p2, { planets: {} });
+  const electro = dyn.electromagnetic || [];
+  const comp = dyn.companionship || [];
+  const dom = dyn.compromise || [];
+  let s = n1 + " and " + n2 + " condition each other through the channels they already form together.";
+  function list(arr, label) {
+    if (!arr.length) return "";
+    if (brief) return " " + label + " channels: " + arr.map(extraChLabel).join("; ") + ".";
+    const bits = arr.map(function(ch) {
+      const lab = extraChLabel(ch);
+      const clip2 = typeof channelMeaningClip === "function" ? channelMeaningClip(ch) : "";
+      return lab + (clip2 ? ": " + clip2 : "");
+    });
+    return " " + label + " channels: " + bits.join(" ") + ".";
+  }
+  s += list(electro, "Electromagnetic");
+  s += list(comp, "Companionship");
+  s += list(dom, "Dominance");
+  if (!electro.length && !comp.length && !dom.length) {
+    s += " They do not currently form electromagnetic, companionship, or dominance channels from the activations entered.";
+  }
+  const fill2 = conditionCentersFromTo(p1, p2);
+  const fill1 = conditionCentersFromTo(p2, p1);
+  if (fill2.length) s += " " + n1 + "'s defined " + fill2.join(", ") + " can condition " + n2 + " where those centers are open.";
+  if (fill1.length) s += " " + n2 + "'s defined " + fill1.join(", ") + " can condition " + n1 + " where those centers are open.";
+  if (!brief) {
+    try {
+      const a = deriveHdProfile(p1), b = deriveHdProfile(p2);
+      s += " This is a potential in how their defined and open centers meet\u2014" + n1 + " as a " + a.type + " with " + a.authority + " Authority, " + n2 + " as a " + b.type + " with " + b.authority + " Authority\u2014not a prediction of what will happen.";
+    } catch (e) {
+    }
+  }
+  return natalFilt(tracker, s);
+}
+function describeNatalPerson(person, tracker, brief) {
+  const name = firstNameOnly(person.name);
+  const profile = deriveHdProfile(person);
+  const open = openCentersOf(person);
+  const defSorted = [...new Set([...person.defined_centers || []].map(normalizeCenterName))].sort();
+  const paras = [];
+  let p1 = name + " is a " + profile.type + ' with Strategy "' + profile.strategy + '" and ' + profile.authority + " Authority";
+  if (profile.definition && profile.definition !== "No Definition") p1 += " (" + profile.definition + " definition)";
+  p1 += ". Defined centers: " + (defSorted.length ? defSorted.join(", ") : "none") + ". Open centers: " + (open.length ? open.join(", ") : "none") + ".";
+  const chans = person.natal_channel_list || [];
+  if (brief) {
+    if (chans.length) p1 += " Natal channels: " + chans.map(function(c) {
+      return prettyTheme(c.name) + " (" + (c.centers || []).join("\u2013") + ")";
+    }).join("; ") + ".";
+    else p1 += " This chart does not complete a natal channel from the activations entered.";
+    const hanging2 = hangingGatesList(person).slice(0, 8);
+    if (hanging2.length) p1 += " Hanging gates include " + hanging2.map(function(g) {
+      return "Gate " + g + " (" + prettyTheme(gateThemeName(g)) + ")";
+    }).join(", ") + ".";
+    paras.push(natalFilt(tracker, p1));
+    return paras;
+  }
+  if (profile.signature) p1 += " The Type signature to watch is " + profile.signature + (profile.theme ? " \u2014 " + profile.theme : "") + ".";
+  const tns = natalTypeNotSelf(person);
+  if (tns && tns.everyday_pull) {
+    p1 += " In everyday life that Type pressure can look like " + String(tns.everyday_pull).replace(/\.+$/, "") + ".";
+  }
+  paras.push(natalFilt(tracker, p1));
+  if (chans.length) {
+    const bits = chans.map(function(c) {
+      const lab = prettyTheme(c.name) + " (" + (c.centers || []).join("\u2013") + ")";
+      const clip2 = typeof channelMeaningClip === "function" ? channelMeaningClip(c) : "";
+      return lab + (clip2 ? ": " + clip2 : "");
+    });
+    paras.push(natalFilt(tracker, name + "'s natal channels include " + bits.join(" ")));
+  } else {
+    paras.push(natalFilt(tracker, name + "'s activations do not complete a natal channel in the chart as entered."));
+  }
+  const hanging = hangingGatesList(person);
+  if (hanging.length) {
+    const bits = hanging.slice(0, 12).map(function(g) {
+      const theme = prettyTheme(gateThemeName(g));
+      let s = "Gate " + g + " (" + theme + ")";
+      try {
+        const gi = gateInfo(g);
+        const gs = meaningSentences(gi && (gi.description || gi.lcn_intro) || "", 2, 360);
+        if (gs) s += ": " + gs;
+      } catch (e) {
+      }
+      return s;
+    });
+    paras.push(natalFilt(tracker, name + "'s hanging gates include " + bits.join(" ")));
+  }
+  if (open.length) {
+    const bits = open.map(function(c) {
+      const info = centerNotSelfInfo(c);
+      let s = "Open " + c;
+      if (info && info.not_self_theme) s += ": " + info.not_self_theme;
+      if (info && info.conditioning) {
+        const cond = meaningSentences(info.conditioning, 2, 320);
+        if (cond) s += " " + cond;
+      }
+      if (info && info.everyday_pull) {
+        const pull = meaningSentences(info.everyday_pull, 1, 200);
+        if (pull) s += " Everyday pull: " + pull;
+      }
+      return s;
+    });
+    paras.push(natalFilt(tracker, "In " + name + "'s open centers, " + bits.join(" ")));
+  }
+  return paras;
+}
+function describeNatalNotSelfPerson(person, tracker, brief) {
+  const name = firstNameOnly(person.name);
+  const profile = deriveHdProfile(person);
+  const open = openCentersOf(person);
+  const paras = [];
+  const tns = natalTypeNotSelf(person);
+  let p1 = name + " is a " + profile.type + ' with Strategy "' + profile.strategy + '" and ' + profile.authority + " Authority.";
+  if (tns && tns.theme) p1 += " A Type not-self theme is " + tns.theme + ".";
+  if (tns && tns.everyday_pull && !brief) p1 += " In everyday life that can look like " + String(tns.everyday_pull).replace(/\.+$/, "") + ".";
+  if (profile.signature) p1 += " The signature to watch is " + profile.signature + ".";
+  paras.push(natalFilt(tracker, p1));
+  if (open.length) {
+    const bits = open.map(function(c) {
+      const info = centerNotSelfInfo(c);
+      let s = "open " + c;
+      if (info && info.not_self_theme) s += " may lean toward " + info.not_self_theme;
+      if (!brief && info && info.not_self_question) s += " (" + info.not_self_question + ")";
+      if (!brief && info && info.conditioning) {
+        const cond = meaningSentences(info.conditioning, 2, 320);
+        if (cond) s += "; " + cond;
+      }
+      if (!brief && info && info.everyday_pull) {
+        const pull = meaningSentences(info.everyday_pull, 1, 200);
+        if (pull) s += "; everyday pull: " + pull;
+      }
+      return s;
+    });
+    paras.push(natalFilt(tracker, "In this natal chart, " + bits.join(". ") + "."));
+  } else {
+    paras.push(natalFilt(tracker, name + " does not leave a center open, so not-self themes here sit more in Type pressure than in open-center conditioning."));
+  }
+  return paras;
+}
+function natalPeopleFromMeta(people, meta2) {
+  const list = natalPeopleList(people);
+  if (list.length) return list;
+  const m = meta2 || {};
+  if (m.members && m.members.length) return natalPeopleList(m.members);
+  const out = [];
+  if (m.person1) out.push(m.person1);
+  if (m.person2) out.push(m.person2);
+  if (m.person3) out.push(m.person3);
+  if (m.extraPeople) out.push.apply(out, m.extraPeople);
+  return natalPeopleList(out);
+}
+function renderNatalOnlyHtml(people, meta2) {
+  meta2 = meta2 || {};
+  const list = natalPeopleFromMeta(people, meta2);
+  const brief = !!meta2.brief;
+  const wantNS = !!meta2.wantNotSelf;
+  const wantBetween = !!meta2.wantBetween;
+  const tracker = makeProseTracker();
+  const title = natalTitleNames(list) || "Selected charts";
+  const parts = ['<div class="natal-only-report">'];
+  if (wantNS && !wantBetween) {
+    parts.push("<h2>Not-Self landscape (natal): " + escapeHtml(title) + "</h2>");
+    parts.push("<p><em>Open-center and Type themes in these charts, uninfluenced by transit activity. Potentials, not predictions.</em></p>");
+    for (let i = 0; i < list.length; i++) {
+      parts.push("<h3>" + escapeHtml(firstNameOnly(list[i].name)) + "</h3>");
+      const paras = describeNatalNotSelfPerson(list[i], tracker, brief);
+      for (let p = 0; p < paras.length; p++) parts.push("<p>" + escapeHtml(paras[p]) + "</p>");
+    }
+  } else if (wantBetween) {
+    parts.push("<h2>Between members (natal): " + escapeHtml(title) + "</h2>");
+    parts.push("<p><em>How these charts condition each other, uninfluenced by transit activity. Potentials, not predictions.</em></p>");
+    if (list.length < 2) {
+      parts.push("<p>Select a second member to see how the charts condition each other. With one chart loaded, there is no second design to compare.</p>");
+    } else {
+      const pairs = natalPairs(list, meta2);
+      for (let i = 0; i < pairs.length; i++) {
+        const a = pairs[i][0], b = pairs[i][1];
+        parts.push("<h3>Between " + escapeHtml(firstNameOnly(a.name)) + " and " + escapeHtml(firstNameOnly(b.name)) + "</h3>");
+        parts.push("<p>" + escapeHtml(describeNatalBetweenPair(a, b, tracker, brief)) + "</p>");
+      }
+    }
+  } else {
+    parts.push("<h2>Natal designs" + (list.length > 1 ? " and interactions" : "") + ": " + escapeHtml(title) + "</h2>");
+    parts.push("<p><em>A reading of the selected charts" + (list.length > 1 ? " and how they condition each other" : "") + ", uninfluenced by transit activity. Potentials, not predictions.</em></p>");
+    for (let i = 0; i < list.length; i++) {
+      parts.push("<h3>" + escapeHtml(firstNameOnly(list[i].name)) + "</h3>");
+      const paras = describeNatalPerson(list[i], tracker, brief);
+      for (let p = 0; p < paras.length; p++) parts.push("<p>" + escapeHtml(paras[p]) + "</p>");
+    }
+    if (list.length > 1) {
+      parts.push("<h2>Between members</h2>");
+      const pairs = natalPairs(list, meta2);
+      for (let i = 0; i < pairs.length; i++) {
+        const a = pairs[i][0], b = pairs[i][1];
+        parts.push("<h3>Between " + escapeHtml(firstNameOnly(a.name)) + " and " + escapeHtml(firstNameOnly(b.name)) + "</h3>");
+        parts.push("<p>" + escapeHtml(describeNatalBetweenPair(a, b, tracker, brief)) + "</p>");
+      }
+    }
+  }
+  parts.push("</div>");
+  return parts.join("\n");
+}
+function renderNatalOnlyMarkdown(people, meta2) {
+  const html = renderNatalOnlyHtml(people, meta2);
+  return String(html || "").replace(/<\/h2>/gi, "\n\n").replace(/<\/h3>/gi, "\n\n").replace(/<\/p>/gi, "\n\n").replace(/<br\s*\/?>/gi, "\n").replace(/<[^>]+>/g, "").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/\n{3,}/g, "\n\n").trim();
+}
 window.HD = {
   PLANET_ORDER,
   lonToGateLine,
@@ -13599,7 +13909,9 @@ window.HD = {
   extraOutputLandscapeOn,
   extraOutputBetweenOn,
   normalizePronouns,
-  personPronouns
+  personPronouns,
+  renderNatalOnlyHtml,
+  renderNatalOnlyMarkdown
 };
 
 </script>
@@ -13988,7 +14300,7 @@ function syncDateInputsFromState() {
   if (from) from.value = startDate || "";
   if (to) {
     to.value = mode === "range" ? endDate || startDate || "" : startDate || "";
-    to.disabled = mode !== "range";
+    to.disabled = mode !== "range" || typeof timeTransitBasedOn === "function" && !timeTransitBasedOn();
   }
 }
 function applyDateInputsToState() {
@@ -14970,7 +15282,7 @@ function enforceRangeDescMutualExclusion(changedId) {
   if (changedId === "includeRangeBriefDesc" && brief.checked) full.checked = false;
 }
 function rerunFromRefine() {
-  if (!window.__LAST_TRANSIT__) return;
+  if (!reportAlreadyGenerated()) return;
   const wrap = $("reportWrap");
   const opts = $("extraOutputOpts");
   try {
@@ -14985,9 +15297,139 @@ function rerunFromRefine() {
     }
   }
 }
+function timeTransitBasedOn() {
+  const el = document.getElementById("timeTransitBased");
+  if (!el) return true;
+  return !!el.checked;
+}
+function reportAlreadyGenerated() {
+  try {
+    if (window.__LAST_TRANSIT__ || window.__NATAL_ONLY__) return true;
+  } catch (e) {
+  }
+  return false;
+}
+function natalControlsToDisable() {
+  return ["modeSingle", "modeRange", "dateFrom", "dateTo", "timeFrom", "timeTo", "month", "clearDates", "hour12", "minute", "ampm", "tz", "nowBtn", "includeRangeTransitField", "calPrev", "calNext"];
+}
+function syncNatalOnlyUI() {
+  const natal = !timeTransitBasedOn();
+  try {
+    if (natal) document.body.classList.add("natal-only-mode");
+    else document.body.classList.remove("natal-only-mode");
+  } catch (e) {
+  }
+  const ids = natalControlsToDisable();
+  for (let i = 0; i < ids.length; i++) {
+    const el = document.getElementById(ids[i]);
+    if (el) el.disabled = natal;
+  }
+  const wraps = [];
+  function addWrap(el) {
+    if (el && wraps.indexOf(el) < 0) wraps.push(el);
+  }
+  try {
+    addWrap(document.getElementById("whenModeToggle"));
+  } catch (e) {
+  }
+  try {
+    addWrap(document.querySelector(".cal-wrap"));
+  } catch (e) {
+  }
+  try {
+    addWrap(document.getElementById("timeSingleWrap"));
+  } catch (e) {
+  }
+  try {
+    addWrap(document.getElementById("rangeTransitFieldOpt"));
+  } catch (e) {
+  }
+  try {
+    addWrap(document.getElementById("rangeTransitFieldHint"));
+  } catch (e) {
+  }
+  try {
+    const tz = document.getElementById("tz");
+    if (tz && tz.parentElement) addWrap(tz.parentElement);
+  } catch (e) {
+  }
+  try {
+    addWrap(document.getElementById("nowBtn"));
+  } catch (e) {
+  }
+  for (let i = 0; i < wraps.length; i++) {
+    if (natal) wraps[i].classList.add("time-controls-disabled");
+    else wraps[i].classList.remove("time-controls-disabled");
+  }
+}
+function natalReportMeta(base) {
+  const meta = Object.assign({}, base || {});
+  try {
+    const brief = $("includeRangeBriefDesc");
+    const full = $("includeRangeFullDesc");
+    meta.brief = !!(brief && brief.checked && !(full && full.checked));
+  } catch (e) {
+    meta.brief = false;
+  }
+  try {
+    const want = typeof extraOutputRequested === "function" ? extraOutputRequested() : {};
+    meta.wantNotSelf = !!want.landscape;
+    meta.wantBetween = !!want.between;
+  } catch (e) {
+    meta.wantNotSelf = false;
+    meta.wantBetween = false;
+  }
+  meta.natalOnly = true;
+  return meta;
+}
+function finishNatalOnlyReport(people, meta) {
+  if (!window.HD || typeof HD.renderNatalOnlyHtml !== "function") {
+    status("Natal-only view is not available in this build.", "err");
+    return;
+  }
+  const html = HD.renderNatalOnlyHtml(people, meta || {});
+  lastHtml = html;
+  lastMd = typeof HD.renderNatalOnlyMarkdown === "function" ? HD.renderNatalOnlyMarkdown(people, meta || {}) : "";
+  window.__NATAL_ONLY__ = true;
+  window.__LAST_TRANSIT__ = null;
+  window.__LAST_EVENTS__ = null;
+  window.__LAST_DAY_TRANSITS__ = [];
+  window.__LAST_REPORT_MD__ = lastMd;
+  const wrap = $("report");
+  if (wrap) wrap.innerHTML = lastHtml;
+  try {
+    rememberReportBase();
+  } catch (e) {
+  }
+  try {
+    if (typeof applyGrokAnswerToReport === "function") applyGrokAnswerToReport();
+  } catch (e) {
+  }
+  try {
+    if (typeof markupHighlightReport === "function") markupHighlightReport();
+  } catch (e) {
+  }
+  const n = (people || []).filter(Boolean).length;
+  status("Done \u2014 natal designs" + (n > 1 ? " and interactions" : ""), "ok");
+  try {
+    syncExtraOutputOpts();
+  } catch (e) {
+  }
+  try {
+    if (typeof syncAnswerShareButtons === "function") syncAnswerShareButtons();
+  } catch (e) {
+  }
+  try {
+    syncNatalOnlyUI();
+  } catch (e) {
+  }
+}
+function rerunIfReportExists() {
+  if (reportAlreadyGenerated()) runAnalysis();
+}
 function hasGeneratedReport() {
   try {
-    return !!window.__LAST_TRANSIT__;
+    return reportAlreadyGenerated();
   } catch (e) {
     return false;
   }
@@ -15366,6 +15808,8 @@ function applyHighlightToggles() {
 }
 function syncHighlightChecks() {
   const ready = typeof hasGeneratedReport === "function" && hasGeneratedReport();
+  const natal = typeof timeTransitBasedOn === "function" && !timeTransitBasedOn() || !!window.__NATAL_ONLY__;
+  const hlReady = ready && !natal;
   let two = false;
   try {
     two = filledMemberCount() >= 2;
@@ -15377,19 +15821,19 @@ function syncHighlightChecks() {
   const aLab = a && a.closest ? a.closest("label") : null;
   const bLab = b && b.closest ? b.closest("label") : null;
   if (a) {
-    a.disabled = !ready;
-    if (!ready) a.checked = false;
+    a.disabled = !hlReady;
+    if (!hlReady) a.checked = false;
   }
   if (b) {
-    b.disabled = !(ready && two);
-    if (!(ready && two)) b.checked = false;
+    b.disabled = !(hlReady && two);
+    if (!(hlReady && two)) b.checked = false;
   }
   if (aLab) {
-    if (!ready) aLab.classList.add("is-disabled");
+    if (!hlReady) aLab.classList.add("is-disabled");
     else aLab.classList.remove("is-disabled");
   }
   if (bLab) {
-    if (!(ready && two)) bLab.classList.add("is-disabled");
+    if (!(hlReady && two)) bLab.classList.add("is-disabled");
     else bLab.classList.remove("is-disabled");
   }
   applyHighlightToggles();
@@ -15651,6 +16095,14 @@ function markBetweenBlocks(root, index) {
 function markupHighlightReport() {
   const root = document.getElementById("report");
   if (!root) return;
+  if (typeof timeTransitBasedOn === "function" && !timeTransitBasedOn() || window.__NATAL_ONLY__) {
+    unwrapHighlightSpans(root);
+    try {
+      applyHighlightToggles();
+    } catch (e) {
+    }
+    return;
+  }
   const index = buildHighlightIndex();
   unwrapHighlightSpans(root);
   wrapTransitMentions(root, index);
@@ -16030,15 +16482,21 @@ function collectAskContext() {
     regularReport: !(want.landscape || want.between)
   };
   const visible = clipAskDateOrder(reportTextWithoutChrome(report), ASK_CONTEXT_CAP, collectAskMembers());
-  const rangeLabel = (typeof selectionRangeText === "function" ? selectionRangeText() : "") || $("ephemNote") && $("ephemNote").textContent || "";
+  const natalOnly = typeof timeTransitBasedOn === "function" && !timeTransitBasedOn() || !!window.__NATAL_ONLY__;
+  const rangeLabel = natalOnly ? "Natal-only (no transit activity)" : (typeof selectionRangeText === "function" ? selectionRangeText() : "") || $("ephemNote") && $("ephemNote").textContent || "";
   const ctx = {
     rangeLabel,
-    timezone: $("tz") && $("tz").value || ""
+    timezone: natalOnly ? "" : $("tz") && $("tz").value || ""
   };
+  if (natalOnly) {
+    ctx.mode = "natal-only";
+    ctx.natalOnly = true;
+    ctx.instruction = "NATAL-ONLY MODE: Answer from the natal charts and member-to-member interactions only. Do not mention transits, the sky, planetary movements, date or time windows, gate time spans, a transit timeline, or a positions table. Do not invent transit weather.";
+  }
   if (sections.notSelfLandscape) ctx.landscape = visible;
   else if (sections.betweenMembers) ctx.between = visible;
   else ctx.regularSummary = visible;
-  return { sections, context: ctx, members: collectAskMembers(), designs: collectAskDesigns(), rangeLabel };
+  return { sections, context: ctx, members: collectAskMembers(), designs: collectAskDesigns(), rangeLabel, natalOnly, mode: natalOnly ? "natal-only" : "transit" };
 }
 function grokSectionHtml(kind, question, body, meta) {
   const q = escapeGrok(question || "");
@@ -16244,7 +16702,8 @@ function runAnalysis() {
       return out;
     };
     var stopChart = stopChart2, attachPerson3 = attachPerson32;
-    if (!engReady || !window.Astronomy) {
+    const natalOnlyMode = typeof timeTransitBasedOn === "function" && !timeTransitBasedOn();
+    if (!natalOnlyMode && (!engReady || !window.Astronomy)) {
       status("Ephemeris library not loaded", "err");
       return;
     }
@@ -16286,6 +16745,13 @@ function runAnalysis() {
         return;
       }
     }
+    if (typeof timeTransitBasedOn === "function" && !timeTransitBasedOn()) {
+      window.__NATAL_ONLY__ = true;
+      const people = [person1, person2, person3].filter(Boolean);
+      finishNatalOnlyReport(people, natalReportMeta(attachPerson32({ natalOnly: true })));
+      return;
+    }
+    window.__NATAL_ONLY__ = false;
     const tz = $("tz").value || "local";
     const queryWin = getQueryWindow(tz);
     if (mode === "range" && !queryWindowIsValid(queryWin)) {
@@ -16531,7 +16997,7 @@ function hasSuccessfulGrokAnswer() {
 }
 function hasDisplayableReport() {
   try {
-    if (window.__LAST_TRANSIT__) return true;
+    if (window.__LAST_TRANSIT__ || window.__NATAL_ONLY__) return true;
   } catch (e) {
   }
   const report = $("report");
@@ -17288,7 +17754,7 @@ function wire() {
       } catch (e) {
       }
       try {
-        if (window.__LAST_TRANSIT__) runAnalysis();
+        if (reportAlreadyGenerated()) runAnalysis();
       } catch (e) {
       }
     });
@@ -17306,7 +17772,7 @@ function wire() {
       } catch (e) {
       }
       try {
-        if (window.__LAST_TRANSIT__) runAnalysis();
+        if (reportAlreadyGenerated()) runAnalysis();
       } catch (e) {
       }
     });
@@ -17324,7 +17790,7 @@ function wire() {
       } catch (e) {
       }
       try {
-        if (window.__LAST_TRANSIT__) runAnalysis();
+        if (reportAlreadyGenerated()) runAnalysis();
       } catch (e) {
       }
     });
@@ -17334,7 +17800,7 @@ function wire() {
   safe("codes", () => {
     const ic = $("includeCodes");
     if (ic) ic.onchange = () => {
-      if (window.__LAST_TRANSIT__) runAnalysis();
+      if (reportAlreadyGenerated()) runAnalysis();
     };
   });
   safe("realWorld", () => {
@@ -17378,30 +17844,48 @@ function wire() {
   safe("moonGate", () => {
     const moonCb = $("moonGateOnly");
     if (moonCb) moonCb.onchange = () => {
-      if (window.__LAST_TRANSIT__) runAnalysis();
+      if (reportAlreadyGenerated()) runAnalysis();
     };
   });
   safe("sunGate", () => {
     const sunCb = $("sunGateOnly");
     if (sunCb) sunCb.onchange = () => {
-      if (window.__LAST_TRANSIT__) runAnalysis();
+      if (reportAlreadyGenerated()) runAnalysis();
     };
   });
   safe("allGate", () => {
     const allGateCb = $("allGateOnly");
     if (allGateCb) allGateCb.onchange = () => {
       syncOmitLightsUI();
-      if (window.__LAST_TRANSIT__) runAnalysis();
+      if (reportAlreadyGenerated()) runAnalysis();
     };
   });
   safe("omitLights", () => {
     const omitCb = $("omitLights");
     if (omitCb) omitCb.onchange = () => {
       syncOmitLightsUI();
-      if (window.__LAST_TRANSIT__) runAnalysis();
+      if (reportAlreadyGenerated()) runAnalysis();
     };
   });
   safe("omitUI", syncOmitLightsUI);
+  safe("timeTransitBased", () => {
+    const el = $("timeTransitBased");
+    if (!el) return;
+    el.onchange = () => {
+      try {
+        syncNatalOnlyUI();
+      } catch (e) {
+      }
+      try {
+        if (reportAlreadyGenerated()) runAnalysis();
+      } catch (e) {
+      }
+    };
+    try {
+      syncNatalOnlyUI();
+    } catch (e) {
+    }
+  });
   safe("nowBtn", syncNowBtnHighlight);
   safe("runBtn", () => {
     const runBtn = $("runBtn");
