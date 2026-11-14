@@ -1,15 +1,15 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta http-equiv="Cache-Control" content="202611131030" />
-  <meta name="ta-build" content="202611131030" />
+  <meta http-equiv="Cache-Control" content="202611132100" />
+  <meta name="ta-build" content="202611132100" />
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="theme-color" content="#0f1419" />
-<title>Human Design Transit Analyzer</title>
+<title>Human Design Transit Analyzer - Model HDTA 3.2.1</title>
 <link rel="manifest" href="manifest.webmanifest" />
 <style>
 
@@ -118,30 +118,33 @@ button.secondary#nowBtn.active{opacity:1;font-weight:750;background:var(--accent
 #extraOutputOpts label.check.is-disabled{opacity:.65}
 #extraOutputOpts label.check{min-height:44px}
 #extraOutputOpts input[type=checkbox]{width:auto;min-width:22px;min-height:22px;flex-shrink:0;margin-top:.2rem}
-body.hl-affected-on span.hl-transit,body.hl-between-on span.hl-transit,
-body.hl-affected-on #report span.hl-transit,body.hl-between-on #report span.hl-transit,
-body.hl-affected-on #displayOverlay span.hl-transit,body.hl-between-on #displayOverlay span.hl-transit{
+body.hl-underline-on span.hl-transit,
+#report.hl-underline-on span.hl-transit,
+#displayOverlay.hl-underline-on span.hl-transit{
   text-decoration:underline!important;
   text-underline-offset:.12em;
   text-decoration-thickness:from-font;
 }
 body.hl-affected-on span.hl-affected,
-body.hl-affected-on #report span.hl-affected,
-body.hl-affected-on #displayOverlay span.hl-affected{
+#report.hl-affected-on span.hl-affected,
+#displayOverlay.hl-affected-on span.hl-affected{
   font-weight:700!important;
   font-style:normal;
 }
 body.hl-between-on .hl-between-block,
-body.hl-between-on #report .hl-between-block,
-body.hl-between-on #displayOverlay .hl-between-block{
+#report.hl-between-on .hl-between-block,
+#displayOverlay.hl-between-on .hl-between-block{
   font-weight:700!important;
   font-style:italic!important;
 }
 #hlToggleStatus{margin:.15rem 0 .35rem;font-size:.9rem;color:var(--muted);min-height:1.2em}
 @media print{
-  body.hl-affected-on span.hl-transit,body.hl-between-on span.hl-transit{text-decoration:underline!important}
-  body.hl-affected-on span.hl-affected{font-weight:700!important}
-  body.hl-between-on .hl-between-block{font-weight:700!important;font-style:italic!important}
+  body.hl-underline-on span.hl-transit,
+  #report.hl-underline-on span.hl-transit{text-decoration:underline!important}
+  body.hl-affected-on span.hl-affected,
+  #report.hl-affected-on span.hl-affected{font-weight:700!important}
+  body.hl-between-on .hl-between-block,
+  #report.hl-between-on .hl-between-block{font-weight:700!important;font-style:italic!important}
 }
 
 #extraOutputOpts input[disabled]{cursor:not-allowed}
@@ -195,7 +198,7 @@ mark.display-hl-current{background:#e6c44c;color:#111;outline:2px solid #fff;}
 .toolbar #reportDisplayBtn{min-height:44px;min-width:44px;padding:.55rem .9rem;font-size:.95rem}
 .label-row{display:flex;align-items:center;justify-content:space-between;gap:.5rem;margin:.55rem 0 .22rem}
 .label-row label{margin:0;flex:1}
-.clear-btn{width:auto;min-width:1.7rem;height:1.7rem;padding:0 .35rem;margin:0;flex-shrink:0;border-radius:6px;border:1px solid var(--border);background:#1a2433;color:var(--muted);font-size:.85rem;line-height:1;cursor:pointer;font-weight:700}
+.clear-btn{width:auto;min-width:1.7rem;height:auto;min-height:1.7rem;padding:2px 7px;margin:0;flex-shrink:0;border-radius:6px;border:1px solid var(--border);background:#1a2433;color:var(--muted);font-size:.7rem;line-height:1.15;cursor:pointer;font-weight:700;white-space:nowrap}
 .clear-btn:hover{background:#2a3548;color:var(--ink);border-color:#4a5a70}
 .clear-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .empty-hint{color:var(--muted);font-size:.95rem;padding:.75rem 0}
@@ -376,6 +379,25 @@ label.check,label.check input{cursor:pointer}
     }
 
   </style>
+<script>
+/* Single source for the visible model number. Increment the last digit on each update (e.g. 3.2.1 → next). */
+window.HDTA_MODEL='3.2.1';
+(function(){
+  var MODEL=window.HDTA_MODEL;
+  var full='Human Design Transit Analyzer - Model HDTA '+MODEL;
+  var shortLabel='Model HDTA '+MODEL;
+  function apply(){
+    try{ document.title=full; }catch(e){}
+    var h=document.getElementById('appTitle');
+    if(h) h.textContent=full;
+    var m=document.getElementById('modelLabel');
+    if(m) m.textContent=shortLabel;
+  }
+  window.applyHdtaModel=apply;
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', apply);
+  else apply();
+})();
+</script>
     <script>
 /* Visible on-page error banner for iOS debugging. ES5, no dependencies. */
 (function(){
@@ -429,7 +451,7 @@ label.check,label.check input{cursor:pointer}
 <body>
 <div id="taErrorBanner" hidden role="alert"></div>
 <header>
-  <h1>Human Design Transit Analyzer (Live)</h1>
+  <h1 id="appTitle">Human Design Transit Analyzer - Model HDTA 3.2.1</h1>
   <p>Offline-capable ephemeris · True Lunar Node · Plain-language transit stories · data.js separate</p>
 </header>
 <div class="banner" id="cdnBanner"></div>
@@ -438,7 +460,7 @@ label.check,label.check input{cursor:pointer}
     <h2>Inputs</h2>
     <div class="label-row">
       <label for="person1">Person / Input 1 (JSON, text, or .docx)</label>
-      <button type="button" class="clear-btn" id="clearPerson1" title="Remove" aria-label="Remove Person 1">×</button>
+      <button type="button" class="clear-btn" id="clearPerson1" title="Remove" aria-label="Remove Person 1">Remove</button>
     </div>
     <textarea id="person1" placeholder='{"name":"Dennis","planets":{"Mercury":"38.6"}}'></textarea>
     <div class="chart-status" id="chartStatus1" aria-live="polite"></div>
@@ -476,7 +498,7 @@ label.check,label.check input{cursor:pointer}
 
     <div class="label-row">
       <label for="person2">Person / Input 2 (optional couple)</label>
-      <button type="button" class="clear-btn" id="clearPerson2" title="Remove" aria-label="Remove Person 2">×</button>
+      <button type="button" class="clear-btn" id="clearPerson2" title="Remove" aria-label="Remove Person 2">Remove</button>
     </div>
     <textarea id="person2"></textarea>
     <div class="chart-status" id="chartStatus2" aria-live="polite"></div>
@@ -515,7 +537,7 @@ label.check,label.check input{cursor:pointer}
 
     <div class="label-row">
       <label for="person3">Person / Input 3 (optional)</label>
-      <button type="button" class="clear-btn" id="clearPerson3" title="Remove" aria-label="Remove Person 3">×</button>
+      <button type="button" class="clear-btn" id="clearPerson3" title="Remove" aria-label="Remove Person 3">Remove</button>
     </div>
     <textarea id="person3"></textarea>
     <div class="chart-status" id="chartStatus3" aria-live="polite"></div>
@@ -685,14 +707,12 @@ label.check,label.check input{cursor:pointer}
     </div>
     <p class="hint" id="timelineHint" style="display:block;margin:.35rem 0 .5rem">Timeline scans the selected day or range in the chosen timezone (from local midnight to midnight) for gate/line ingresses that touch the entered chart(s). Selected by default.</p>
     <button type="button" id="runBtn">Run Human Design / Transit Analysis</button>
-    <p class="model-id" id="modelLabel">Model HDTA 3.7.3</p>
+    <p class="model-id" id="modelLabel">Model HDTA 3.2.1</p>
     <div class="status" id="status"></div>
   </section>
 
   <section class="panel" id="storyPanel">
     <div class="toolbar">
-      <button type="button" class="secondary" id="exportMd">Export .md</button>
-      <button type="button" class="secondary" id="exportHtml">Export .html</button>
       <button type="button" class="secondary no-print" id="printBtn" title="Print or save the report as PDF">Print / Save as PDF</button>
       <button type="button" class="secondary no-print" id="shareBtn" title="Email or text the current report">Email / Text</button>
       <button type="button" class="secondary no-print" id="reportDisplayBtn" disabled title="Open the current report in a full-screen readable view with Find">Display / Find</button>
@@ -715,14 +735,19 @@ label.check,label.check input{cursor:pointer}
       <p class="hint" id="betweenMembersHint" style="margin:.05rem 0 .35rem">Unchecked by default. When on, the report above shows only the Between members section, date by date, not the full regular report. With two members selected, each day (weekday date, local AM/PM times, gate time spans in the prose) describes how they condition each other—electromagnetic, companionship, and dominance channels, and which open centers each fills in the other—plus how that day's transits change it. With three members selected, each day covers all three pairs (1–2, 1–3, and 2–3). Always available here, whether or not Real-World Influence is checked.</p>
       <label class="check" style="display:flex;align-items:flex-start;gap:.5rem;margin:.15rem 0 .1rem">
         <input type="checkbox" id="hlAffectedMembers" />
-        Bold members directly affected by the underlined transit
+        Bold members directly affected
       </label>
-      <p class="hint" style="margin:.05rem 0 .35rem">Unchecked by default. When on, transits, natal gates, channels, and centers in the report and in answers are underlined, and a member's first name is bold where that item involves their chart (a natal gate, a natal or transit-completed channel, or a center). This works in natal-only reports as well as transit reports. This does not replace the report.</p>
+      <p class="hint" style="margin:.05rem 0 .35rem">Unchecked by default. When on, a member's first name is bold where a key influence in that passage involves their chart (a gate, a channel, or a center). This does not replace the report.</p>
       <label class="check" id="hlBetweenInteractionsLabel" style="display:flex;align-items:flex-start;gap:.5rem;margin:.15rem 0 .1rem">
         <input type="checkbox" id="hlBetweenInteractions" />
-        Bold + italic between-member interactions from the underlined transit
+        Bold + italic between-member interactions
       </label>
-      <p class="hint" style="margin:.05rem 0 .35rem">Unchecked by default. When on, transits, natal gates, channels, and centers are underlined, and text about how members interact (electromagnetic, companionship, or dominance channels, shared or open centers, and transit-based interactions) is bold and italic. You can use this together with the bold-members box. Available once two members are selected and a report exists, including natal-only reports.</p>
+      <p class="hint" style="margin:.05rem 0 .35rem">Unchecked by default. When on, text about how members interact (electromagnetic, companionship, or dominance channels, and shared or open centers) is bold and italic. You can use this together with the other highlight boxes.</p>
+      <label class="check" id="hlUnderlineInfluencesLabel" style="display:flex;align-items:flex-start;gap:.5rem;margin:.15rem 0 .1rem">
+        <input type="checkbox" id="hlUnderlineInfluences" />
+        Underline key influences
+      </label>
+      <p class="hint" style="margin:.05rem 0 .35rem">Unchecked by default. When on, gates, channels, and centers discussed in the report and in answers are underlined. This works whether or not a time-based sky reading is included.</p>
       <p class="hint" id="hlToggleStatus" aria-live="polite"></p>
 
       <label class="check" style="display:flex;align-items:flex-start;gap:.5rem;margin:.15rem 0 .1rem">
@@ -15945,27 +15970,73 @@ function buildHighlightIndex() {
 function highlightControlsReady() {
   return !!(typeof hasGeneratedReport === "function" && hasGeneratedReport());
 }
+function highlightBoxChecked(id) {
+  const el = document.getElementById(id);
+  return !!(el && el.checked);
+}
 function highlightAffectedOn() {
-  const el = document.getElementById("hlAffectedMembers");
-  return !!(el && el.checked && highlightControlsReady());
+  return highlightBoxChecked("hlAffectedMembers");
 }
 function highlightBetweenOn() {
-  const el = document.getElementById("hlBetweenInteractions");
-  let two = false;
-  try {
-    two = filledMemberCount() >= 2;
-  } catch (e) {
-    two = false;
+  return highlightBoxChecked("hlBetweenInteractions");
+}
+function highlightUnderlineOn() {
+  return highlightBoxChecked("hlUnderlineInfluences");
+}
+function highlightAnyOn() {
+  return highlightAffectedOn() || highlightBetweenOn() || highlightUnderlineOn();
+}
+function setHighlightClass(el, cls, on) {
+  if (!el || !el.classList) return;
+  if (on) el.classList.add(cls);
+  else el.classList.remove(cls);
+}
+function applyHighlightInline(root) {
+  if (!root || !root.querySelectorAll) return;
+  const underline = highlightUnderlineOn();
+  const bold = highlightAffectedOn();
+  const between = highlightBetweenOn();
+  const transits = root.querySelectorAll("span.hl-transit");
+  for (let i = 0; i < transits.length; i++) {
+    const sp = transits[i];
+    if (underline) sp.style.setProperty("text-decoration", "underline", "important");
+    else sp.style.removeProperty("text-decoration");
   }
-  return !!(el && el.checked && highlightControlsReady() && two);
+  const names = root.querySelectorAll("span.hl-affected");
+  for (let i = 0; i < names.length; i++) {
+    const sp = names[i];
+    if (bold) {
+      sp.style.setProperty("font-weight", "700", "important");
+      sp.style.setProperty("font-style", "normal", "important");
+    } else {
+      sp.style.removeProperty("font-weight");
+      sp.style.removeProperty("font-style");
+    }
+  }
+  const blocks = root.querySelectorAll(".hl-between-block");
+  for (let i = 0; i < blocks.length; i++) {
+    const sp = blocks[i];
+    if (between) {
+      sp.style.setProperty("font-weight", "700", "important");
+      sp.style.setProperty("font-style", "italic", "important");
+    } else {
+      sp.style.removeProperty("font-weight");
+      sp.style.removeProperty("font-style");
+    }
+  }
 }
 function applyHighlightToggles() {
-  const b = document.body;
-  if (!b) return;
-  if (highlightAffectedOn()) b.classList.add("hl-affected-on");
-  else b.classList.remove("hl-affected-on");
-  if (highlightBetweenOn()) b.classList.add("hl-between-on");
-  else b.classList.remove("hl-between-on");
+  const onA = highlightAffectedOn();
+  const onB = highlightBetweenOn();
+  const onU = highlightUnderlineOn();
+  const roots = [document.body, document.getElementById("report"), document.getElementById("displayOverlay")];
+  for (let i = 0; i < roots.length; i++) {
+    setHighlightClass(roots[i], "hl-affected-on", onA);
+    setHighlightClass(roots[i], "hl-between-on", onB);
+    setHighlightClass(roots[i], "hl-underline-on", onU);
+  }
+  applyHighlightInline(document.getElementById("report"));
+  applyHighlightInline(document.getElementById("displayOverlay"));
   try {
     updateHighlightStatus();
   } catch (e) {
@@ -15974,58 +16045,43 @@ function applyHighlightToggles() {
 function updateHighlightStatus() {
   const el = document.getElementById("hlToggleStatus");
   if (!el) return;
-  if (!highlightControlsReady()) {
-    el.textContent = "Available after a report is generated.";
-    return;
-  }
   const aOn = highlightAffectedOn();
   const bOn = highlightBetweenOn();
-  if (!aOn && !bOn) {
-    el.textContent = "Highlighting is off. Check a box to underline gates, channels, and centers in the report and mark affected members.";
+  const uOn = highlightUnderlineOn();
+  if (!highlightControlsReady()) {
+    if (aOn || bOn || uOn) {
+      el.textContent = "Highlighting will apply when you run a report.";
+    } else {
+      el.textContent = "Check a box, then run a report \u2014 or check a box after a report \u2014 to apply bold, italic, or underline.";
+    }
+    return;
+  }
+  if (!aOn && !bOn && !uOn) {
+    el.textContent = "Highlighting is off. Check a box to bold affected members, italicize between-member interactions, or underline key influences.";
     return;
   }
   const bits = [];
   if (aOn) bits.push("affected members are bold");
   if (bOn) bits.push("between-member interactions are bold and italic");
+  if (uOn) bits.push("key influences are underlined");
   const t = document.querySelectorAll("#report span.hl-transit").length;
   const a = document.querySelectorAll("#report span.hl-affected").length;
   const n = document.querySelectorAll("#report .hl-between-block").length;
-  el.textContent = "Highlighting on: " + bits.join("; ") + " (" + t + " underlined item" + (t === 1 ? "" : "s") + ", " + a + " bold name" + (a === 1 ? "" : "s") + ", " + n + " interaction" + (n === 1 ? "" : "s") + ").";
+  el.textContent = "Highlighting on: " + bits.join("; ") + " (" + t + " key influence" + (t === 1 ? "" : "s") + ", " + a + " member name" + (a === 1 ? "" : "s") + ", " + n + " interaction" + (n === 1 ? "" : "s") + ").";
 }
 function syncHighlightChecks() {
-  const hlReady = highlightControlsReady();
-  let two = false;
-  try {
-    two = filledMemberCount() >= 2;
-  } catch (e) {
-    two = false;
-  }
-  const a = document.getElementById("hlAffectedMembers");
-  const b = document.getElementById("hlBetweenInteractions");
-  const aLab = a && a.closest ? a.closest("label") : null;
-  const bLab = b && b.closest ? b.closest("label") : null;
-  function arm(el, on, keepChecked) {
+  ["hlAffectedMembers", "hlBetweenInteractions", "hlUnderlineInfluences"].forEach(function(id) {
+    const el = document.getElementById(id);
     if (!el) return;
     try {
       el.disabled = false;
       el.removeAttribute("disabled");
     } catch (e) {
     }
-    el.setAttribute("aria-disabled", on ? "false" : "true");
-    if (!on) el.checked = false;
-    else if (keepChecked) {
-    }
-  }
-  arm(a, hlReady, true);
-  arm(b, hlReady && two, true);
-  if (aLab) {
-    if (!hlReady) aLab.classList.add("is-disabled");
-    else aLab.classList.remove("is-disabled");
-  }
-  if (bLab) {
-    if (!(hlReady && two)) bLab.classList.add("is-disabled");
-    else bLab.classList.remove("is-disabled");
-  }
+    el.setAttribute("aria-disabled", "false");
+    const lab = el.closest && el.closest("label");
+    if (lab) lab.classList.remove("is-disabled");
+  });
   try {
     wireHighlightChecks();
   } catch (e) {
@@ -16330,24 +16386,9 @@ function markupHighlightReport() {
   applyHighlightToggles();
 }
 function onHighlightUserInput(ev) {
-  const hlReady = highlightControlsReady();
-  let two = false;
-  try {
-    two = filledMemberCount() >= 2;
-  } catch (e) {
-    two = false;
-  }
-  const a = document.getElementById("hlAffectedMembers");
-  const b = document.getElementById("hlBetweenInteractions");
-  if (!hlReady) {
-    if (a) a.checked = false;
-    if (b) b.checked = false;
-  } else if (b && !two) {
-    b.checked = false;
-  }
   applyHighlightToggles();
   try {
-    if (typeof markupHighlightReport === "function" && (highlightAffectedOn() || highlightBetweenOn())) {
+    if (typeof markupHighlightReport === "function" && highlightControlsReady()) {
       markupHighlightReport();
     }
   } catch (e) {
@@ -16376,6 +16417,7 @@ function bindHighlightEl(el) {
 function wireHighlightChecks() {
   bindHighlightEl(document.getElementById("hlAffectedMembers"));
   bindHighlightEl(document.getElementById("hlBetweenInteractions"));
+  bindHighlightEl(document.getElementById("hlUnderlineInfluences"));
 }
 window.__TA_HIGHLIGHT_TEST__ = {
   build: buildHighlightIndex,
@@ -17165,31 +17207,6 @@ function runAnalysis() {
     console.error(e);
   }
 }
-function downloadBlob(filename, text, mime) {
-  const blob = new Blob([text], { type: mime || "text/plain" });
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = filename;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(a.href), 1500);
-}
-function exportMd() {
-  if (!lastMd) {
-    status("Run analysis first", "err");
-    return;
-  }
-  downloadBlob("transit-report.md", lastMd, "text/markdown");
-}
-function exportHtml() {
-  if (!lastHtml) {
-    status("Run analysis first", "err");
-    return;
-  }
-  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Transit Report</title>
-  <style>body{font-family:Georgia,serif;max-width:820px;margin:2rem auto;padding:0 1rem;line-height:1.6} h2,h3{margin-top:1.4rem} details{margin-top:2rem} pre{white-space:pre-wrap;font-size:.85rem;background:#f4f4f4;padding:1rem}</style></head>
-  <body>${lastHtml}</body></html>`;
-  downloadBlob("transit-report.html", html, "text/html");
-}
 function loadCoupleSample() {
   loadSampleInto(1, "dennis");
   loadSampleInto(2, "eike");
@@ -17355,6 +17372,10 @@ function displayRestoreBody() {
   body.innerHTML = displaySavedHtml || "";
   displayMatches = [];
   displayIndex = 0;
+  try {
+    applyHighlightToggles();
+  } catch (e) {
+  }
 }
 function displayApplyFind() {
   const input = $("displayFindInput");
@@ -17421,6 +17442,10 @@ function openDisplayView(mode2) {
   body.innerHTML = displaySavedHtml;
   displayMatches = [];
   displayIndex = 0;
+  try {
+    applyHighlightToggles();
+  } catch (e) {
+  }
   const input = $("displayFindInput");
   if (input) input.value = "";
   displayUpdateCount();
@@ -18161,12 +18186,6 @@ function wire() {
     if (am2) am2.onclick = () => applyManualGates(2);
     const am3 = $("applyMan3");
     if (am3) am3.onclick = () => applyManualGates(3);
-  });
-  safe("export", () => {
-    const em = $("exportMd");
-    if (em) em.onclick = exportMd;
-    const eh = $("exportHtml");
-    if (eh) eh.onclick = exportHtml;
   });
   safe("printShare", () => {
     const pb = $("printBtn");
