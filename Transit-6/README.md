@@ -1,8 +1,8 @@
-# Human Design Transit Analyzer — Transit-6
+# Human Design Transit Analyzer - Model HDTA 6.2.1
 
 Static web app for GitHub Pages folder `Transit-6` (`https://sbhd.net/Transit-6/index.html`).
 
-Build: **202611131030**. Up to six members (Input 1 required; Inputs 2–6 optional). Forked from Transit Analyzer build 202611121715; this folder is independent of `/Transits/` and `/Transit-Test/`.
+Build: **202611132100**. Up to six members (Input 1 required; Inputs 2–6 optional). Forked from Transit Analyzer build 202611121715; this folder is independent of `/Transits/` and `/Transit-Test/`.
 
 ## Files
 
@@ -18,7 +18,7 @@ Build: **202611131030**. Up to six members (Input 1 required; Inputs 2–6 optio
 | `INSTALL.txt` | Install notes for iPhone / iPad and Windows. |
 | `README.md` | This file. |
 
-Keep these files together in the `Transit-6` folder (same directory). Cache-bust query strings (`?v=202611131030`) are already on the script tags.
+Keep these files together in the `Transit-6` folder (same directory). Cache-bust query strings (`?v=202611132100`) are already on the script tags.
 
 ## Usage notes
 

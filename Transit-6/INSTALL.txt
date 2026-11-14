@@ -1,7 +1,7 @@
-Human Design Transit Analyzer (Transit-6) — installation
+Human Design Transit Analyzer - Model HDTA 6.2.1 — installation
 ========================================================
 
-Build 202611131030. This folder is the complete file set for GitHub Pages
+Build 202611132100. This folder is the complete file set for GitHub Pages
 path /Transit-6/ (https://sbhd.net/Transit-6/index.html).
 
 What you have

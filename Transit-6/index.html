@@ -1,15 +1,15 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta http-equiv="Cache-Control" content="202611131030" />
-  <meta name="ta-build" content="202611131030" />
+  <meta http-equiv="Cache-Control" content="202611132100" />
+  <meta name="ta-build" content="202611132100" />
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="theme-color" content="#0f1419" />
-<title>Human Design Transit Analyzer — Transit-6</title>
+<title>Human Design Transit Analyzer - Model HDTA 6.2.1</title>
 <link rel="manifest" href="manifest.webmanifest" />
 <style>
 
@@ -118,30 +118,33 @@ button.secondary#nowBtn.active{opacity:1;font-weight:750;background:var(--accent
 #extraOutputOpts label.check.is-disabled{opacity:.65}
 #extraOutputOpts label.check{min-height:44px}
 #extraOutputOpts input[type=checkbox]{width:auto;min-width:22px;min-height:22px;flex-shrink:0;margin-top:.2rem}
-body.hl-affected-on span.hl-transit,body.hl-between-on span.hl-transit,
-body.hl-affected-on #report span.hl-transit,body.hl-between-on #report span.hl-transit,
-body.hl-affected-on #displayOverlay span.hl-transit,body.hl-between-on #displayOverlay span.hl-transit{
+body.hl-underline-on span.hl-transit,
+#report.hl-underline-on span.hl-transit,
+#displayOverlay.hl-underline-on span.hl-transit{
   text-decoration:underline!important;
   text-underline-offset:.12em;
   text-decoration-thickness:from-font;
 }
 body.hl-affected-on span.hl-affected,
-body.hl-affected-on #report span.hl-affected,
-body.hl-affected-on #displayOverlay span.hl-affected{
+#report.hl-affected-on span.hl-affected,
+#displayOverlay.hl-affected-on span.hl-affected{
   font-weight:700!important;
   font-style:normal;
 }
 body.hl-between-on .hl-between-block,
-body.hl-between-on #report .hl-between-block,
-body.hl-between-on #displayOverlay .hl-between-block{
+#report.hl-between-on .hl-between-block,
+#displayOverlay.hl-between-on .hl-between-block{
   font-weight:700!important;
   font-style:italic!important;
 }
 #hlToggleStatus{margin:.15rem 0 .35rem;font-size:.9rem;color:var(--muted);min-height:1.2em}
 @media print{
-  body.hl-affected-on span.hl-transit,body.hl-between-on span.hl-transit{text-decoration:underline!important}
-  body.hl-affected-on span.hl-affected{font-weight:700!important}
-  body.hl-between-on .hl-between-block{font-weight:700!important;font-style:italic!important}
+  body.hl-underline-on span.hl-transit,
+  #report.hl-underline-on span.hl-transit{text-decoration:underline!important}
+  body.hl-affected-on span.hl-affected,
+  #report.hl-affected-on span.hl-affected{font-weight:700!important}
+  body.hl-between-on .hl-between-block,
+  #report.hl-between-on .hl-between-block{font-weight:700!important;font-style:italic!important}
 }
 
 #extraOutputOpts input[disabled]{cursor:not-allowed}
@@ -208,7 +211,7 @@ mark.display-hl-current{background:#e6c44c;color:#111;outline:2px solid #fff;}
 .toolbar #reportDisplayBtn{min-height:44px;min-width:44px;padding:.55rem .9rem;font-size:.95rem}
 .label-row{display:flex;align-items:center;justify-content:space-between;gap:.5rem;margin:.55rem 0 .22rem}
 .label-row label{margin:0;flex:1}
-.clear-btn{width:auto;min-width:1.7rem;height:1.7rem;padding:0 .35rem;margin:0;flex-shrink:0;border-radius:6px;border:1px solid var(--border);background:#1a2433;color:var(--muted);font-size:.85rem;line-height:1;cursor:pointer;font-weight:700}
+.clear-btn{width:auto;min-width:1.7rem;height:auto;min-height:1.7rem;padding:2px 7px;margin:0;flex-shrink:0;border-radius:6px;border:1px solid var(--border);background:#1a2433;color:var(--muted);font-size:.7rem;line-height:1.15;cursor:pointer;font-weight:700;white-space:nowrap}
 .clear-btn:hover{background:#2a3548;color:var(--ink);border-color:#4a5a70}
 .clear-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .empty-hint{color:var(--muted);font-size:.95rem;padding:.75rem 0}
@@ -390,6 +393,25 @@ label.check,label.check input{cursor:pointer}
     }
 
   </style>
+<script>
+/* Single source for the visible model number. Increment the last digit on each update (e.g. 6.2.1 → next). */
+window.HDTA_MODEL='6.2.1';
+(function(){
+  var MODEL=window.HDTA_MODEL;
+  var full='Human Design Transit Analyzer - Model HDTA '+MODEL;
+  var shortLabel='Model HDTA '+MODEL;
+  function apply(){
+    try{ document.title=full; }catch(e){}
+    var h=document.getElementById('appTitle');
+    if(h) h.textContent=full;
+    var m=document.getElementById('modelLabel');
+    if(m) m.textContent=shortLabel;
+  }
+  window.applyHdtaModel=apply;
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', apply);
+  else apply();
+})();
+</script>
     <script>
 /* Visible on-page error banner for iOS debugging. ES5, no dependencies. */
 (function(){
@@ -443,7 +465,7 @@ label.check,label.check input{cursor:pointer}
 <body>
 <div id="taErrorBanner" hidden role="alert"></div>
 <header>
-  <h1>Human Design Transit Analyzer (Transit-6)</h1>
+  <h1 id="appTitle">Human Design Transit Analyzer - Model HDTA 6.2.1</h1>
   <p>Up to six members · Offline-capable ephemeris · True Lunar Node · Plain-language transit stories</p>
 </header>
 <div class="banner" id="cdnBanner"></div>
@@ -452,7 +474,7 @@ label.check,label.check input{cursor:pointer}
     <h2>Inputs</h2>
     <div class="label-row">
       <label for="person1">Person / Input 1 (JSON, text, or .docx)</label>
-      <button type="button" class="clear-btn" id="clearPerson1" title="Remove" aria-label="Remove Person 1">×</button>
+      <button type="button" class="clear-btn" id="clearPerson1" title="Remove" aria-label="Remove Person 1">Remove</button>
     </div>
     <textarea id="person1" placeholder='{"name":"Dennis","planets":{"Mercury":"38.6"}}'></textarea>
     <div class="chart-status" id="chartStatus1" aria-live="polite"></div>
@@ -490,7 +512,7 @@ label.check,label.check input{cursor:pointer}
 
     <div class="label-row">
       <label for="person2">Person / Input 2 (optional couple)</label>
-      <button type="button" class="clear-btn" id="clearPerson2" title="Remove" aria-label="Remove Person 2">×</button>
+      <button type="button" class="clear-btn" id="clearPerson2" title="Remove" aria-label="Remove Person 2">Remove</button>
     </div>
     <textarea id="person2"></textarea>
     <div class="chart-status" id="chartStatus2" aria-live="polite"></div>
@@ -529,7 +551,7 @@ label.check,label.check input{cursor:pointer}
 
     <div class="label-row">
       <label for="person3">Person / Input 3 (optional)</label>
-      <button type="button" class="clear-btn" id="clearPerson3" title="Remove" aria-label="Remove Person 3">×</button>
+      <button type="button" class="clear-btn" id="clearPerson3" title="Remove" aria-label="Remove Person 3">Remove</button>
     </div>
     <textarea id="person3"></textarea>
     <div class="chart-status" id="chartStatus3" aria-live="polite"></div>
@@ -570,7 +592,7 @@ label.check,label.check input{cursor:pointer}
     <div class="person-block" data-person="4">
     <div class="label-row">
       <label for="person4">Person / Input 4 (optional)</label>
-      <button type="button" class="clear-btn" id="clearPerson4" title="Remove" aria-label="Remove Person 4">×</button>
+      <button type="button" class="clear-btn" id="clearPerson4" title="Remove" aria-label="Remove Person 4">Remove</button>
     </div>
     <textarea id="person4"></textarea>
     <div class="chart-status" id="chartStatus4" aria-live="polite"></div>
@@ -608,7 +630,7 @@ label.check,label.check input{cursor:pointer}
     <div class="person-block" data-person="5">
     <div class="label-row">
       <label for="person5">Person / Input 5 (optional)</label>
-      <button type="button" class="clear-btn" id="clearPerson5" title="Remove" aria-label="Remove Person 5">×</button>
+      <button type="button" class="clear-btn" id="clearPerson5" title="Remove" aria-label="Remove Person 5">Remove</button>
     </div>
     <textarea id="person5"></textarea>
     <div class="chart-status" id="chartStatus5" aria-live="polite"></div>
@@ -646,7 +668,7 @@ label.check,label.check input{cursor:pointer}
     <div class="person-block" data-person="6">
     <div class="label-row">
       <label for="person6">Person / Input 6 (optional)</label>
-      <button type="button" class="clear-btn" id="clearPerson6" title="Remove" aria-label="Remove Person 6">×</button>
+      <button type="button" class="clear-btn" id="clearPerson6" title="Remove" aria-label="Remove Person 6">Remove</button>
     </div>
     <textarea id="person6"></textarea>
     <div class="chart-status" id="chartStatus6" aria-live="polite"></div>
@@ -817,14 +839,12 @@ label.check,label.check input{cursor:pointer}
     </div>
     <p class="hint" id="timelineHint" style="display:block;margin:.35rem 0 .5rem">Timeline scans the selected day or range in the chosen timezone (from local midnight to midnight) for gate/line ingresses that touch the entered chart(s). Selected by default.</p>
     <button type="button" id="runBtn">Run Human Design / Transit Analysis</button>
-    <p class="model-id" id="modelLabel">Model HDTA 4.2.6</p>
+    <p class="model-id" id="modelLabel">Model HDTA 6.2.1</p>
     <div class="status" id="status"></div>
   </section>
 
   <section class="panel" id="storyPanel">
     <div class="toolbar">
-      <button type="button" class="secondary" id="exportMd">Export .md</button>
-      <button type="button" class="secondary" id="exportHtml">Export .html</button>
       <button type="button" class="secondary no-print" id="printBtn" title="Print or save the report as PDF">Print / Save as PDF</button>
       <button type="button" class="secondary no-print" id="shareBtn" title="Email or text the current report">Email / Text</button>
       <button type="button" class="secondary no-print" id="reportDisplayBtn" disabled title="Open the current report in a full-screen readable view with Find">Display / Find</button>
@@ -851,14 +871,19 @@ label.check,label.check input{cursor:pointer}
       <p class="hint" id="betweenMembersHint" style="margin:.05rem 0 .35rem">Unchecked by default. When on, the report above shows only the Between members section, date by date, not the full regular report. With two members selected, each day (weekday date, local AM/PM times, gate time spans in the prose) describes how they condition each other—electromagnetic, companionship, and dominance channels, and which open centers each fills in the other—plus how that day's transits change it. With three members, each day covers the selected pairs (all pairs on by default). With four to six members, Between uses a shorter form per selected pair per day (all pairs on by default). Always available here, whether or not Real-World Influence is checked.</p>
       <label class="check" style="display:flex;align-items:flex-start;gap:.5rem;margin:.15rem 0 .1rem">
         <input type="checkbox" id="hlAffectedMembers" />
-        Bold members directly affected by the underlined transit
+        Bold members directly affected
       </label>
-      <p class="hint" style="margin:.05rem 0 .35rem">Unchecked by default. When on, transits, natal gates, channels, and centers in the report and in answers are underlined, and a member's first name is bold where that item involves their chart (a natal gate, a natal or transit-completed channel, or a center). This works in natal-only reports as well as transit reports. This does not replace the report.</p>
+      <p class="hint" style="margin:.05rem 0 .35rem">Unchecked by default. When on, a member's first name is bold where a key influence in that passage involves their chart (a gate, a channel, or a center). This does not replace the report.</p>
       <label class="check" id="hlBetweenInteractionsLabel" style="display:flex;align-items:flex-start;gap:.5rem;margin:.15rem 0 .1rem">
         <input type="checkbox" id="hlBetweenInteractions" />
-        Bold + italic between-member interactions from the underlined transit
+        Bold + italic between-member interactions
       </label>
-      <p class="hint" style="margin:.05rem 0 .35rem">Unchecked by default. When on, transits, natal gates, channels, and centers are underlined, and text about how members interact (electromagnetic, companionship, or dominance channels, shared or open centers, and transit-based interactions) is bold and italic. You can use this together with the bold-members box. Available once two members are selected and a report exists, including natal-only reports.</p>
+      <p class="hint" style="margin:.05rem 0 .35rem">Unchecked by default. When on, text about how members interact (electromagnetic, companionship, or dominance channels, and shared or open centers) is bold and italic. You can use this together with the other highlight boxes.</p>
+      <label class="check" id="hlUnderlineInfluencesLabel" style="display:flex;align-items:flex-start;gap:.5rem;margin:.15rem 0 .1rem">
+        <input type="checkbox" id="hlUnderlineInfluences" />
+        Underline key influences
+      </label>
+      <p class="hint" style="margin:.05rem 0 .35rem">Unchecked by default. When on, gates, channels, and centers discussed in the report and in answers are underlined. This works whether or not a time-based sky reading is included.</p>
       <p class="hint" id="hlToggleStatus" aria-live="polite"></p>
 
       <label class="check" style="display:flex;align-items:flex-start;gap:.5rem;margin:.15rem 0 .1rem">
@@ -908,8 +933,8 @@ label.check,label.check input{cursor:pointer}
 </div>
 
 <!-- Data is separate from the UI. Script order matters. Works via file:// on Windows and via https on iPhone/iPad Firefox. -->
-<script src="astronomy.browser.min.js?v=202611131030"></script>
-<script src="data.js?v=202611131030"></script>
+<script src="astronomy.browser.min.js?v=202611132100"></script>
+<script src="data.js?v=202611132100"></script>
 
 <script>
 /* ES5 quick-load + Full/Brief bootstrap: works even if later scripts fail. */
@@ -1026,7 +1051,7 @@ label.check,label.check input{cursor:pointer}
   else { boot(); }
 })();
 </script>
-<script src="analyzer.js?v=202611131030"></script>
-<script src="app.js?v=202611131030"></script>
+<script src="analyzer.js?v=202611132100"></script>
+<script src="app.js?v=202611132100"></script>
 </body>
 </html>
