@@ -3,7 +3,8 @@ Human Design Transit Analyzer — installation (iPhone / iPad Firefox + Windows)
 
 What you have
 -------------
-This folder is a small static website:
+Build 202611132100. This folder is the complete file set for GitHub Pages
+(Transit-Test). This is a small static website:
 
   index.html               — the app shell (open this)
   data.js                  — gate / line / center / channel meanings + samples
@@ -105,7 +106,7 @@ Quick check after install
 Print / Save as PDF (iPhone, iPad, desktop)
 --------------------------------------------------------------------
 1. Load chart(s), pick a time, tap Run analysis so the Story report appears.
-2. Tap "Print / Save as PDF" (near Export). Only the report prints — inputs and
+2. Tap "Print / Save as PDF" in the report toolbar. Only the report prints — inputs and
    buttons are hidden. Transit positions stay at the bottom of the report.
 3. On iPhone / iPad (Safari or Firefox):
    • In the print preview, pinch open (or use the share/print sheet options)

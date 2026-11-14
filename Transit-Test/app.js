@@ -1998,27 +1998,73 @@ function buildHighlightIndex() {
 function highlightControlsReady() {
   return !!(typeof hasGeneratedReport === "function" && hasGeneratedReport());
 }
+function highlightBoxChecked(id) {
+  const el = document.getElementById(id);
+  return !!(el && el.checked);
+}
 function highlightAffectedOn() {
-  const el = document.getElementById("hlAffectedMembers");
-  return !!(el && el.checked && highlightControlsReady());
+  return highlightBoxChecked("hlAffectedMembers");
 }
 function highlightBetweenOn() {
-  const el = document.getElementById("hlBetweenInteractions");
-  let two = false;
-  try {
-    two = filledMemberCount() >= 2;
-  } catch (e) {
-    two = false;
+  return highlightBoxChecked("hlBetweenInteractions");
+}
+function highlightUnderlineOn() {
+  return highlightBoxChecked("hlUnderlineInfluences");
+}
+function highlightAnyOn() {
+  return highlightAffectedOn() || highlightBetweenOn() || highlightUnderlineOn();
+}
+function setHighlightClass(el, cls, on) {
+  if (!el || !el.classList) return;
+  if (on) el.classList.add(cls);
+  else el.classList.remove(cls);
+}
+function applyHighlightInline(root) {
+  if (!root || !root.querySelectorAll) return;
+  const underline = highlightUnderlineOn();
+  const bold = highlightAffectedOn();
+  const between = highlightBetweenOn();
+  const transits = root.querySelectorAll("span.hl-transit");
+  for (let i = 0; i < transits.length; i++) {
+    const sp = transits[i];
+    if (underline) sp.style.setProperty("text-decoration", "underline", "important");
+    else sp.style.removeProperty("text-decoration");
   }
-  return !!(el && el.checked && highlightControlsReady() && two);
+  const names = root.querySelectorAll("span.hl-affected");
+  for (let i = 0; i < names.length; i++) {
+    const sp = names[i];
+    if (bold) {
+      sp.style.setProperty("font-weight", "700", "important");
+      sp.style.setProperty("font-style", "normal", "important");
+    } else {
+      sp.style.removeProperty("font-weight");
+      sp.style.removeProperty("font-style");
+    }
+  }
+  const blocks = root.querySelectorAll(".hl-between-block");
+  for (let i = 0; i < blocks.length; i++) {
+    const sp = blocks[i];
+    if (between) {
+      sp.style.setProperty("font-weight", "700", "important");
+      sp.style.setProperty("font-style", "italic", "important");
+    } else {
+      sp.style.removeProperty("font-weight");
+      sp.style.removeProperty("font-style");
+    }
+  }
 }
 function applyHighlightToggles() {
-  const b = document.body;
-  if (!b) return;
-  if (highlightAffectedOn()) b.classList.add("hl-affected-on");
-  else b.classList.remove("hl-affected-on");
-  if (highlightBetweenOn()) b.classList.add("hl-between-on");
-  else b.classList.remove("hl-between-on");
+  const onA = highlightAffectedOn();
+  const onB = highlightBetweenOn();
+  const onU = highlightUnderlineOn();
+  const roots = [document.body, document.getElementById("report"), document.getElementById("displayOverlay")];
+  for (let i = 0; i < roots.length; i++) {
+    setHighlightClass(roots[i], "hl-affected-on", onA);
+    setHighlightClass(roots[i], "hl-between-on", onB);
+    setHighlightClass(roots[i], "hl-underline-on", onU);
+  }
+  applyHighlightInline(document.getElementById("report"));
+  applyHighlightInline(document.getElementById("displayOverlay"));
   try {
     updateHighlightStatus();
   } catch (e) {
@@ -2027,58 +2073,43 @@ function applyHighlightToggles() {
 function updateHighlightStatus() {
   const el = document.getElementById("hlToggleStatus");
   if (!el) return;
-  if (!highlightControlsReady()) {
-    el.textContent = "Available after a report is generated.";
-    return;
-  }
   const aOn = highlightAffectedOn();
   const bOn = highlightBetweenOn();
-  if (!aOn && !bOn) {
-    el.textContent = "Highlighting is off. Check a box to underline gates, channels, and centers in the report and mark affected members.";
+  const uOn = highlightUnderlineOn();
+  if (!highlightControlsReady()) {
+    if (aOn || bOn || uOn) {
+      el.textContent = "Highlighting will apply when you run a report.";
+    } else {
+      el.textContent = "Check a box, then run a report \u2014 or check a box after a report \u2014 to apply bold, italic, or underline.";
+    }
+    return;
+  }
+  if (!aOn && !bOn && !uOn) {
+    el.textContent = "Highlighting is off. Check a box to bold affected members, italicize between-member interactions, or underline key influences.";
     return;
   }
   const bits = [];
   if (aOn) bits.push("affected members are bold");
   if (bOn) bits.push("between-member interactions are bold and italic");
+  if (uOn) bits.push("key influences are underlined");
   const t = document.querySelectorAll("#report span.hl-transit").length;
   const a = document.querySelectorAll("#report span.hl-affected").length;
   const n = document.querySelectorAll("#report .hl-between-block").length;
-  el.textContent = "Highlighting on: " + bits.join("; ") + " (" + t + " underlined item" + (t === 1 ? "" : "s") + ", " + a + " bold name" + (a === 1 ? "" : "s") + ", " + n + " interaction" + (n === 1 ? "" : "s") + ").";
+  el.textContent = "Highlighting on: " + bits.join("; ") + " (" + t + " key influence" + (t === 1 ? "" : "s") + ", " + a + " member name" + (a === 1 ? "" : "s") + ", " + n + " interaction" + (n === 1 ? "" : "s") + ").";
 }
 function syncHighlightChecks() {
-  const hlReady = highlightControlsReady();
-  let two = false;
-  try {
-    two = filledMemberCount() >= 2;
-  } catch (e) {
-    two = false;
-  }
-  const a = document.getElementById("hlAffectedMembers");
-  const b = document.getElementById("hlBetweenInteractions");
-  const aLab = a && a.closest ? a.closest("label") : null;
-  const bLab = b && b.closest ? b.closest("label") : null;
-  function arm(el, on, keepChecked) {
+  ["hlAffectedMembers", "hlBetweenInteractions", "hlUnderlineInfluences"].forEach(function(id) {
+    const el = document.getElementById(id);
     if (!el) return;
     try {
       el.disabled = false;
       el.removeAttribute("disabled");
     } catch (e) {
     }
-    el.setAttribute("aria-disabled", on ? "false" : "true");
-    if (!on) el.checked = false;
-    else if (keepChecked) {
-    }
-  }
-  arm(a, hlReady, true);
-  arm(b, hlReady && two, true);
-  if (aLab) {
-    if (!hlReady) aLab.classList.add("is-disabled");
-    else aLab.classList.remove("is-disabled");
-  }
-  if (bLab) {
-    if (!(hlReady && two)) bLab.classList.add("is-disabled");
-    else bLab.classList.remove("is-disabled");
-  }
+    el.setAttribute("aria-disabled", "false");
+    const lab = el.closest && el.closest("label");
+    if (lab) lab.classList.remove("is-disabled");
+  });
   try {
     wireHighlightChecks();
   } catch (e) {
@@ -2383,24 +2414,9 @@ function markupHighlightReport() {
   applyHighlightToggles();
 }
 function onHighlightUserInput(ev) {
-  const hlReady = highlightControlsReady();
-  let two = false;
-  try {
-    two = filledMemberCount() >= 2;
-  } catch (e) {
-    two = false;
-  }
-  const a = document.getElementById("hlAffectedMembers");
-  const b = document.getElementById("hlBetweenInteractions");
-  if (!hlReady) {
-    if (a) a.checked = false;
-    if (b) b.checked = false;
-  } else if (b && !two) {
-    b.checked = false;
-  }
   applyHighlightToggles();
   try {
-    if (typeof markupHighlightReport === "function" && (highlightAffectedOn() || highlightBetweenOn())) {
+    if (typeof markupHighlightReport === "function" && highlightControlsReady()) {
       markupHighlightReport();
     }
   } catch (e) {
@@ -2429,6 +2445,7 @@ function bindHighlightEl(el) {
 function wireHighlightChecks() {
   bindHighlightEl(document.getElementById("hlAffectedMembers"));
   bindHighlightEl(document.getElementById("hlBetweenInteractions"));
+  bindHighlightEl(document.getElementById("hlUnderlineInfluences"));
 }
 window.__TA_HIGHLIGHT_TEST__ = {
   build: buildHighlightIndex,
@@ -3218,31 +3235,6 @@ function runAnalysis() {
     console.error(e);
   }
 }
-function downloadBlob(filename, text, mime) {
-  const blob = new Blob([text], { type: mime || "text/plain" });
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = filename;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(a.href), 1500);
-}
-function exportMd() {
-  if (!lastMd) {
-    status("Run analysis first", "err");
-    return;
-  }
-  downloadBlob("transit-report.md", lastMd, "text/markdown");
-}
-function exportHtml() {
-  if (!lastHtml) {
-    status("Run analysis first", "err");
-    return;
-  }
-  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Transit Report</title>
-  <style>body{font-family:Georgia,serif;max-width:820px;margin:2rem auto;padding:0 1rem;line-height:1.6} h2,h3{margin-top:1.4rem} details{margin-top:2rem} pre{white-space:pre-wrap;font-size:.85rem;background:#f4f4f4;padding:1rem}</style></head>
-  <body>${lastHtml}</body></html>`;
-  downloadBlob("transit-report.html", html, "text/html");
-}
 function loadCoupleSample() {
   loadSampleInto(1, "dennis");
   loadSampleInto(2, "eike");
@@ -3408,6 +3400,10 @@ function displayRestoreBody() {
   body.innerHTML = displaySavedHtml || "";
   displayMatches = [];
   displayIndex = 0;
+  try {
+    applyHighlightToggles();
+  } catch (e) {
+  }
 }
 function displayApplyFind() {
   const input = $("displayFindInput");
@@ -3474,6 +3470,10 @@ function openDisplayView(mode2) {
   body.innerHTML = displaySavedHtml;
   displayMatches = [];
   displayIndex = 0;
+  try {
+    applyHighlightToggles();
+  } catch (e) {
+  }
   const input = $("displayFindInput");
   if (input) input.value = "";
   displayUpdateCount();
@@ -4214,12 +4214,6 @@ function wire() {
     if (am2) am2.onclick = () => applyManualGates(2);
     const am3 = $("applyMan3");
     if (am3) am3.onclick = () => applyManualGates(3);
-  });
-  safe("export", () => {
-    const em = $("exportMd");
-    if (em) em.onclick = exportMd;
-    const eh = $("exportHtml");
-    if (eh) eh.onclick = exportHtml;
   });
   safe("printShare", () => {
     const pb = $("printBtn");
