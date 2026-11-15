@@ -3286,6 +3286,395 @@ function loadAskPersonFromBox(which) {
     return null;
   }
 }
+const IMPACT_WEIGHTS = { newlyDefined: 8, completedChannel: 5, openCenterGate: 3, amplifiedCenter: 2 };
+const ASK_MEMBER_BLOCK_BUDGET = 2200;
+const ASK_PAIR_BLOCK_BUDGET = 500;
+function cmpAskName(a, b) {
+  return String(a || "").localeCompare(String(b || ""), "en", { sensitivity: "base" });
+}
+function loadedPeopleList() {
+  const out = [];
+  for (let n = 1; n <= 6; n++) {
+    try {
+      const raw = loadParsedFromBox(n);
+      if (!raw) continue;
+      if (!window.HD || typeof HD.loadPerson !== "function") continue;
+      const person = HD.loadPerson(raw);
+      if (person) out.push(person);
+    } catch (e) {
+    }
+  }
+  return out;
+}
+function askFieldKey(field) {
+  if (!field || !field.planets) return "";
+  const names = Object.keys(field.planets).sort();
+  const parts = [];
+  for (let i = 0; i < names.length; i++) {
+    const p = field.planets[names[i]];
+    parts.push(names[i] + ":" + (p && (p.gl || p.gate + "." + p.line) || ""));
+  }
+  return parts.join("|");
+}
+function askFieldAtMs(ms, tz) {
+  if (!window.HD || typeof HD.computeTransitField !== "function" || !window.Astronomy) return null;
+  const utcDate = new Date(ms);
+  const field = HD.computeTransitField(window.Astronomy, utcDate);
+  field.tz = tz;
+  field._atMs = ms;
+  try {
+    field.display_when = formatDisplayDateTime(utcDate, tz);
+    field.display_date = formatDisplayDateOnly(utcDate, tz);
+    field.display_time = formatDisplayTimeOnly(utcDate, tz);
+  } catch (e) {
+  }
+  return field;
+}
+function preparedAskField(field) {
+  if (!field) return null;
+  try {
+    if (typeof transitWithoutLights === "function") return transitWithoutLights(field);
+  } catch (e) {
+  }
+  return field;
+}
+function collectAskTransitFields() {
+  const tz = $("tz") && $("tz").value || "America/Los_Angeles";
+  const win = typeof getQueryWindow === "function" ? getQueryWindow(tz) : null;
+  const out = [];
+  const seen = {};
+  function add(raw) {
+    const field = preparedAskField(raw);
+    if (!field || !field.planets) return;
+    const key = askFieldKey(field);
+    if (!key || seen[key]) return;
+    seen[key] = 1;
+    out.push(field);
+  }
+  if (win && isFinite(win.startMs)) add(askFieldAtMs(win.startMs, tz));
+  if (win && isFinite(win.endMs) && win.endMs !== win.startMs) add(askFieldAtMs(win.endMs, tz));
+  try {
+    const snaps = buildTransitsForSelection(window.Astronomy);
+    for (let i = 0; i < (snaps || []).length; i++) add(snaps[i]);
+  } catch (e) {
+  }
+  try {
+    const evs = window.__LAST_EVENTS__ || [];
+    for (let i = 0; i < evs.length; i++) {
+      const ev = evs[i];
+      const ms = ev && (ev.atMs != null ? ev.atMs : ev.ms != null ? ev.ms : ev.tMs != null ? ev.tMs : null);
+      if (win && ms != null && (ms < win.startMs || ms > win.endMs)) continue;
+      if (ev && ev.afterField) add(ev.afterField);
+    }
+  } catch (e) {
+  }
+  try {
+    if (window.__LAST_TRANSIT__) add(window.__LAST_TRANSIT__);
+  } catch (e) {
+  }
+  try {
+    const days = window.__LAST_DAY_TRANSITS__ || [];
+    for (let i = 0; i < days.length; i++) add(days[i]);
+  } catch (e) {
+  }
+  out.sort(function(a, b) {
+    return (a._atMs || 0) - (b._atMs || 0);
+  });
+  return { fields: out, win, tz };
+}
+function formatAskSpan(span, win, tz) {
+  let enter = span && span.enterMs != null ? span.enterMs : win && win.startMs;
+  let exit = span && span.exitMs != null ? span.exitMs : win && win.endMs;
+  if (win) {
+    if (enter == null || enter < win.startMs) enter = win.startMs;
+    if (exit == null || exit > win.endMs) exit = win.endMs;
+  }
+  if (enter == null || exit == null || exit < enter) return "";
+  try {
+    const start = formatDisplayDateTime(new Date(enter), tz);
+    const endTime = formatDisplayTimeOnly(new Date(exit), tz);
+    const startDay = formatDisplayDateOnly(new Date(enter), tz);
+    const endDay = formatDisplayDateOnly(new Date(exit), tz);
+    if (startDay === endDay) {
+      const at = start.indexOf(" at ");
+      const left = at >= 0 ? start.slice(0, at) : start;
+      const from = at >= 0 ? start.slice(at + 4) : start;
+      return left + " from " + from + " to " + endTime;
+    }
+    return start + " to " + formatDisplayDateTime(new Date(exit), tz);
+  } catch (e) {
+    return "";
+  }
+}
+function spanForAskPlanet(planet, field, win, tz) {
+  const at = field && (field._atMs != null ? field._atMs : null);
+  if (at == null || !planet) return win ? formatAskSpan(null, win, tz) : "";
+  let span = null;
+  try {
+    if (window.HD && typeof HD.spanForPlanetAt === "function") span = HD.spanForPlanetAt(planet, at, tz);
+    else if (window.HD && typeof HD.findPlanetSpanAround === "function") span = HD.findPlanetSpanAround(window.Astronomy, planet, at, true);
+  } catch (e) {
+    span = null;
+  }
+  return formatAskSpan(span, win, tz) || (field.display_when || "");
+}
+function shortAskChannel(ch) {
+  if (!ch) return "";
+  const info = ch.info || ch;
+  const id = info.id || ch.channel || "";
+  const name = info.name || "";
+  const gates = (info.gates || ch.natal_gates || ch.transit_gates || []).join("-");
+  const planets = (ch.transit_planets || []).join(", ");
+  let s = (id + (name ? " " + name : "")).trim();
+  if (gates) s += " (gates " + gates + ")";
+  if (planets) s += " via " + planets;
+  if (ch.kind && ch.kind !== "completion") s += " [" + ch.kind + "]";
+  return s;
+}
+function uniquePush(list, key, item) {
+  if (key && list._seen && list._seen[key]) return;
+  if (!list._seen) list._seen = {};
+  if (key) list._seen[key] = 1;
+  list.push(item);
+}
+function mergePersonAskImpact(person, pack) {
+  const name = firstNameMember(person && person.name);
+  const fields = pack.fields || [];
+  const win = pack.win;
+  const tz = pack.tz;
+  let profile = { type: "", authority: "", strategy: "", definition: "" };
+  let definedCenters = [];
+  let openCenters = [];
+  const newly = [];
+  const completed = [];
+  const amplified = [];
+  const openGates = [];
+  const touches = [];
+  for (let i = 0; i < fields.length; i++) {
+    let sum = null;
+    try {
+      sum = HD.summarizePersonTransit(person, fields[i]);
+    } catch (e) {
+      sum = null;
+    }
+    if (!sum) continue;
+    if (sum.profile) profile = sum.profile;
+    if (sum.definedCenters && sum.definedCenters.length) definedCenters = sum.definedCenters;
+    if (sum.openCenters && sum.openCenters.length) openCenters = sum.openCenters;
+    for (let j = 0; j < (sum.newlyDefined || []).length; j++) uniquePush(newly, sum.newlyDefined[j], sum.newlyDefined[j]);
+    for (let j = 0; j < (sum.completedChannels || []).length; j++) {
+      const ch = sum.completedChannels[j];
+      const id = ch.info && ch.info.id || ch.channel || shortAskChannel(ch);
+      uniquePush(completed, id, ch);
+    }
+    for (let j = 0; j < (sum.amplifiedCenters || []).length; j++) uniquePush(amplified, sum.amplifiedCenters[j], sum.amplifiedCenters[j]);
+    for (let j = 0; j < (sum.openCenterGates || []).length; j++) {
+      const g = sum.openCenterGates[j];
+      const key = (g.gate != null ? String(g.gate) : "") + "|" + (g.planet || "");
+      const rec = Object.assign({}, g, { span: spanForAskPlanet(g.planet, fields[i], win, tz) });
+      uniquePush(openGates, key, rec);
+    }
+    for (let j = 0; j < (sum.touches || []).length; j++) {
+      const t = sum.touches[j];
+      const gate = t.gate && (t.gate.number || t.gate.name) || t.gate;
+      const key = (t.planet || "") + "|" + gate;
+      const rec = Object.assign({}, t, { span: spanForAskPlanet(t.planet, fields[i], win, tz) });
+      uniquePush(touches, key, rec);
+    }
+  }
+  const breakdown = {
+    newlyDefinedOpenCenters: newly.length,
+    channelsCompleted: completed.length,
+    openCenterGates: (function() {
+      const seen = {};
+      let n = 0;
+      for (let i = 0; i < openGates.length; i++) {
+        const k = String(openGates[i].gate);
+        if (!seen[k]) {
+          seen[k] = 1;
+          n++;
+        }
+      }
+      return n;
+    })(),
+    amplifiedDefinedCenters: amplified.length
+  };
+  const score = breakdown.newlyDefinedOpenCenters * IMPACT_WEIGHTS.newlyDefined + breakdown.channelsCompleted * IMPACT_WEIGHTS.completedChannel + breakdown.openCenterGates * IMPACT_WEIGHTS.openCenterGate + breakdown.amplifiedDefinedCenters * IMPACT_WEIGHTS.amplifiedCenter;
+  return {
+    name,
+    type: profile.type || "",
+    strategy: profile.strategy || "",
+    authority: profile.authority || "",
+    definition: profile.definition || "",
+    definedCenters,
+    openCenters,
+    newlyDefinedOpenCenters: newly.slice(),
+    channelsCompleted: completed.map(shortAskChannel).filter(Boolean),
+    channelsCompletedRaw: completed,
+    amplifiedDefinedCenters: amplified.slice(),
+    openCenterGates: openGates,
+    natalHits: touches,
+    breakdown,
+    score,
+    weights: IMPACT_WEIGHTS
+  };
+}
+function formatOpenGateLine(g) {
+  if (!g) return "";
+  const gl = g.gl || g.gate + (g.line != null ? "." + g.line : "");
+  let s = (g.planet || "planet") + " " + gl + (g.center ? " in open " + g.center : "");
+  if (g.span) s += " (" + g.span + ")";
+  return s;
+}
+function formatTouchLine(t) {
+  if (!t) return "";
+  const g = t.gate && (t.gate.number || t.gate.name) || t.gate || "";
+  const gl = t.transit && (t.transit.gl || t.transit.gate + "." + t.transit.line) || g;
+  let s = (t.planet || "planet") + " " + gl;
+  if (t.span) s += " (" + t.span + ")";
+  return s;
+}
+function formatMemberAskBlock(imp) {
+  const lines = [];
+  const head = [imp.name, imp.type || "", imp.authority ? imp.authority + " Authority" : ""].filter(Boolean).join(" \u2014 ");
+  lines.push(head);
+  if (imp.definedCenters && imp.definedCenters.length) lines.push("Defined centers: " + imp.definedCenters.join(", ") + ".");
+  if (imp.openCenters && imp.openCenters.length) lines.push("Open centers: " + imp.openCenters.join(", ") + ".");
+  else lines.push("Open centers: none.");
+  lines.push("Transit impact score: " + imp.score + " (open centers newly defined " + imp.breakdown.newlyDefinedOpenCenters + " \xD7 " + IMPACT_WEIGHTS.newlyDefined + "; channels completed " + imp.breakdown.channelsCompleted + " \xD7 " + IMPACT_WEIGHTS.completedChannel + "; transit gates in open centers " + imp.breakdown.openCenterGates + " \xD7 " + IMPACT_WEIGHTS.openCenterGate + "; defined centers amplified " + imp.breakdown.amplifiedDefinedCenters + " \xD7 " + IMPACT_WEIGHTS.amplifiedCenter + ").");
+  lines.push("Open centers newly defined: " + (imp.newlyDefinedOpenCenters.length ? imp.newlyDefinedOpenCenters.join(", ") : "none") + ".");
+  lines.push("Channels completed by transit: " + (imp.channelsCompleted.length ? imp.channelsCompleted.join("; ") : "none") + ".");
+  lines.push("Defined centers amplified: " + (imp.amplifiedDefinedCenters.length ? imp.amplifiedDefinedCenters.join(", ") : "none") + ".");
+  const og = imp.openCenterGates.map(formatOpenGateLine).filter(Boolean);
+  lines.push("Transit gates in open centers: " + (og.length ? og.join("; ") : "none") + ".");
+  const hits = imp.natalHits.map(formatTouchLine).filter(Boolean);
+  lines.push("Transit gates hitting natal activations: " + (hits.length ? hits.join("; ") : "none") + ".");
+  let text = lines.join("\n");
+  if (text.length > ASK_MEMBER_BLOCK_BUDGET) text = clipToBudget(text, ASK_MEMBER_BLOCK_BUDGET);
+  return text;
+}
+function mergePairAsk(a, b, pack) {
+  const na = firstNameMember(a.name), nb = firstNameMember(b.name);
+  let pA = a, pB = b, nA = na, nB = nb;
+  if (cmpAskName(na, nb) > 0) {
+    pA = b;
+    pB = a;
+    nA = nb;
+    nB = na;
+  }
+  const names = [nA, nB];
+  const fields = pack.fields || [];
+  const electro = [], compromise = [], companion = [], amplified = [], hooks = [];
+  for (let i = 0; i < fields.length; i++) {
+    let c = null;
+    try {
+      c = HD.coupleDynamics(pA, pB, fields[i]);
+    } catch (e) {
+      c = null;
+    }
+    if (!c) continue;
+    (c.electromagnetic || []).forEach(function(ch) {
+      uniquePush(electro, ch.id || ch.name, ch);
+    });
+    (c.compromise || []).forEach(function(ch) {
+      uniquePush(compromise, ch.id || ch.name, ch);
+    });
+    (c.companionship || []).forEach(function(ch) {
+      uniquePush(companion, ch.id || ch.name, ch);
+    });
+    (c.transit_amplified_channels || []).forEach(function(ch) {
+      uniquePush(amplified, ch.id || ch.name, ch);
+    });
+    (c.shared_transit_hooks || []).forEach(function(h) {
+      uniquePush(hooks, (h.planet || "") + "|" + (h.gl || ""), h);
+    });
+  }
+  function chs(list) {
+    return list.map(function(ch) {
+      return (ch.id || "") + (ch.name ? " " + ch.name : "");
+    }).filter(Boolean);
+  }
+  const hookLines = hooks.map(function(h) {
+    const who = [];
+    if (h.in_a) who.push(nA);
+    if (h.in_b) who.push(nB);
+    return (h.planet || "") + " " + (h.gl || "") + (who.length ? " in " + who.join(" & ") : "");
+  });
+  let text = "Between " + names[0] + " and " + names[1] + ": electromagnetic " + (chs(electro).join(", ") || "none") + "; compromise " + (chs(compromise).join(", ") || "none") + "; companionship " + (chs(companion).join(", ") || "none") + "; transit-amplified " + (chs(amplified).join(", ") || "none") + "; shared hooks " + (hookLines.join(", ") || "none") + ".";
+  if (text.length > ASK_PAIR_BLOCK_BUDGET) text = clipToBudget(text, ASK_PAIR_BLOCK_BUDGET);
+  return { names, text };
+}
+function buildEqualTransitAskContext(people) {
+  const pack = collectAskTransitFields();
+  const impacts = people.map(function(p) {
+    return mergePersonAskImpact(p, pack);
+  });
+  impacts.sort(function(a, b) {
+    if (b.score !== a.score) return b.score - a.score;
+    return cmpAskName(a.name, b.name);
+  });
+  const ranking = impacts.map(function(imp, i) {
+    return {
+      rank: i + 1,
+      name: imp.name,
+      score: imp.score,
+      breakdown: imp.breakdown
+    };
+  });
+  const memberBlocks = impacts.map(function(imp) {
+    return {
+      name: imp.name,
+      score: imp.score,
+      breakdown: imp.breakdown,
+      type: imp.type,
+      authority: imp.authority,
+      definedCenters: imp.definedCenters,
+      openCenters: imp.openCenters,
+      newlyDefinedOpenCenters: imp.newlyDefinedOpenCenters,
+      channelsCompleted: imp.channelsCompleted,
+      amplifiedDefinedCenters: imp.amplifiedDefinedCenters,
+      openCenterGates: imp.openCenterGates.map(function(g) {
+        return { planet: g.planet, gate: g.gate, line: g.line, gl: g.gl, center: g.center, span: g.span || "" };
+      }),
+      text: formatMemberAskBlock(imp)
+    };
+  });
+  const pairs = [];
+  for (let i = 0; i < people.length; i++) {
+    for (let j = i + 1; j < people.length; j++) {
+      pairs.push(mergePairAsk(people[i], people[j], pack));
+    }
+  }
+  pairs.sort(function(a, b) {
+    return cmpAskName(a.names[0], b.names[0]) || cmpAskName(a.names[1], b.names[1]);
+  });
+  const summaryParts = [];
+  summaryParts.push("Transit impact ranking (deterministic; ties broken alphabetically by first name, never by input order). Weights: newly defined open center " + IMPACT_WEIGHTS.newlyDefined + ", channel completed by transit " + IMPACT_WEIGHTS.completedChannel + ", transit gate in an open center " + IMPACT_WEIGHTS.openCenterGate + ", amplified defined center " + IMPACT_WEIGHTS.amplifiedCenter + ".");
+  summaryParts.push(ranking.map(function(r) {
+    return r.rank + ". " + r.name + " (score " + r.score + ": newly defined " + r.breakdown.newlyDefinedOpenCenters + ", completed channels " + r.breakdown.channelsCompleted + ", open-center gates " + r.breakdown.openCenterGates + ", amplified " + r.breakdown.amplifiedDefinedCenters + ")";
+  }).join("\n"));
+  summaryParts.push("Per-member transit blocks follow. Every loaded member has a block of equal budget. Do not omit anyone listed.");
+  for (let i = 0; i < memberBlocks.length; i++) {
+    summaryParts.push("--- Member: " + memberBlocks[i].name + " ---\n" + memberBlocks[i].text);
+  }
+  if (pairs.length) {
+    summaryParts.push("Between-member transit lines (every pair, equal budget, alphabetical):");
+    for (let i = 0; i < pairs.length; i++) summaryParts.push(pairs[i].text);
+  }
+  const instruction = "A client-computed transit impact ranking and equal per-member transit blocks are supplied. When asked who is most or least affected, use that ranking and the per-member breakdown. Cover every supplied member. Never rank or omit someone because of missing excerpts. If a member has no transit hits in the window, say so plainly. The ranking does not depend on the order people were entered.";
+  try {
+    window.__LAST_ASK_IMPACT__ = { ranking, memberBlocks, pairs, fieldCount: pack.fields.length };
+  } catch (e) {
+  }
+  return {
+    ranking,
+    memberBlocks,
+    pairs,
+    summaryText: summaryParts.join("\n\n"),
+    instruction,
+    fieldCount: pack.fields.length
+  };
+}
 function collectAskDesigns() {
   const out = [];
   const sel = selectedPeopleFromBoxes();
@@ -3322,9 +3711,17 @@ function collectAskContext() {
     betweenMembers: !!want.between,
     regularReport: !(want.landscape || want.between)
   };
-  const visible = clipAskDateOrder(reportTextWithoutChrome(report), ASK_CONTEXT_CAP, collectAskMembers());
   const natalOnly = typeof timeTransitBasedOn === "function" && !timeTransitBasedOn() || !!window.__NATAL_ONLY__;
   const rangeLabel = natalOnly ? "Natal-only (no transit activity)" : (typeof selectionRangeText === "function" ? selectionRangeText() : "") || $("ephemNote") && $("ephemNote").textContent || "";
+  const people = loadedPeopleList();
+  const members = people.map(function(p) {
+    return firstNameMember(p.name);
+  }).filter(Boolean).sort(cmpAskName);
+  const designs = people.map(function(p) {
+    return compactDesignSummary(p);
+  }).sort(function(a, b) {
+    return cmpAskName(a.name, b.name);
+  });
   const ctx = {
     rangeLabel,
     timezone: natalOnly ? "" : $("tz") && $("tz").value || ""
@@ -3333,11 +3730,32 @@ function collectAskContext() {
     ctx.mode = "natal-only";
     ctx.natalOnly = true;
     ctx.instruction = "NATAL-ONLY MODE: Answer from the natal charts and member-to-member interactions only. Do not mention transits, the sky, planetary movements, date or time windows, gate time spans, a transit timeline, or a positions table. Do not invent transit weather.";
+    const visible = clipAskDateOrder(reportTextWithoutChrome(report), ASK_CONTEXT_CAP, members);
+    if (sections.notSelfLandscape) ctx.landscape = visible;
+    else if (sections.betweenMembers) ctx.between = visible;
+    else ctx.regularSummary = visible;
+    return { sections, context: ctx, members, designs, rangeLabel, natalOnly: true, mode: "natal-only" };
   }
-  if (sections.notSelfLandscape) ctx.landscape = visible;
-  else if (sections.betweenMembers) ctx.between = visible;
-  else ctx.regularSummary = visible;
-  return { sections, context: ctx, members: collectAskMembers(), designs: collectAskDesigns(), rangeLabel, natalOnly, mode: natalOnly ? "natal-only" : "transit" };
+  let packed = null;
+  try {
+    packed = buildEqualTransitAskContext(people);
+  } catch (e) {
+    packed = null;
+    console.error("ask transit context", e);
+  }
+  if (packed && packed.memberBlocks && packed.memberBlocks.length) {
+    ctx.memberTransitBlocks = packed.memberBlocks;
+    ctx.pairTransitBlocks = packed.pairs;
+    ctx.impactRanking = packed.ranking;
+    ctx.memberTransitSummary = packed.summaryText;
+    ctx.instruction = packed.instruction;
+  } else {
+    const visible = clipAskDateOrder(reportTextWithoutChrome(report), ASK_CONTEXT_CAP, members);
+    if (sections.notSelfLandscape) ctx.landscape = visible;
+    else if (sections.betweenMembers) ctx.between = visible;
+    else ctx.regularSummary = visible;
+  }
+  return { sections, context: ctx, members, designs, impactRanking: packed && packed.ranking || null, rangeLabel, natalOnly: false, mode: "transit" };
 }
 function grokSectionHtml(kind, question, body, meta) {
   const q = escapeGrok(question || "");

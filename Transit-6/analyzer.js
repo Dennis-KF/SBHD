@@ -6202,6 +6202,90 @@ function renderNatalOnlyMarkdown(people, meta2) {
   const html = renderNatalOnlyHtml(people, meta2);
   return String(html || "").replace(/<\/h2>/gi, "\n\n").replace(/<\/h3>/gi, "\n\n").replace(/<\/p>/gi, "\n\n").replace(/<br\s*\/?>/gi, "\n").replace(/<[^>]+>/g, "").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/\n{3,}/g, "\n\n").trim();
 }
+function centerForGate(gate) {
+  const g = gateInfo(gate);
+  return g && g.center ? normalizeCenterName(g.center) : "";
+}
+function summarizePersonTransit(person, transit) {
+  const day = analyzeDay(person, transit);
+  const profile = deriveHdProfile(person);
+  const open = openCentersOf(person);
+  const defined = [];
+  const defSeen = {};
+  const rawDefined = person && person.defined_centers ? Array.from(person.defined_centers) : [];
+  for (let i = 0; i < rawDefined.length; i++) {
+    const c = normalizeCenterName(rawDefined[i]);
+    if (c && !defSeen[c]) {
+      defSeen[c] = 1;
+      defined.push(c);
+    }
+  }
+  const openSet = {};
+  for (let i = 0; i < open.length; i++) openSet[normalizeCenterName(open[i])] = 1;
+  const defSet = {};
+  for (let i = 0; i < defined.length; i++) defSet[defined[i]] = 1;
+  function inList(list, center) {
+    const c = normalizeCenterName(center);
+    if (!list) return false;
+    for (let i = 0; i < list.length; i++) {
+      if (normalizeCenterName(list[i]) === c) return true;
+    }
+    return false;
+  }
+  const newlyDefined = [];
+  for (let i = 0; i < open.length; i++) {
+    const c = open[i];
+    if (inList(day.centers_activated_with_natal, c) || inList(day.centers_defined_by_transit, c)) newlyDefined.push(c);
+  }
+  const completedByTransit = [];
+  const chs = day.completed_channels || [];
+  for (let i = 0; i < chs.length; i++) {
+    const ch = chs[i];
+    if (ch && (ch.kind === "electromagnetic" || ch.kind === "completion")) completedByTransit.push(ch);
+  }
+  const amplifiedCenters = [];
+  for (let i = 0; i < defined.length; i++) {
+    if (inList(day.centers_activated_with_natal, defined[i])) amplifiedCenters.push(defined[i]);
+  }
+  const openCenterGates = [];
+  const planets = (transit && transit.planets) || {};
+  const pnames = Object.keys(planets);
+  for (let i = 0; i < pnames.length; i++) {
+    const pname = pnames[i];
+    const p = planets[pname];
+    if (!p) continue;
+    const center = centerForGate(p.gate);
+    if (center && openSet[center]) {
+      openCenterGates.push({
+        planet: pname,
+        gate: p.gate,
+        line: p.line,
+        gl: p.gl || (p.gate + "." + p.line),
+        center: center,
+        natalGate: !!(person.gates && person.gates.has(p.gate))
+      });
+    }
+  }
+  return {
+    person: person && person.name,
+    profile: {
+      type: (profile && profile.type) || "",
+      strategy: (profile && profile.strategy) || "",
+      authority: (profile && profile.authority) || "",
+      definition: (profile && profile.definition) || ""
+    },
+    definedCenters: defined,
+    openCenters: open.slice(),
+    newlyDefined: newlyDefined,
+    completedChannels: completedByTransit,
+    amplifiedCenters: amplifiedCenters,
+    openCenterGates: openCenterGates,
+    touches: day.touches || [],
+    centersDefinedByTransit: day.centers_defined_by_transit || [],
+    centersActivatedWithNatal: day.centers_activated_with_natal || []
+  };
+}
+
 window.HD = {
   PLANET_ORDER,
   lonToGateLine,
@@ -6211,6 +6295,11 @@ window.HD = {
   parseGl,
   analyzeDay,
   coupleDynamics,
+  centerForGate,
+  summarizePersonTransit,
+  gateInfo,
+  spanForPlanetAt,
+  findPlanetSpanAround,
   renderNarrativeHtml,
   renderNarrativeMarkdown,
   dateRangeList,
