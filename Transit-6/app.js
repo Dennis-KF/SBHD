@@ -30,10 +30,40 @@ const $ = (id) => document.getElementById(id);
 function personBoxId(n) {
   return "person" + n;
 }
+const PERSON_SLOT_MAX = 6;
+const personRawStore = { 1: "", 2: "", 3: "", 4: "", 5: "", 6: "" };
+function getPersonRaw(n) {
+  const v = personRawStore[n];
+  return v == null ? "" : String(v);
+}
+function setPersonRaw(n, text) {
+  personRawStore[n] = text == null ? "" : String(text);
+  try {
+    syncPersonInputLabel(n);
+  } catch (e) {
+  }
+}
+function personInputIsFilled(n) {
+  return !!String(getPersonRaw(n) || "").trim();
+}
+function syncPersonInputLabel(n) {
+  const lab = document.getElementById("personLabel" + n) || document.querySelector('label[for="person' + n + '"]');
+  if (!lab) return;
+  const filled = personInputIsFilled(n);
+  lab.classList.toggle("is-filled", filled);
+  lab.classList.toggle("is-empty", !filled);
+}
+function syncAllPersonInputLabels() {
+  for (let i = 1; i <= PERSON_SLOT_MAX; i++) {
+    try {
+      syncPersonInputLabel(i);
+    } catch (e) {
+    }
+  }
+}
 function loadParsedFromBox(n) {
   try {
-    const el = $(personBoxId(n));
-    const raw = el && String(el.value || "").trim();
+    const raw = String(getPersonRaw(n) || "").trim();
     if (!raw) return null;
     return parseInput(raw) || null;
   } catch (e) {
@@ -640,8 +670,7 @@ function calNextMonth() {
   renderCalendar();
 }
 function clearPerson(n) {
-  const ta = $(personBoxId(n));
-  if (ta) ta.value = "";
+  setPersonRaw(n, "");
   const file = $("file" + n);
   if (file) file.value = "";
   const box = $("pngBox" + n);
@@ -1107,9 +1136,8 @@ function loadSampleInto(n, sampleKey) {
   }
 }
 function setPersonText(n, obj, sampleKey) {
-  const ta = $(personBoxId(n));
   const fresh = typeof obj === "string" ? obj : JSON.stringify(obj, null, 2);
-  ta.value = fresh;
+  setPersonRaw(n, fresh);
   updateChartStatus(n);
   if (sampleKey) setQuickLoadHighlight(n, sampleKey);
   else clearQuickLoadHighlight(n);
@@ -1124,12 +1152,15 @@ function setPersonText(n, obj, sampleKey) {
 }
 function updateChartStatus(n) {
   const el = $("chartStatus" + n);
-  const ta = $(personBoxId(n));
-  if (!el || !ta) return;
-  const raw = (ta.value || "").trim();
+  if (!el) return;
+  const raw = String(getPersonRaw(n) || "").trim();
   if (!raw) {
     el.textContent = "";
     el.className = "chart-status";
+    try {
+      syncPersonInputLabel(n);
+    } catch (e) {
+    }
     try {
       if (typeof syncExtraOutputOpts === "function") syncExtraOutputOpts();
     } catch (e) {
@@ -1271,7 +1302,6 @@ function chartObjectFromLoadedText(text, fallbackName) {
 async function handleFile(n, file) {
   if (!file) return;
   const name = (file.name || "").toLowerCase();
-  const ta = $(personBoxId(n));
   const box = $("pngBox" + n);
   const img = $("pngImg" + n);
   const fallbackName = file.name.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ");
@@ -1283,7 +1313,7 @@ async function handleFile(n, file) {
     box.style.display = "none";
     const text = await readFileAsText(file);
     const chart = chartObjectFromLoadedText(text, fallbackName);
-    ta.value = JSON.stringify(chart, null, 2);
+    setPersonRaw(n, JSON.stringify(chart, null, 2));
     updateChartStatus(n);
     const mem = rememberUploadedChart(chart, fallbackName);
     if (mem && mem.ok && mem.key) setQuickLoadHighlight(n, mem.key);
@@ -1298,7 +1328,7 @@ async function handleFile(n, file) {
     try {
       const text = await extractDocxText(file);
       const chart = chartObjectFromLoadedText(text, fallbackName);
-      ta.value = JSON.stringify(chart, null, 2);
+      setPersonRaw(n, JSON.stringify(chart, null, 2));
       updateChartStatus(n);
       const mem = rememberUploadedChart(chart, fallbackName);
       if (mem && mem.ok && mem.key) setQuickLoadHighlight(n, mem.key);
@@ -1320,7 +1350,7 @@ async function handleFile(n, file) {
     box.style.display = "block";
     let current;
     try {
-      current = parseInput(ta.value) || {};
+      current = parseInput(getPersonRaw(n)) || {};
     } catch (e) {
       current = {};
     }
@@ -1329,7 +1359,7 @@ async function handleFile(n, file) {
     if (!current.name) current.name = fallbackName;
     current.planets = current.planets || {};
     current.notes = (current.notes || "") + " PNG loaded \u2014 enter gate.line values manually from the image.";
-    ta.value = JSON.stringify(current, null, 2);
+    setPersonRaw(n, JSON.stringify(current, null, 2));
     clearQuickLoadHighlight(n);
     status("PNG shown beside manual entry (no OCR bundled).", "ok");
     return;
@@ -1450,12 +1480,127 @@ function computeEffectiveTransitFieldFlag(_includeOverview) {
   if (mode !== "range") return true;
   return computeIncludeTransitFieldFlag();
 }
+function describeDescriptionConfig() {
+  const brief = !!(document.getElementById("includeRangeBriefDesc") && document.getElementById("includeRangeBriefDesc").checked);
+  const full = !!(document.getElementById("includeRangeFullDesc") && document.getElementById("includeRangeFullDesc").checked);
+  const field = !!(document.getElementById("includeRangeTransitField") && document.getElementById("includeRangeTransitField").checked);
+  const mode2 = brief && !full ? "Brief" : "Full";
+  return mode2 + " \xB7 Transit field " + (field ? "on" : "off");
+}
+function describeReportConfig() {
+  const on = function(id) {
+    const el = document.getElementById(id);
+    return !!(el && el.checked);
+  };
+  const bits = [];
+  bits.push(on("includeCodes") ? "Gates & lines" : "Gates & lines off");
+  bits.push(on("realWorldInfluence") ? "RWI" : "RWI off");
+  if (on("omitLights")) bits.push("Omit Sun/Earth/Moon");
+  else if (on("allGateOnly")) bits.push("All planets gate only");
+  else {
+    if (on("moonGateOnly")) bits.push("Moon gate");
+    if (on("sunGateOnly")) bits.push("Sun/Earth gate");
+    if (!on("moonGateOnly") && !on("sunGateOnly")) bits.push("Line changes kept");
+  }
+  return bits.join(" \xB7 ");
+}
+function updateConfigSummaries() {
+  const d = document.getElementById("descConfigSummary");
+  if (d) d.textContent = describeDescriptionConfig();
+  const r = document.getElementById("reportConfigSummary");
+  if (r) r.textContent = describeReportConfig();
+}
+function toggleConfigPanel(btnId, panelId) {
+  const btn = document.getElementById(btnId);
+  const panel = document.getElementById(panelId);
+  if (!btn || !panel) return;
+  const next = btn.getAttribute("aria-expanded") !== "true";
+  btn.setAttribute("aria-expanded", next ? "true" : "false");
+  if (next) panel.removeAttribute("hidden");
+  else panel.setAttribute("hidden", "");
+}
+function wireConfigPanels() {
+  function bind(btnId, panelId) {
+    const btn = document.getElementById(btnId);
+    if (!btn || btn.getAttribute("data-config-wired") === "1") return;
+    btn.setAttribute("data-config-wired", "1");
+    btn.addEventListener("click", function() {
+      toggleConfigPanel(btnId, panelId);
+    });
+  }
+  bind("descConfigBtn", "descConfigPanel");
+  bind("reportConfigBtn", "reportConfigPanel");
+  [
+    "includeRangeFullDesc",
+    "includeRangeBriefDesc",
+    "includeRangeTransitField",
+    "includeCodes",
+    "realWorldInfluence",
+    "moonGateOnly",
+    "sunGateOnly",
+    "allGateOnly",
+    "omitLights"
+  ].forEach(function(id) {
+    const el = document.getElementById(id);
+    if (!el || el.getAttribute("data-summary-wired") === "1") return;
+    el.setAttribute("data-summary-wired", "1");
+    el.addEventListener("change", updateConfigSummaries);
+    el.addEventListener("click", function() {
+      setTimeout(updateConfigSummaries, 0);
+    });
+  });
+  try {
+    updateConfigSummaries();
+  } catch (e) {
+  }
+}
+let runPulseTimer = null;
+function pulseRunButton() {
+  const btn = document.getElementById("runBtn");
+  if (!btn) return;
+  btn.classList.remove("run-pulse");
+  try {
+    void btn.offsetWidth;
+  } catch (e) {
+  }
+  btn.classList.add("run-pulse");
+  if (runPulseTimer) {
+    try {
+      clearTimeout(runPulseTimer);
+    } catch (e) {
+    }
+  }
+  runPulseTimer = setTimeout(function() {
+    const b = document.getElementById("runBtn");
+    if (b) b.classList.remove("run-pulse");
+    runPulseTimer = null;
+  }, 2e3);
+}
+function wireRunPulse() {
+  const btn = document.getElementById("runBtn");
+  if (!btn || btn.getAttribute("data-pulse-wired") === "1") return;
+  btn.setAttribute("data-pulse-wired", "1");
+  let last = 0;
+  const go = function() {
+    const now = Date.now();
+    if (now - last < 40) return;
+    last = now;
+    pulseRunButton();
+  };
+  btn.addEventListener("pointerdown", go, { passive: true });
+  btn.addEventListener("touchstart", go, { passive: true });
+  btn.addEventListener("click", go);
+}
 function enforceRangeDescMutualExclusion(changedId) {
   const full = document.getElementById("includeRangeFullDesc");
   const brief = document.getElementById("includeRangeBriefDesc");
   if (!full || !brief) return;
   if (changedId === "includeRangeFullDesc" && full.checked) brief.checked = false;
   if (changedId === "includeRangeBriefDesc" && brief.checked) full.checked = false;
+  try {
+    updateConfigSummaries();
+  } catch (e) {
+  }
 }
 function rerunFromRefine() {
   if (!reportAlreadyGenerated()) return;
@@ -1489,6 +1634,10 @@ function natalControlsToDisable() {
   return ["modeSingle", "modeRange", "dateFrom", "dateTo", "timeFrom", "timeTo", "month", "clearDates", "hour12", "minute", "ampm", "tz", "nowBtn", "includeRangeTransitField", "calPrev", "calNext"];
 }
 function syncNatalOnlyUI() {
+  try {
+    keepTimeTransitBasedVisible();
+  } catch (e) {
+  }
   const natal = !timeTransitBasedOn();
   try {
     if (natal) document.body.classList.add("natal-only-mode");
@@ -1610,6 +1759,236 @@ function hasGeneratedReport() {
     return false;
   }
 }
+function updateRefineSummary() {
+  try {
+    const el = document.getElementById("refineConfigSummary");
+    if (!el) return;
+    const on = function(id) {
+      const n = document.getElementById(id);
+      return !!(n && n.checked);
+    };
+    const bits = [];
+    bits.push(on("notSelfLandscape") ? "Not-Self" : "Not-Self off");
+    bits.push(on("betweenMembers") ? "Between" : "Between off");
+    const hl = [];
+    if (on("hlAffectedMembers")) hl.push("Bold");
+    if (on("hlBetweenInteractions")) hl.push("Bold italic");
+    if (on("hlUnderlineInfluences")) hl.push("Underline");
+    bits.push(hl.length ? "Highlights: " + hl.join(", ") : "Highlights off");
+    el.textContent = bits.join(" \xB7 ");
+  } catch (e) {
+  }
+}
+function isRefineConfigOpen() {
+  const modal = document.getElementById("refineConfigModal");
+  return !!(modal && !modal.hidden && !modal.hasAttribute("hidden"));
+}
+let refinePrevOverflow = "";
+let refinePrevFocus = null;
+function closeRefineConfig() {
+  const modal = document.getElementById("refineConfigModal");
+  const btn = document.getElementById("refineConfigBtn");
+  if (!modal) return;
+  modal.hidden = true;
+  modal.setAttribute("hidden", "");
+  modal.setAttribute("aria-hidden", "true");
+  if (btn) btn.setAttribute("aria-expanded", "false");
+  try {
+    document.body.style.overflow = refinePrevOverflow || "";
+  } catch (e) {
+  }
+  try {
+    if (refinePrevFocus && refinePrevFocus.focus) refinePrevFocus.focus();
+  } catch (e) {
+  }
+}
+function openRefineConfig() {
+  const modal = document.getElementById("refineConfigModal");
+  const btn = document.getElementById("refineConfigBtn");
+  if (!modal) return;
+  try {
+    refinePrevFocus = document.activeElement;
+  } catch (e) {
+    refinePrevFocus = null;
+  }
+  try {
+    refinePrevOverflow = document.body.style.overflow || "";
+    document.body.style.overflow = "hidden";
+  } catch (e) {
+  }
+  modal.hidden = false;
+  modal.removeAttribute("hidden");
+  modal.setAttribute("aria-hidden", "false");
+  if (btn) btn.setAttribute("aria-expanded", "true");
+  try {
+    updateRefineSummary();
+  } catch (e) {
+  }
+  try {
+    const closer = document.getElementById("refineConfigClose");
+    if (closer) closer.focus();
+  } catch (e) {
+  }
+}
+function toggleRefineConfig() {
+  if (isRefineConfigOpen()) closeRefineConfig();
+  else openRefineConfig();
+}
+function wireRefineConfigModal() {
+  const btn = document.getElementById("refineConfigBtn");
+  if (btn && btn.getAttribute("data-refine-wired") !== "1") {
+    btn.setAttribute("data-refine-wired", "1");
+    btn.addEventListener("click", function(ev) {
+      if (ev) ev.preventDefault();
+      toggleRefineConfig();
+    });
+  }
+  const close = document.getElementById("refineConfigClose");
+  if (close && close.getAttribute("data-refine-wired") !== "1") {
+    close.setAttribute("data-refine-wired", "1");
+    close.addEventListener("click", function(ev) {
+      if (ev) ev.preventDefault();
+      closeRefineConfig();
+    });
+  }
+  const backdrop = document.getElementById("refineConfigBackdrop");
+  if (backdrop && backdrop.getAttribute("data-refine-wired") !== "1") {
+    backdrop.setAttribute("data-refine-wired", "1");
+    backdrop.addEventListener("click", function() {
+      closeRefineConfig();
+    });
+  }
+  if (!window.__refineEscWired) {
+    window.__refineEscWired = true;
+    document.addEventListener("keydown", function(ev) {
+      if (!ev || ev.key !== "Escape") return;
+      if (!isRefineConfigOpen()) return;
+      ev.preventDefault();
+      closeRefineConfig();
+    });
+  }
+  ["notSelfLandscape", "betweenMembers", "hlAffectedMembers", "hlBetweenInteractions", "hlUnderlineInfluences"].forEach(function(id) {
+    const el = document.getElementById(id);
+    if (!el || el.getAttribute("data-refine-summary-wired") === "1") return;
+    el.setAttribute("data-refine-summary-wired", "1");
+    el.addEventListener("change", updateRefineSummary);
+    el.addEventListener("click", function() {
+      setTimeout(updateRefineSummary, 0);
+    });
+  });
+  try {
+    updateRefineSummary();
+  } catch (e) {
+  }
+}
+function syncStickyOffsets() {
+  try {
+    const header = document.querySelector("header");
+    const safe = parseFloat((window.getComputedStyle(document.documentElement).getPropertyValue("--sat") || "").replace("px", "")) || 0;
+    const hh = header ? Math.round(header.getBoundingClientRect().height) : 0;
+    document.documentElement.style.setProperty("--hdta-sticky-offset", Math.max(0, hh) + "px");
+  } catch (e) {
+  }
+}
+function wireStickyToolbar() {
+  try {
+    syncStickyOffsets();
+  } catch (e) {
+  }
+  if (window.__stickyToolbarWired) return;
+  window.__stickyToolbarWired = true;
+  window.addEventListener("resize", syncStickyOffsets);
+  window.addEventListener("orientationchange", function() {
+    setTimeout(syncStickyOffsets, 150);
+  });
+}
+function keepTimeTransitBasedVisible() {
+  try {
+    const wrap = document.getElementById("timeTransitBasedWrap");
+    if (!wrap) return;
+    wrap.hidden = false;
+    wrap.removeAttribute("hidden");
+    if (wrap.style && wrap.style.display === "none") wrap.style.display = "";
+  } catch (e) {
+  }
+}
+function scrollAskProcessingIntoView() {
+  const el = document.getElementById("askProcessingMsg") || document.querySelector('label[for="askGrokQuestion"]');
+  if (!el) return;
+  try {
+    if (typeof syncStickyOffsets === "function") syncStickyOffsets();
+  } catch (e) {
+  }
+  const header = document.querySelector("header");
+  const bar = document.getElementById("storyToolbar");
+  const offset = (header ? header.getBoundingClientRect().height : 0) + (bar ? bar.getBoundingClientRect().height : 0) + 10;
+  const r = el.getBoundingClientRect();
+  const vh = window.innerHeight || 0;
+  const fullyVisible = r.top >= offset && r.bottom <= vh - 8 && r.height > 0;
+  if (fullyVisible) return;
+  const top = r.top + (window.pageYOffset || document.documentElement.scrollTop || 0) - offset;
+  try {
+    window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+  } catch (e) {
+    try {
+      window.scrollTo(0, Math.max(0, top));
+    } catch (_e) {
+    }
+  }
+}
+function setAskProcessing(on) {
+  const el = document.getElementById("askProcessingMsg");
+  if (!el) return;
+  if (on) {
+    el.removeAttribute("hidden");
+    el.hidden = false;
+    el.classList.add("is-pulsing");
+    try {
+      scrollAskProcessingIntoView();
+    } catch (e) {
+    }
+  } else {
+    el.setAttribute("hidden", "");
+    el.hidden = true;
+    el.classList.remove("is-pulsing");
+  }
+}
+function parkAskAnswerActions() {
+  const row = document.getElementById("askAnswerActions");
+  const park = document.getElementById("askAnswerActionsPark");
+  if (!row || !park) return;
+  if (row.parentNode !== park) park.appendChild(row);
+}
+function placeAskAnswerActions() {
+  const row = document.getElementById("askAnswerActions");
+  if (!row) return;
+  const slot = document.querySelector("#report .grok-answer .ask-answer-actions-slot");
+  if (slot && typeof hasSuccessfulGrokAnswer === "function" && hasSuccessfulGrokAnswer()) {
+    if (row.parentNode !== slot) slot.appendChild(row);
+  } else {
+    parkAskAnswerActions();
+  }
+}
+function scrollToGrokAnswer() {
+  const el = document.querySelector("#report .grok-answer");
+  if (!el) return;
+  try {
+    syncStickyOffsets();
+  } catch (e) {
+  }
+  const header = document.querySelector("header");
+  const bar = document.getElementById("storyToolbar");
+  const offset = (header ? header.getBoundingClientRect().height : 0) + (bar ? bar.getBoundingClientRect().height : 0) + 10;
+  const top = el.getBoundingClientRect().top + (window.pageYOffset || document.documentElement.scrollTop || 0) - offset;
+  try {
+    window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+  } catch (e) {
+    try {
+      window.scrollTo(0, Math.max(0, top));
+    } catch (_e) {
+    }
+  }
+}
 function extraOutputOptsShouldShow() {
   return true;
 }
@@ -1622,10 +2001,9 @@ function filledMemberCount() {
   } catch (e) {
   }
   let n = 0;
-  for (let i = 1; i <= 3; i++) {
+  for (let i = 1; i <= 6; i++) {
     try {
-      const el = document.getElementById("person" + i);
-      if (el && String(el.value || "").trim()) n++;
+      if (String(getPersonRaw(i) || "").trim()) n++;
     } catch (e) {
     }
   }
@@ -1672,6 +2050,10 @@ function syncExtraOutputOpts() {
   if (typeof syncAskGrokPanel === "function") syncAskGrokPanel();
   try {
     if (typeof syncHighlightChecks === "function") syncHighlightChecks();
+  } catch (e) {
+  }
+  try {
+    updateRefineSummary();
   } catch (e) {
   }
 }
@@ -2861,8 +3243,7 @@ function compactDesignSummary(person) {
 }
 function loadAskPersonFromBox(which) {
   try {
-    const el = $(personBoxId(which));
-    const raw = el && String(el.value || "").trim();
+    const raw = String(getPersonRaw(which) || "").trim();
     if (!raw) return null;
     if (!window.HD || typeof HD.loadPerson !== "function") return null;
     return HD.loadPerson(parseInput(raw) || raw);
@@ -2927,7 +3308,7 @@ function grokSectionHtml(kind, question, body, meta) {
   const q = escapeGrok(question || "");
   let inner;
   if (kind === "loading") {
-    inner = "<p><em>Asking Grok\u2026</em></p>";
+    inner = "<p><em>Asking\u2026</em></p>";
   } else if (kind === "error") {
     inner = "<p>" + escapeGrok(body || "Something went wrong.") + "</p>";
   } else {
@@ -2938,7 +3319,8 @@ function grokSectionHtml(kind, question, body, meta) {
     }
   }
   const cls = "grok-answer" + (kind === "loading" ? " grok-loading" : "") + (kind === "error" ? " grok-error" : "");
-  return '<div class="' + cls + '"><h2>Question \u2014 Advantages and Difficulties</h2>\n' + inner + "</div>";
+  const slot = kind === "ok" ? '<div class="ask-answer-actions-slot no-print"></div>' : "";
+  return '<div class="' + cls + '">' + slot + "<h2>Question \u2014 Advantages and Difficulties</h2>\n" + inner + "</div>";
 }
 function stripGrokFromHtml(html) {
   return String(html || "").replace(/<div class="grok-answer[\s\S]*?<\/div>\s*$/i, "").replace(/<div class="grok-answer[\s\S]*?<\/div>/gi, "");
@@ -2952,11 +3334,19 @@ function setReportHtml(html) {
   }
 }
 function applyGrokAnswerToReport() {
+  try {
+    parkAskAnswerActions();
+  } catch (e) {
+  }
   const wrap = $("report");
   if (!wrap) {
     if (typeof syncAnswerShareButtons === "function") syncAnswerShareButtons();
     try {
       if (typeof markupHighlightReport === "function") markupHighlightReport();
+    } catch (e) {
+    }
+    try {
+      placeAskAnswerActions();
     } catch (e) {
     }
     return;
@@ -2968,6 +3358,10 @@ function applyGrokAnswerToReport() {
     if (typeof syncAnswerShareButtons === "function") syncAnswerShareButtons();
     try {
       if (typeof markupHighlightReport === "function") markupHighlightReport();
+    } catch (e) {
+    }
+    try {
+      placeAskAnswerActions();
     } catch (e) {
     }
     return;
@@ -2982,6 +3376,10 @@ function applyGrokAnswerToReport() {
   if (typeof syncAnswerShareButtons === "function") syncAnswerShareButtons();
   try {
     if (typeof markupHighlightReport === "function") markupHighlightReport();
+  } catch (e) {
+  }
+  try {
+    placeAskAnswerActions();
   } catch (e) {
   }
 }
@@ -3036,7 +3434,8 @@ async function askGrok() {
   lastGrokAnswerText = "";
   lastGrokAnswerHtml = grokSectionHtml("loading", lastGrokQuestion, "");
   applyGrokAnswerToReport();
-  setAskStatus("Asking Grok\u2026");
+  setAskStatus("");
+  setAskProcessing(true);
   if (btn) {
     btn.setAttribute("data-loading", "1");
     btn.disabled = true;
@@ -3104,12 +3503,28 @@ async function askGrok() {
     setAskStatus(msg);
   } finally {
     clearTimeout(timer);
+    setAskProcessing(false);
     if (btn) {
       btn.removeAttribute("data-loading");
       btn.textContent = "Ask";
     }
     updateAskGrokCount();
     if (typeof syncAnswerShareButtons === "function") syncAnswerShareButtons();
+    try {
+      placeAskAnswerActions();
+    } catch (e) {
+    }
+    try {
+      if (typeof hasSuccessfulGrokAnswer === "function" && hasSuccessfulGrokAnswer()) {
+        setTimeout(function() {
+          try {
+            scrollToGrokAnswer();
+          } catch (e) {
+          }
+        }, 50);
+      }
+    } catch (e) {
+    }
   }
 }
 function runAnalysis() {
@@ -3414,7 +3829,7 @@ function displayReportHtml() {
   if (!report) return "<p>Nothing to display yet.</p>";
   const clone = report.cloneNode(true);
   try {
-    clone.querySelectorAll(".tech, #timelineEventsJson").forEach(function(el) {
+    clone.querySelectorAll(".tech, #timelineEventsJson, .ask-answer-actions, .ask-answer-actions-slot, #askAnswerActions").forEach(function(el) {
       el.remove();
     });
   } catch (e) {
@@ -3427,7 +3842,16 @@ function displayContentHtml(mode2) {
   if (!report) return "<p>Nothing to display yet.</p>";
   if (typeof hasSuccessfulGrokAnswer === "function" && hasSuccessfulGrokAnswer()) {
     const ans = report.querySelector(".grok-answer");
-    if (ans) return ans.innerHTML;
+    if (ans) {
+      const clone = ans.cloneNode(true);
+      try {
+        clone.querySelectorAll(".ask-answer-actions, .ask-answer-actions-slot, #askAnswerActions").forEach(function(el) {
+          el.remove();
+        });
+      } catch (e) {
+      }
+      return clone.innerHTML;
+    }
     if (typeof lastGrokAnswerHtml !== "undefined" && lastGrokAnswerHtml) return lastGrokAnswerHtml;
   }
   return displayReportHtml();
@@ -3441,13 +3865,17 @@ function syncAnswerShareButtons() {
   const on = typeof hasSuccessfulGrokAnswer === "function" && hasSuccessfulGrokAnswer();
   const canDisplay = on || hasDisplayableReport();
   if (row) {
-    if (canDisplay) row.removeAttribute("hidden");
+    if (on) row.removeAttribute("hidden");
     else row.setAttribute("hidden", "");
   }
   if (pb) pb.disabled = !on;
   if (sb) sb.disabled = !on;
-  if (db) db.disabled = !canDisplay;
+  if (db) db.disabled = !on;
   if (rb) rb.disabled = !hasDisplayableReport();
+  try {
+    placeAskAnswerActions();
+  } catch (e) {
+  }
 }
 let displaySavedHtml = "";
 let displayMatches = [];
@@ -3560,12 +3988,14 @@ function displayApplyFind() {
   else displayUpdateCount();
 }
 let displayReturnFocusId = "reportDisplayBtn";
+let displayMode = "report";
 function openDisplayView(mode2) {
   const overlay = $("displayOverlay");
   const body = $("displayOverlayBody");
   if (!overlay || !body) return;
-  displayReturnFocusId = mode2 === "report" ? "reportDisplayBtn" : "answerDisplayBtn";
-  displaySavedHtml = displayContentHtml(mode2);
+  displayMode = mode2 === "report" ? "report" : "answer";
+  displayReturnFocusId = displayMode === "report" ? "reportDisplayBtn" : "answerDisplayBtn";
+  displaySavedHtml = displayContentHtml(displayMode);
   body.innerHTML = displaySavedHtml;
   displayMatches = [];
   displayIndex = 0;
@@ -3666,12 +4096,23 @@ function wireDisplayOverlay() {
   document.addEventListener("keydown", function(ev) {
     if (!ev) return;
     if (ev.key !== "Escape") return;
+    if (typeof isRefineConfigOpen === "function" && isRefineConfigOpen()) return;
     const overlay = $("displayOverlay");
     if (overlay && !overlay.hidden && !overlay.hasAttribute("hidden")) {
       ev.preventDefault();
       closeDisplayView();
     }
   });
+  const dpb = $("displayPrintBtn");
+  if (dpb) dpb.onclick = function() {
+    if (displayMode === "answer") printAnswerOnly();
+    else printReport();
+  };
+  const dsb = $("displayShareBtn");
+  if (dsb) dsb.onclick = function(ev) {
+    ev.preventDefault();
+    shareOrFallback(displayMode === "answer" ? "answer" : "report", ev.currentTarget || dsb);
+  };
 }
 function reportPlainText(opts) {
   opts = opts || {};
@@ -4119,18 +4560,10 @@ function wire() {
   });
   safe("quickLoad2", renderQuickLoadGrids);
   safe("quickLoadInput", () => {
-    ;
-    [1, 2, 3, 4, 5, 6].forEach((n) => {
-      const ta = $(personBoxId(n));
-      if (ta) {
-        const onPersonEdit = () => {
-          clearQuickLoadHighlight(n);
-          if (typeof syncExtraOutputOpts === "function") syncExtraOutputOpts();
-        };
-        ta.addEventListener("input", onPersonEdit);
-        ta.addEventListener("change", onPersonEdit);
-      }
-    });
+    try {
+      syncAllPersonInputLabels();
+    } catch (e) {
+    }
   });
   safe("loadCouple", () => {
     const lc = $("loadCouple");
@@ -4317,6 +4750,26 @@ function wire() {
   safe("runBtn", () => {
     const runBtn = $("runBtn");
     if (runBtn) runBtn.onclick = runAnalysis;
+    try {
+      wireRunPulse();
+    } catch (e) {
+    }
+    try {
+      wireConfigPanels();
+    } catch (e) {
+    }
+    try {
+      wireRefineConfigModal();
+    } catch (e) {
+    }
+    try {
+      wireStickyToolbar();
+    } catch (e) {
+    }
+    try {
+      keepTimeTransitBasedVisible();
+    } catch (e) {
+    }
   });
   safe("nowClick", () => {
     const nowBtn = $("nowBtn");
@@ -4360,7 +4813,7 @@ function wire() {
       if (!menu || !menu.classList.contains("open")) return;
       const t = ev.target;
       if (menu.contains(t)) return;
-      if (t && (t.id === "shareBtn" || t.id === "answerShareBtn" || t.closest && (t.closest("#shareBtn") || t.closest("#answerShareBtn")))) return;
+      if (t && (t.id === "shareBtn" || t.id === "answerShareBtn" || t.id === "displayShareBtn" || t.closest && (t.closest("#shareBtn") || t.closest("#answerShareBtn") || t.closest("#displayShareBtn")))) return;
       closeShareMenu();
     });
     document.addEventListener("keydown", function(ev) {
