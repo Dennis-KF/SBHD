@@ -1832,7 +1832,11 @@ function showReportStaleUi(doScroll) {
 var pendingReturnToAsk = false;
 var askReadyPulseTimer = null;
 function promptRunBeforeAsk() {
-  pendingReturnToAsk = true;
+  try {
+    pendingReturnToAsk = !!lastRunSignature || typeof reportAlreadyGenerated === "function" && reportAlreadyGenerated();
+  } catch (e) {
+    pendingReturnToAsk = false;
+  }
   showReportStaleUi(true);
   try {
     setAskStatus("Changes made \u2014 Press to Update, then ask again.");
@@ -1920,6 +1924,42 @@ function scheduleReturnToAsk() {
     }
     try {
       setAskStatus("Press Ask to continue.");
+    } catch (e) {
+    }
+  }
+  try {
+    requestAnimationFrame(function() {
+      requestAnimationFrame(function() {
+        setTimeout(go, 80);
+      });
+    });
+  } catch (e) {
+    setTimeout(go, 160);
+  }
+}
+function scrollToReportStart() {
+  try {
+    if (typeof syncStickyOffsets === "function") syncStickyOffsets();
+  } catch (e) {
+  }
+  var header = document.querySelector("header");
+  var offset = (header ? header.getBoundingClientRect().height : 0) + 8;
+  var el = document.getElementById("storyPanel") || document.getElementById("storyToolbar") || document.getElementById("reportWrap") || document.getElementById("report");
+  if (!el) return;
+  var top = el.getBoundingClientRect().top + (window.pageYOffset || document.documentElement.scrollTop || 0) - offset;
+  try {
+    window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+  } catch (e) {
+    try {
+      window.scrollTo(0, Math.max(0, top));
+    } catch (_e) {
+    }
+  }
+}
+function scheduleScrollToReportStart() {
+  function go() {
+    try {
+      scrollToReportStart();
     } catch (e) {
     }
   }
@@ -3317,6 +3357,47 @@ function askGrokBoxOn() {
     return false;
   }
 }
+const PLAIN_LANG_STORAGE_KEY = "hdta_ask_plain_language";
+const PLAIN_LANG_INSTRUCTION = 'PLAIN LANGUAGE: Write in everyday wording a thoughtful friend would use. Avoid Human Design jargon (gates, lines, channels, centers, Type, Strategy, Authority, Not-Self, definition, and similar terms). If a technical idea is essential, explain it in one short plain sentence instead of using the term. Be concrete and practical: name the people involved, give specific weekdays and 12-hour AM/PM times from the supplied context, and say what they can do or what they may notice. Keep potentials, not predictions (for example, "this may favor" or "this can feel like," never "this will happen"). Use first names only. Eike is she/her. Still use only the supplied meanings and context; do not invent facts.';
+function askPlainLanguageOn() {
+  try {
+    const el = document.getElementById("askPlainLanguage");
+    if (el) return !!el.checked;
+  } catch (e) {
+  }
+  return true;
+}
+function persistPlainLanguagePref() {
+  try {
+    sessionStorage.setItem(PLAIN_LANG_STORAGE_KEY, askPlainLanguageOn() ? "1" : "0");
+  } catch (e) {
+  }
+}
+function restorePlainLanguagePref() {
+  const el = document.getElementById("askPlainLanguage");
+  if (!el) return;
+  var raw = null;
+  try {
+    raw = sessionStorage.getItem(PLAIN_LANG_STORAGE_KEY);
+  } catch (e) {
+  }
+  if (raw === "0") el.checked = false;
+  else if (raw === "1") el.checked = true;
+}
+function applyPlainLanguageToAsk(out) {
+  const on = askPlainLanguageOn();
+  out = out || {};
+  out.plainLanguage = on;
+  out.context = out.context || {};
+  if (on) {
+    out.context.plainLanguage = true;
+    const prev = out.context.instruction ? String(out.context.instruction) : "";
+    out.context.instruction = prev ? prev + "\n" + PLAIN_LANG_INSTRUCTION : PLAIN_LANG_INSTRUCTION;
+  } else {
+    out.context.plainLanguage = false;
+  }
+  return out;
+}
 function updateAskGrokCount() {
   const ta = $("askGrokQuestion");
   const c = $("askGrokCount");
@@ -4043,7 +4124,7 @@ function collectAskContext() {
     if (sections.notSelfLandscape) ctx.landscape = visible;
     else if (sections.betweenMembers) ctx.between = visible;
     else ctx.regularSummary = visible;
-    return { sections, context: ctx, members, designs, rangeLabel, natalOnly: true, mode: "natal-only" };
+    return applyPlainLanguageToAsk({ sections, context: ctx, members, designs, rangeLabel, natalOnly: true, mode: "natal-only" });
   }
   let packed = null;
   try {
@@ -4064,7 +4145,7 @@ function collectAskContext() {
     else if (sections.betweenMembers) ctx.between = visible;
     else ctx.regularSummary = visible;
   }
-  return { sections, context: ctx, members, designs, impactRanking: packed && packed.ranking || null, rangeLabel, natalOnly: false, mode: "transit" };
+  return applyPlainLanguageToAsk({ sections, context: ctx, members, designs, impactRanking: packed && packed.ranking || null, rangeLabel, natalOnly: false, mode: "transit" });
 }
 function grokSectionHtml(kind, question, body, meta) {
   const q = escapeGrok(question || "");
@@ -4328,6 +4409,13 @@ async function askGrok() {
 }
 function runAnalysis() {
   var staleUiWasVisible = !!staleUiVisible;
+  var shouldReturnToAsk = false;
+  try {
+    shouldReturnToAsk = !!pendingReturnToAsk && !!lastRunSignature;
+  } catch (e) {
+    shouldReturnToAsk = false;
+  }
+  pendingReturnToAsk = false;
   try {
     clearReportStaleUi();
   } catch (e) {
@@ -4561,11 +4649,17 @@ function runAnalysis() {
         } catch (e) {
         }
       }
-    } else if (pendingReturnToAsk) {
+      if (shouldReturnToAsk) pendingReturnToAsk = true;
+    } else if (shouldReturnToAsk) {
       try {
         scheduleReturnToAsk();
       } catch (e) {
         pendingReturnToAsk = false;
+      }
+    } else {
+      try {
+        scheduleScrollToReportStart();
+      } catch (e) {
       }
     }
   }
@@ -5735,6 +5829,16 @@ function wire() {
   safe("askBox", () => {
     const askBox = $("askGrokBox");
     if (askBox) askBox.onchange = () => syncAskGrokPanel();
+    try {
+      restorePlainLanguagePref();
+    } catch (e) {
+    }
+    const pl = document.getElementById("askPlainLanguage");
+    if (pl) {
+      pl.onchange = function() {
+        persistPlainLanguagePref();
+      };
+    }
   });
   safe("hlChecks", () => {
     try {
