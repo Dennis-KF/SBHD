@@ -1,15 +1,15 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta http-equiv="Cache-Control" content="202611142330" />
-  <meta name="ta-build" content="202611142330" />
+  <meta http-equiv="Cache-Control" content="202611142400" />
+  <meta name="ta-build" content="202611142400" />
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="theme-color" content="#0f1419" />
-<title>Human Design Transit Analyzer - Model HDTA 6.3.6</title>
+<title>Human Design Transit Analyzer - Model HDTA 6.3.7</title>
 <link rel="manifest" href="manifest.webmanifest" />
 <style>
 
@@ -276,13 +276,46 @@ mark.display-hl-current{background:#e6c44c;color:#111;outline:2px solid #fff;}
   #askGrokPanel{ display:none!important; }
 
   #shareBtn,#reportDisplayBtn,#answerPrintBtn,#answerShareBtn,#answerDisplayBtn,.share-menu,.ask-answer-actions,#answerPrintRoot,#displayOverlay{ display:none!important; }
-  body.print-answer-only header,#controls,.toolbar,.banner,#cdnBanner,.status,.no-print{ display:none!important; }
-  body.print-answer-only #reportWrap,body.print-answer-only #report,body.print-answer-only #storyPanel > h2,body.print-answer-only #extraOutputOpts{ display:none!important; }
-  body.print-answer-only #storyPanel > :not(#answerPrintRoot){ display:none!important; }
+  html.print-answer-only,body.print-answer-only{
+    background:#fff!important; color:#000!important;
+    height:auto!important; max-height:none!important; overflow:visible!important;
+  }
+  body.print-answer-only > *:not(#answerPrintRoot){
+    display:none!important;
+  }
+  body.print-answer-only header,
+  body.print-answer-only #controls,
+  body.print-answer-only main,
+  body.print-answer-only .toolbar,
+  body.print-answer-only .banner,
+  body.print-answer-only #cdnBanner,
+  body.print-answer-only #storyPanel,
+  body.print-answer-only #storyToolbar,
+  body.print-answer-only #reportWrap,
+  body.print-answer-only #report,
+  body.print-answer-only #askGrokPanel,
+  body.print-answer-only #extraOutputOpts,
+  body.print-answer-only #displayOverlay,
+  body.print-answer-only #refineConfigModal,
+  body.print-answer-only #taErrorBanner{
+    display:none!important;
+  }
   body.print-answer-only #answerPrintRoot{
-    display:block!important; color:#000!important;
+    display:block!important;
+    visibility:visible!important;
+    color:#000!important;
+    background:#fff!important;
     font-family: Georgia, "Times New Roman", Times, serif;
-    font-size:11pt; line-height:1.5; max-width:none; margin:0; padding:0;
+    font-size:11pt; line-height:1.5;
+    max-width:none; width:auto; margin:0; padding:0;
+    position:static!important;
+    height:auto!important; max-height:none!important;
+    overflow:visible!important;
+    -webkit-print-color-adjust:exact;
+    print-color-adjust:exact;
+  }
+  body.print-answer-only #answerPrintRoot *{
+    visibility:visible!important;
   }
   body.print-answer-only #answerPrintRoot h1,body.print-answer-only #answerPrintRoot h2{ color:#000!important; font-size:1.25rem; margin:0 0 .5em; }
   body.print-answer-only #answerPrintRoot h3{ color:#000!important; font-size:1.1rem; margin:0.8em 0 0.35em; }
@@ -584,8 +617,8 @@ html{scroll-padding-top:calc(var(--hdta-sticky-offset, 0px) + 3.4rem)}
 
 </style>
 <script>
-/* Single source for the visible model number. Increment the last digit on each update (e.g. 6.3.6 → next). */
-window.HDTA_MODEL='6.3.6';
+/* Single source for the visible model number. Increment the last digit on each update (e.g. 6.3.7 → next). */
+window.HDTA_MODEL='6.3.7';
 (function(){
   var MODEL=window.HDTA_MODEL;
   var full='Human Design Transit Analyzer - Model HDTA '+MODEL;
@@ -655,7 +688,7 @@ window.HDTA_MODEL='6.3.6';
 <body>
 <div id="taErrorBanner" hidden role="alert"></div>
 <header>
-  <h1 id="appTitle">Human Design Transit Analyzer - Model HDTA 6.3.6</h1>
+  <h1 id="appTitle">Human Design Transit Analyzer - Model HDTA 6.3.7</h1>
   <p>Up to six members · Offline-capable ephemeris · True Lunar Node · Plain-language transit stories</p>
 </header>
 <div class="banner" id="cdnBanner"></div>
@@ -1037,7 +1070,7 @@ window.HDTA_MODEL='6.3.6';
     </div>
     <p class="hint" id="timelineHint" style="display:block;margin:.35rem 0 .5rem">Timeline scans the selected day or range in the chosen timezone (from local midnight to midnight) for gate/line ingresses that touch the entered chart(s). Selected by default.</p>
     <button type="button" id="runBtn">Run Human Design / Transit Analysis</button>
-    <p class="model-id" id="modelLabel">Model HDTA 6.3.6</p>
+    <p class="model-id" id="modelLabel">Model HDTA 6.3.7</p>
     <div class="status" id="status"></div>
   </section>
 
@@ -1077,7 +1110,6 @@ window.HDTA_MODEL='6.3.6';
         </div>
         </div>
     </div>
-    <div id="answerPrintRoot" hidden></div>
   </section>
 </main>
 
@@ -1150,8 +1182,8 @@ window.HDTA_MODEL='6.3.6';
 </div>
 
 <!-- Data is separate from the UI. Script order matters. Works via file:// on Windows and via https on iPhone/iPad Firefox. -->
-<script src="astronomy.browser.min.js?v=202611142330"></script>
-<script src="data.js?v=202611142330"></script>
+<script src="astronomy.browser.min.js?v=202611142400"></script>
+<script src="data.js?v=202611142400"></script>
 
 <script>
 /* ES5 quick-load + Full/Brief bootstrap: works even if later scripts fail. */
@@ -1268,7 +1300,8 @@ window.HDTA_MODEL='6.3.6';
   else { boot(); }
 })();
 </script>
-<script src="analyzer.js?v=202611142330"></script>
-<script src="app.js?v=202611142330"></script>
+<script src="analyzer.js?v=202611142400"></script>
+<script src="app.js?v=202611142400"></script>
+<div id="answerPrintRoot" hidden></div>
 </body>
 </html>

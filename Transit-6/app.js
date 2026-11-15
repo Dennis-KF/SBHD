@@ -4283,11 +4283,15 @@ function answerPrintInnerHtml(model) {
   return "<h1>Question &amp; Answer</h1>\n" + meta + "\n" + body;
 }
 function fillAnswerPrintRoot(model) {
-  const root = $("answerPrintRoot");
+  const root = hoistAnswerPrintRoot() || $("answerPrintRoot");
   if (!root) return "";
   const html = answerPrintInnerHtml(model || answerPrintModel());
   root.innerHTML = html;
   root.removeAttribute("hidden");
+  try {
+    root.setAttribute("aria-hidden", "false");
+  } catch (e) {
+  }
   try {
     markupHighlightRoot(root);
   } catch (e) {
@@ -4508,23 +4512,96 @@ async function shareOrFallback(kind, anchor) {
   openShareMenu(anchor, kind);
   return { used: "fallback" };
 }
+let answerPrintCleanupTimer = 0;
+let answerPrintCleanupFn = null;
+function endAnswerPrintMode() {
+  if (typeof answerPrintCleanupFn === "function") {
+    const fn = answerPrintCleanupFn;
+    answerPrintCleanupFn = null;
+    try {
+      fn();
+    } catch (e) {
+    }
+  }
+  try {
+    document.documentElement.classList.remove("print-answer-only");
+  } catch (e) {
+  }
+  try {
+    document.body.classList.remove("print-answer-only");
+  } catch (e) {
+  }
+}
+function hoistAnswerPrintRoot() {
+  const root = $("answerPrintRoot");
+  if (root && document.body && root.parentNode !== document.body) {
+    document.body.appendChild(root);
+  }
+  return root;
+}
 function printAnswerOnly() {
   if (!hasSuccessfulGrokAnswer()) {
     status("Ask a question first \u2014 then Print Question & Answer prints only the question and its answer.", "err");
     return false;
   }
+  try {
+    endAnswerPrintMode();
+  } catch (e) {
+  }
+  const root = hoistAnswerPrintRoot();
   fillAnswerPrintRoot(answerPrintModel());
+  if (root) {
+    root.removeAttribute("hidden");
+    try {
+      root.setAttribute("aria-hidden", "false");
+    } catch (e) {
+    }
+  }
+  document.documentElement.classList.add("print-answer-only");
   document.body.classList.add("print-answer-only");
   let cleaned = false;
+  let sawPrintMedia = false;
+  let onPrintMq = null;
   const cleanup = function() {
     if (cleaned) return;
     cleaned = true;
-    document.body.classList.remove("print-answer-only");
+    answerPrintCleanupFn = null;
+    try {
+      if (answerPrintCleanupTimer) {
+        clearTimeout(answerPrintCleanupTimer);
+        answerPrintCleanupTimer = 0;
+      }
+    } catch (e) {
+    }
+    try {
+      document.documentElement.classList.remove("print-answer-only");
+    } catch (e) {
+    }
+    try {
+      document.body.classList.remove("print-answer-only");
+    } catch (e) {
+    }
     try {
       window.removeEventListener("afterprint", cleanup);
     } catch (e) {
     }
+    try {
+      if (onPrintMq && window.matchMedia) {
+        const mq = window.matchMedia("print");
+        if (mq.removeEventListener) mq.removeEventListener("change", onPrintMq);
+        else if (mq.removeListener) mq.removeListener(onPrintMq);
+      }
+    } catch (e) {
+    }
   };
+  onPrintMq = function(ev) {
+    if (ev && ev.matches === true) {
+      sawPrintMedia = true;
+      return;
+    }
+    if (sawPrintMedia) cleanup();
+  };
+  answerPrintCleanupFn = cleanup;
   try {
     window.addEventListener("afterprint", cleanup);
   } catch (e) {
@@ -4532,22 +4609,31 @@ function printAnswerOnly() {
   try {
     if (window.matchMedia) {
       const mq = window.matchMedia("print");
-      const onq = function(ev) {
-        if (ev && ev.matches === false) cleanup();
-      };
-      if (mq.addEventListener) mq.addEventListener("change", onq);
-      else if (mq.addListener) mq.addListener(onq);
+      if (mq.addEventListener) mq.addEventListener("change", onPrintMq);
+      else if (mq.addListener) mq.addListener(onPrintMq);
     }
   } catch (e) {
   }
+  answerPrintCleanupTimer = setTimeout(cleanup, 18e4);
+  const kick = function() {
+    try {
+      window.print();
+    } catch (e) {
+      cleanup();
+      status("Print failed: " + (e && e.message ? e.message : e), "err");
+    }
+  };
   try {
-    window.print();
+    if (typeof requestAnimationFrame === "function") {
+      requestAnimationFrame(function() {
+        requestAnimationFrame(kick);
+      });
+    } else {
+      setTimeout(kick, 50);
+    }
   } catch (e) {
-    cleanup();
-    status("Print failed: " + (e && e.message ? e.message : e), "err");
-    return false;
+    kick();
   }
-  setTimeout(cleanup, 2e3);
   return true;
 }
 function printReport() {
@@ -4557,7 +4643,7 @@ function printReport() {
     return;
   }
   try {
-    document.body.classList.remove("print-answer-only");
+    endAnswerPrintMode();
   } catch (e) {
   }
   try {
