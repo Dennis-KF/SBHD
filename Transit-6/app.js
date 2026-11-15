@@ -3358,7 +3358,7 @@ function askGrokBoxOn() {
   }
 }
 const PLAIN_LANG_STORAGE_KEY = "hdta_ask_plain_language";
-const PLAIN_LANG_INSTRUCTION = 'PLAIN LANGUAGE: Write in everyday wording a thoughtful friend would use. Avoid Human Design jargon (gates, lines, channels, centers, Type, Strategy, Authority, Not-Self, definition, and similar terms). If a technical idea is essential, explain it in one short plain sentence instead of using the term. Be concrete and practical: name the people involved, give specific weekdays and 12-hour AM/PM times from the supplied context, and say what they can do or what they may notice. Keep potentials, not predictions (for example, "this may favor" or "this can feel like," never "this will happen"). Use first names only. Eike is she/her. Still use only the supplied meanings and context; do not invent facts.';
+const PLAIN_LANG_INSTRUCTION = 'PLAIN LANGUAGE AND HOW THEY WORK TOGETHER: First answer the user\'s actual question in everyday wording. Then explain how ALL loaded members work together as one group, and then how EVERY pair works directly with each other. Avoid Human Design jargon (gates, lines, channels, centers, Type, Strategy, Authority, Not-Self, definition, and similar terms). If a technical idea is essential, explain it in one short plain sentence instead of using the term. Be concrete and practical: name the people, use weekdays and 12-hour AM/PM times from the supplied context, and give practical suggestions. Keep potentials, not predictions (for example, "this may favor" or "this can feel like," never "this will happen"). Use first names only. Eike is she/her. Cover every member. Pair names in alphabetical first-name order (A & B). Do not invent facts. After the prose, output one fenced block marked ```hdta with JSON: {"answer":"...","people":[{"name":"...","impression":"..."}],"group":{"strengths":"...","flow":"...","snag":"...","roles":"...","suggestions":"..."},"pairs":[{"a":"...","b":"...","brings":"...","click":"...","friction":"...","suggestion":"..."}]} and nothing after that block.';
 function askPlainLanguageOn() {
   try {
     const el = document.getElementById("askPlainLanguage");
@@ -3396,7 +3396,383 @@ function applyPlainLanguageToAsk(out) {
   } else {
     out.context.plainLanguage = false;
   }
+  try {
+    if (on && typeof listAskPairNames === "function") {
+      var names = listAskPairNames();
+      out.requiredPeople = names.people;
+      out.requiredPairs = names.pairs;
+      out.context.requiredPeople = names.people;
+      out.context.requiredPairs = names.pairs;
+      if (names.people.length) {
+        var extra = "Required members (every one, first names only): " + names.people.join(", ") + ".";
+        if (names.pairs.length) extra += " Required pairs (every pair once, this order): " + names.pairs.join("; ") + ".";
+        extra += " Also include an All-together group section covering strengths, where it flows, where it may snag, roles, and practical suggestions.";
+        out.context.instruction = String(out.context.instruction || "") + "\n" + extra;
+      }
+    }
+  } catch (e) {
+  }
   return out;
+}
+function listAskPairNames() {
+  var seen = {};
+  var names = [];
+  try {
+    var people = typeof loadedPeopleList === "function" ? loadedPeopleList() : [];
+    for (var i = 0; i < people.length; i++) {
+      var n = firstNameMember(people[i] && people[i].name);
+      var k = String(n || "").toLowerCase();
+      if (n && !seen[k]) {
+        seen[k] = 1;
+        names.push(n);
+      }
+    }
+  } catch (e) {
+  }
+  names.sort(typeof cmpAskName === "function" ? cmpAskName : function(a2, b2) {
+    return String(a2).localeCompare(String(b2), "en", { sensitivity: "base" });
+  });
+  var pairs = [];
+  for (var a = 0; a < names.length; a++) {
+    for (var b = a + 1; b < names.length; b++) {
+      pairs.push(names[a] + " & " + names[b]);
+    }
+  }
+  return { people: names, pairs };
+}
+function pairSortKey(a, b) {
+  var cmp = typeof cmpAskName === "function" ? cmpAskName : function(x, y) {
+    return String(x || "").localeCompare(String(y || ""), "en", { sensitivity: "base" });
+  };
+  var n1 = String(a || ""), n2 = String(b || "");
+  if (cmp(n1, n2) > 0) {
+    var t = n1;
+    n1 = n2;
+    n2 = t;
+  }
+  return n1 + " & " + n2;
+}
+function textBlock(s) {
+  s = String(s == null ? "" : s).trim();
+  if (!s) return "";
+  return s.split(/\n{2,}/).map(function(p) {
+    p = p.trim();
+    if (!p) return "";
+    return "<p>" + escapeGrok(p).replace(/\n/g, "<br>") + "</p>";
+  }).join("");
+}
+function extractHdtaJson(text) {
+  text = String(text == null ? "" : text);
+  var chunks = [];
+  var re = /```(?:hdta|json)\s*([\s\S]*?)```/gi;
+  var m;
+  while (m = re.exec(text)) chunks.push(m[1]);
+  if (!chunks.length) {
+    var start = text.search(/\{\s*"(?:answer|pairs|group|people)"\s*:/);
+    if (start >= 0) {
+      var depth = 0, end = -1;
+      for (var i = start; i < text.length; i++) {
+        var ch = text.charAt(i);
+        if (ch === "{") depth++;
+        else if (ch === "}") {
+          depth--;
+          if (depth === 0) {
+            end = i + 1;
+            break;
+          }
+        }
+      }
+      if (end > start) chunks.push(text.slice(start, end));
+    }
+  }
+  for (var c = chunks.length - 1; c >= 0; c--) {
+    var raw = String(chunks[c] || "").trim();
+    if (!raw) continue;
+    try {
+      return JSON.parse(raw);
+    } catch (e) {
+      try {
+        return JSON.parse(raw.replace(/,\s*([}\]])/g, "$1"));
+      } catch (e2) {
+      }
+    }
+  }
+  return null;
+}
+function pickField(obj, keys) {
+  if (!obj || typeof obj !== "object") return "";
+  for (var i = 0; i < keys.length; i++) {
+    if (obj[keys[i]] != null && String(obj[keys[i]]).trim()) return String(obj[keys[i]]).trim();
+  }
+  return "";
+}
+function normalizePlainLanguageParsed(obj, fallbackText) {
+  var out = { answer: "", people: [], group: null, pairs: [], fallback: "" };
+  if (!obj || typeof obj !== "object") {
+    out.fallback = String(fallbackText || "");
+    out.answer = out.fallback;
+    return out;
+  }
+  out.answer = pickField(obj, ["answer", "opening", "response", "questionAnswer"]);
+  var people = obj.people || obj.members || obj.impressions || [];
+  if (Array.isArray(people)) {
+    people.forEach(function(p) {
+      if (typeof p === "string") {
+        var name = firstNameMember(p);
+        if (name) out.people.push({ name, impression: p });
+        return;
+      }
+      var name = firstNameMember(pickField(p, ["name", "person", "firstName"]));
+      var impression = pickField(p, ["impression", "howTheyComeAcross", "text", "blurb", "comeAcross"]);
+      if (name) out.people.push({ name, impression });
+    });
+  }
+  out.people.sort(function(a, b) {
+    return (typeof cmpAskName === "function" ? cmpAskName : function(x, y) {
+      return String(x).localeCompare(String(y));
+    })(a.name, b.name);
+  });
+  var g = obj.group || obj.allTogether || obj.together || obj.overall || null;
+  if (typeof g === "string" && g.trim()) {
+    out.group = { strengths: g, flow: "", snag: "", roles: "", suggestions: "" };
+  } else if (g && typeof g === "object") {
+    out.group = {
+      strengths: pickField(g, ["strengths", "strengthsTogether", "shared", "energy", "sharedEnergy"]),
+      flow: pickField(g, ["flow", "whereItFlows", "flows"]),
+      snag: pickField(g, ["snag", "friction", "whereItMaySnag", "frictionPoints"]),
+      roles: pickField(g, ["roles", "whoStepsWhere", "rolesInTheGroup"]),
+      suggestions: pickField(g, ["suggestions", "practical", "practicalSuggestions", "workingTogether"])
+    };
+    var has = out.group.strengths || out.group.flow || out.group.snag || out.group.roles || out.group.suggestions;
+    if (!has) out.group = null;
+  }
+  var pairs = obj.pairs || obj.pairSections || [];
+  if (Array.isArray(pairs)) {
+    pairs.forEach(function(p) {
+      if (!p || typeof p !== "object") return;
+      var a = "", b = "";
+      if (Array.isArray(p.names) && p.names.length >= 2) {
+        a = firstNameMember(p.names[0]);
+        b = firstNameMember(p.names[1]);
+      } else {
+        a = firstNameMember(pickField(p, ["a", "nameA", "personA", "first"]));
+        b = firstNameMember(pickField(p, ["b", "nameB", "personB", "second"]));
+      }
+      if (!a || !b || a.toLowerCase() === b.toLowerCase()) return;
+      var key = pairSortKey(a, b);
+      var parts = key.split(" & ");
+      out.pairs.push({
+        a: parts[0],
+        b: parts[1],
+        key,
+        brings: pickField(p, ["brings", "whatEachBrings", "eachBrings"]),
+        click: pickField(p, ["click", "whereTheyClick", "clickWhere"]),
+        friction: pickField(p, ["friction", "whereFriction", "frictionMayArise"]),
+        suggestion: pickField(p, ["suggestion", "workingTogether", "practical", "practicalSuggestion"])
+      });
+    });
+  }
+  var seen = {};
+  var uniq = [];
+  out.pairs.forEach(function(p) {
+    if (!seen[p.key]) {
+      seen[p.key] = 1;
+      uniq.push(p);
+    }
+  });
+  uniq.sort(function(x, y) {
+    return (typeof cmpAskName === "function" ? cmpAskName : function(a, b) {
+      return String(a).localeCompare(String(b));
+    })(x.a, y.a) || (typeof cmpAskName === "function" ? cmpAskName : function(a, b) {
+      return String(a).localeCompare(String(b));
+    })(x.b, y.b);
+  });
+  out.pairs = uniq;
+  if (!out.answer) out.answer = String(fallbackText || "").trim();
+  return out;
+}
+function parseHeadingPlainLanguage(text) {
+  text = String(text || "");
+  var out = { answer: "", people: [], group: null, pairs: [], fallback: text };
+  var parts = text.split(/^##\s+/m);
+  if (parts.length <= 1) {
+    out.answer = text.trim();
+    return out;
+  }
+  out.answer = String(parts[0] || "").replace(/^===ANSWER===\s*/i, "").trim();
+  var group = { strengths: "", flow: "", snag: "", roles: "", suggestions: "" };
+  var hasGroup = false;
+  function takeLabeled(body2) {
+    var fields = { brings: "", click: "", friction: "", suggestion: "" };
+    var map = [
+      ["brings", /^(?:\*\*)?(?:What each brings|Each brings)(?:\*\*)?\s*:\s*/i],
+      ["click", /^(?:\*\*)?(?:Where they click|Click)(?:\*\*)?\s*:\s*/i],
+      ["friction", /^(?:\*\*)?(?:Where friction may arise|Friction)(?:\*\*)?\s*:\s*/i],
+      ["suggestion", /^(?:\*\*)?(?:Working together|Practical suggestion|Suggestion)(?:\*\*)?\s*:\s*/i]
+    ];
+    var lines = String(body2 || "").split(/\n/);
+    var cur = null, buf = [];
+    function flush() {
+      if (cur) fields[cur] = (fields[cur] ? fields[cur] + "\n" : "") + buf.join("\n").trim();
+      buf = [];
+    }
+    lines.forEach(function(line) {
+      var hit = null;
+      for (var i2 = 0; i2 < map.length; i2++) {
+        if (map[i2][1].test(line)) {
+          hit = map[i2];
+          break;
+        }
+      }
+      if (hit) {
+        flush();
+        cur = hit[0];
+        buf = [line.replace(hit[1], "").trim()];
+      } else buf.push(line);
+    });
+    flush();
+    if (!fields.brings && !fields.click && !fields.friction && !fields.suggestion) fields.brings = String(body2 || "").trim();
+    return fields;
+  }
+  for (var i = 1; i < parts.length; i++) {
+    var block = parts[i];
+    var nl = block.indexOf("\n");
+    var title = (nl < 0 ? block : block.slice(0, nl)).trim();
+    var body = (nl < 0 ? "" : block.slice(nl + 1)).trim();
+    var t = title.replace(/[:*]/g, "").trim();
+    if (/^(how they come across|people|members)/i.test(t)) {
+      body.split(/^###\s+/m).forEach(function(sub, idx) {
+        if (idx === 0 && !/^###/.test(body)) return;
+        var sn = sub.indexOf("\n");
+        var nm = firstNameMember((sn < 0 ? sub : sub.slice(0, sn)).trim());
+        var im = (sn < 0 ? "" : sub.slice(sn + 1)).trim();
+        if (nm) out.people.push({ name: nm, impression: im });
+      });
+    } else if (/^(all together|how everyone works together|the group|overall)/i.test(t)) {
+      hasGroup = true;
+      body.split(/^###\s+/m).forEach(function(sub, idx) {
+        var sn = sub.indexOf("\n");
+        var st = (sn < 0 ? sub : sub.slice(0, sn)).trim();
+        var sb = (sn < 0 ? "" : sub.slice(sn + 1)).trim();
+        if (/strength/i.test(st)) group.strengths = sb;
+        else if (/flow/i.test(st)) group.flow = sb;
+        else if (/snag|friction/i.test(st)) group.snag = sb;
+        else if (/role/i.test(st)) group.roles = sb;
+        else if (/practical|suggest/i.test(st)) group.suggestions = sb;
+        else if (!group.strengths) group.strengths = sb || st;
+      });
+    } else if (/^(how each person works with each other|pairs)/i.test(t)) {
+      body.split(/^###\s+/m).forEach(function(sub, idx) {
+        if (idx === 0 && !/^###/.test(body)) return;
+        var sn = sub.indexOf("\n");
+        var st = (sn < 0 ? sub : sub.slice(0, sn)).trim();
+        var sb = (sn < 0 ? "" : sub.slice(sn + 1)).trim();
+        var mm = st.split(/\s*(?:&|and)\s*/i);
+        if (mm.length >= 2) {
+          var fields = takeLabeled(sb);
+          var key = pairSortKey(firstNameMember(mm[0]), firstNameMember(mm[1]));
+          var parts2 = key.split(" & ");
+          out.pairs.push({ a: parts2[0], b: parts2[1], key, brings: fields.brings, click: fields.click, friction: fields.friction, suggestion: fields.suggestion });
+        }
+      });
+    }
+  }
+  if (hasGroup) out.group = group;
+  return normalizePlainLanguageParsed({ answer: out.answer, people: out.people, group: out.group, pairs: out.pairs }, text);
+}
+function parsePlainLanguageAnswer(text) {
+  var raw = String(text == null ? "" : text);
+  var json = extractHdtaJson(raw);
+  var parsed = null;
+  if (json) parsed = normalizePlainLanguageParsed(json, raw);
+  if (!parsed || !parsed.pairs.length && !parsed.group && !(json && json.answer)) {
+    var headed = parseHeadingPlainLanguage(raw.replace(/```(?:hdta|json)[\s\S]*?```/gi, "").trim());
+    if (headed && (headed.pairs.length || headed.group || headed.people.length)) {
+      if (parsed && parsed.answer && !headed.answer) headed.answer = parsed.answer;
+      parsed = headed;
+    }
+  }
+  if (!parsed) parsed = { answer: raw, people: [], group: null, pairs: [], fallback: raw };
+  if (!parsed.answer) parsed.answer = raw;
+  return parsed;
+}
+function detailsCard(cls, title, inner, startOpen) {
+  return '<details class="plain-card ' + cls + '"' + (startOpen ? " open" : "") + "><summary>" + escapeGrok(title) + '</summary><div class="plain-card-body">' + inner + "</div></details>";
+}
+function renderPlainLanguageAnswerHtml(question, body) {
+  var parsed = parsePlainLanguageAnswer(body);
+  var required = typeof listAskPairNames === "function" ? listAskPairNames() : { people: [], pairs: [] };
+  var pairMap = {};
+  parsed.pairs.forEach(function(p) {
+    pairMap[p.key] = p;
+  });
+  var ordered = [];
+  (required.pairs || []).forEach(function(label) {
+    if (pairMap[label]) ordered.push(pairMap[label]);
+  });
+  parsed.pairs.forEach(function(p) {
+    if (!(required.pairs || []).some(function(l) {
+      return l === p.key;
+    })) ordered.push(p);
+  });
+  if (!ordered.length) ordered = parsed.pairs.slice();
+  var html = "";
+  if (question) html += '<p class="grok-q"><em>Asked: ' + escapeGrok(question) + "</em></p>";
+  var opening = String(parsed.answer || "").replace(/```(?:hdta|json)[\s\S]*?```/gi, "").trim();
+  html += textBlock(opening);
+  var needInteractive = !!(parsed.group || ordered.length || parsed.people.length);
+  if (!needInteractive) return opening ? html : "";
+  html += '<div class="plain-interactive">';
+  html += '<div class="pair-toolbar no-print"><button type="button" class="secondary" data-pair-expand>Expand all</button><button type="button" class="secondary" data-pair-collapse>Collapse all</button></div>';
+  if (parsed.people.length) {
+    html += '<h3 class="plain-subhead">How they come across</h3>';
+    parsed.people.forEach(function(p) {
+      html += detailsCard("person-card", p.name, textBlock(p.impression || ""), false);
+    });
+  }
+  if (parsed.group) {
+    html += '<h3 class="plain-subhead">All together</h3>';
+    var g = parsed.group;
+    var subs = [
+      ["Strengths together", g.strengths],
+      ["Where it flows", g.flow],
+      ["Where it may snag", g.snag],
+      ["Roles", g.roles],
+      ["Practical suggestions", g.suggestions]
+    ];
+    subs.forEach(function(s) {
+      if (s[1]) html += detailsCard("group-card", s[0], textBlock(s[1]), false);
+    });
+  }
+  if (ordered.length) {
+    html += '<h3 class="plain-subhead">How each person works with each other</h3>';
+    ordered.forEach(function(p) {
+      var inner = "";
+      if (p.brings) inner += "<h4>What each brings</h4>" + textBlock(p.brings);
+      if (p.click) inner += "<h4>Where they click</h4>" + textBlock(p.click);
+      if (p.friction) inner += "<h4>Where friction may arise</h4>" + textBlock(p.friction);
+      if (p.suggestion) inner += "<h4>Working together</h4>" + textBlock(p.suggestion);
+      if (!inner) inner = textBlock((p.brings || "") + " " + (p.click || "") + " " + (p.friction || "") + " " + (p.suggestion || ""));
+      html += detailsCard("pair-card", p.a + " and " + p.b, inner, false);
+    });
+  }
+  html += "</div>";
+  return html;
+}
+function wirePlainCardControls() {
+  var report = document.getElementById("report");
+  if (!report || report.getAttribute("data-plain-wired") === "1") return;
+  report.setAttribute("data-plain-wired", "1");
+  report.addEventListener("click", function(ev) {
+    var t = ev.target;
+    if (!t || !t.closest) return;
+    var expand = t.closest("[data-pair-expand]");
+    var collapse = t.closest("[data-pair-collapse]");
+    if (!expand && !collapse) return;
+    ev.preventDefault();
+    var cards = report.querySelectorAll(".grok-answer details.plain-card");
+    for (var i = 0; i < cards.length; i++) cards[i].open = !!expand;
+  });
 }
 function updateAskGrokCount() {
   const ta = $("askGrokQuestion");
@@ -3413,8 +3789,20 @@ function updateAskGrokCount() {
   }
 }
 function syncAskGrokPanel() {
+  const on = askGrokBoxOn();
+  try {
+    document.body.classList.toggle("ask-question-off", !on);
+  } catch (e) {
+  }
   const panel = $("askGrokPanel");
-  if (panel) panel.style.display = askGrokBoxOn() ? "block" : "none";
+  if (panel) {
+    panel.style.display = on ? "block" : "none";
+    panel.hidden = !on;
+  }
+  const plLab = document.getElementById("askPlainLanguageLabel") || document.querySelector('label[for="askPlainLanguage"]');
+  if (plLab) plLab.hidden = !on;
+  const plHint = document.getElementById("askPlainLanguageHint");
+  if (plHint) plHint.hidden = !on;
   updateAskGrokCount();
   applyGrokAnswerToReport();
 }
@@ -4157,6 +4545,13 @@ function grokSectionHtml(kind, question, body, meta) {
   } else {
     const paras = String(body || "").split(/\n{2,}/).map((s) => s.trim()).filter(Boolean);
     inner = (q ? '<p class="grok-q"><em>Asked: ' + q + "</em></p>" : "") + paras.map((p) => "<p>" + escapeGrok(p).replace(/\n/g, "<br>") + "</p>").join("\n");
+    try {
+      if (typeof askPlainLanguageOn === "function" && askPlainLanguageOn() && typeof renderPlainLanguageAnswerHtml === "function") {
+        var structured = renderPlainLanguageAnswerHtml(question || "", body);
+        if (structured) inner = structured;
+      }
+    } catch (e) {
+    }
     if (meta && meta.finishReason === "length") {
       inner += '<p class="grok-length-note"><em>' + escapeGrok("This answer reached the length limit; ask a narrower follow-up for more.") + "</em></p>";
     }
@@ -4242,6 +4637,10 @@ function applyGrokAnswerToReport() {
   }
   try {
     placeAskAnswerActions();
+  } catch (e) {
+  }
+  try {
+    if (typeof wirePlainCardControls === "function") wirePlainCardControls();
   } catch (e) {
   }
 }
@@ -5082,8 +5481,12 @@ function highlightedAnswerFragment() {
   if (!reportAns) return "";
   const clone = reportAns.cloneNode(true);
   try {
-    clone.querySelectorAll(".ask-answer-actions, .ask-answer-actions-slot, #askAnswerActions, h2, .grok-q, .grok-length-note, .grok-answer-header").forEach(function(el) {
+    clone.querySelectorAll(".ask-answer-actions, .ask-answer-actions-slot, #askAnswerActions, h2, .grok-q, .grok-length-note, .grok-answer-header, .pair-toolbar, .no-print").forEach(function(el) {
       el.remove();
+    });
+    clone.querySelectorAll("details").forEach(function(d) {
+      d.setAttribute("open", "open");
+      d.open = true;
     });
   } catch (e) {
   }
@@ -5420,7 +5823,12 @@ function qaPrintHighlightCss() {
     bits.push(".hl-between-block{font-weight:700!important;font-style:italic!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}");
   }
   bits.push("@page{margin:12mm;}");
-  bits.push("@media print{.qa-toolbar,.no-print{display:none!important}body{padding:0}}");
+  bits.push("details.plain-card,details.plain-card[open]{display:block!important;border:1px solid #ccc;border-radius:6px;margin:0 0 .85em;padding:.45em .7em;break-inside:avoid;}");
+  bits.push("details.plain-card > summary,details.plain-card > .plain-card-body,details.plain-card[open] > *{display:block!important;}");
+  bits.push("details.plain-card > summary{font-weight:700;margin:0 0 .35em;cursor:default;}");
+  bits.push("h4{margin:.45em 0 .2em;font-size:1em;}");
+  bits.push(".plain-subhead{font-size:1.1em;margin:1em 0 .4em;}");
+  bits.push("@media print{.qa-toolbar,.no-print,.pair-toolbar{display:none!important}body{padding:0}details.plain-card,details.plain-card[open],details.plain-card > summary,details.plain-card > .plain-card-body,details.plain-card[open] > *{display:block!important}}");
   return bits.join("\n");
 }
 function buildQaPrintBodyHtml() {
@@ -5449,6 +5857,16 @@ function buildQaPrintBodyHtml() {
   wrap.innerHTML = "<h1>Question &amp; Answer</h1>\n" + meta + "\n" + inner;
   try {
     if (typeof markupHighlightRoot === "function") markupHighlightRoot(wrap);
+  } catch (e) {
+  }
+  try {
+    wrap.querySelectorAll("details").forEach(function(d) {
+      d.setAttribute("open", "open");
+      d.open = true;
+    });
+    wrap.querySelectorAll(".pair-toolbar, .no-print").forEach(function(el) {
+      if (el && el.parentNode) el.parentNode.removeChild(el);
+    });
   } catch (e) {
   }
   return wrap.innerHTML;
@@ -5828,7 +6246,14 @@ function wire() {
   });
   safe("askBox", () => {
     const askBox = $("askGrokBox");
-    if (askBox) askBox.onchange = () => syncAskGrokPanel();
+    if (askBox) {
+      const sync = function() {
+        syncAskGrokPanel();
+      };
+      askBox.onchange = sync;
+      askBox.onclick = sync;
+      askBox.addEventListener("input", sync);
+    }
     try {
       restorePlainLanguagePref();
     } catch (e) {
@@ -5838,6 +6263,10 @@ function wire() {
       pl.onchange = function() {
         persistPlainLanguagePref();
       };
+    }
+    try {
+      syncAskGrokPanel();
+    } catch (e) {
     }
   });
   safe("hlChecks", () => {

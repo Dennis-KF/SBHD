@@ -1,15 +1,15 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta http-equiv="Cache-Control" content="202611151250" />
-  <meta name="ta-build" content="202611151250" />
+  <meta http-equiv="Cache-Control" content="202611151330" />
+  <meta name="ta-build" content="202611151330" />
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="theme-color" content="#0f1419" />
-<title>Human Design Transit Analyzer - Model HDTA 6.4.13</title>
+<title>Human Design Transit Analyzer - Model HDTA 6.4.14</title>
 <link rel="manifest" href="manifest.webmanifest" />
 <style>
 
@@ -205,6 +205,50 @@ body.hl-between-on .hl-between-block,
   min-width:min(100%, 15.5rem);
   max-width:100%;
 }
+@media(max-width:600px){
+  .ask-option-row > .check{flex:1 1 100%;}
+}
+body.ask-question-off #askGrokPanel,
+body.ask-question-off #askPlainLanguageHint,
+body.ask-question-off #askPlainLanguageLabel,
+body.ask-question-off label[for="askPlainLanguage"],
+body.ask-question-off #askAnswerActions{
+  display:none!important;
+}
+.pair-toolbar{display:flex;flex-wrap:wrap;gap:.4rem;margin:.55rem 0 .45rem;}
+.pair-toolbar button{width:auto;margin-top:0;min-height:44px;padding:.4rem .8rem;}
+#report .plain-subhead{margin:1rem 0 .4rem;font-size:1.05rem;color:var(--gold,#d7c27a);}
+#report details.plain-card{
+  margin:.4rem 0;
+  border:1px solid var(--border);
+  border-radius:8px;
+  background:rgba(18,26,38,.55);
+  overflow:hidden;
+}
+#report details.plain-card > summary{
+  cursor:pointer;
+  list-style:none;
+  padding:.65rem .8rem;
+  font-weight:700;
+  min-height:44px;
+  display:block;
+  line-height:1.4;
+}
+#report details.plain-card > summary::-webkit-details-marker{display:none;}
+#report details.plain-card > summary::before{
+  content:"▸";
+  display:inline-block;
+  margin-right:.45rem;
+  transition:transform .15s ease;
+}
+#report details.plain-card[open] > summary::before{transform:rotate(90deg);}
+#report details.plain-card .plain-card-body{padding:.15rem .8rem .7rem;}
+#report details.plain-card .plain-card-body h4{margin:.55rem 0 .2rem;font-size:.95rem;color:var(--gold,#d7c27a);}
+@media print{
+  details.plain-card, details.plain-card[open]{display:block!important;break-inside:avoid;}
+  details.plain-card > summary, details.plain-card > .plain-card-body, details.plain-card[open] > *{display:block!important;}
+  .pair-toolbar{display:none!important;}
+}
 
 .ask-grok-actions{display:flex;align-items:center;gap:.6rem;margin-top:.35rem;flex-wrap:wrap}
 
@@ -378,7 +422,9 @@ button,.secondary{touch-action:manipulation;-webkit-tap-highlight-color:transpar
   #extraOutputOpts > p.hint{display:none}
   #extraOutputNeedReportHint:not([hidden]),
   #betweenMembersDisabledHint:not([hidden]),
-  #betweenPairHint:not([hidden]){display:block!important}
+  #betweenPairHint:not([hidden]),
+  #askGrokHint:not([hidden]),
+  #askPlainLanguageHint:not([hidden]){display:block!important}
   #askGrokBtn{min-width:5.5rem}
   #askGrokQuestion{min-height:5.5rem}
 }
@@ -714,8 +760,8 @@ html{scroll-padding-top:calc(var(--hdta-sticky-offset, 0px) + 3.4rem)}
 
 </style>
 <script>
-/* Single source for the visible model number. Increment the last digit on each update (e.g. 6.4.13 → next). */
-window.HDTA_MODEL='6.4.13';
+/* Single source for the visible model number. Increment the last digit on each update (e.g. 6.4.14 → next). */
+window.HDTA_MODEL='6.4.14';
 (function(){
   var MODEL=window.HDTA_MODEL;
   var full='Human Design Transit Analyzer - Model HDTA '+MODEL;
@@ -785,7 +831,7 @@ window.HDTA_MODEL='6.4.13';
 <body>
 <div id="taErrorBanner" hidden role="alert"></div>
 <header>
-  <h1 id="appTitle">Human Design Transit Analyzer - Model HDTA 6.4.13</h1>
+  <h1 id="appTitle">Human Design Transit Analyzer - Model HDTA 6.4.14</h1>
   <p>Up to six members · Offline-capable ephemeris · True Lunar Node · Plain-language transit stories</p>
 </header>
 <div class="banner" id="cdnBanner"></div>
@@ -1168,7 +1214,7 @@ window.HDTA_MODEL='6.4.13';
     <p class="hint" id="timelineHint" style="display:block;margin:.35rem 0 .5rem">Timeline scans the selected day or range in the chosen timezone (from local midnight to midnight) for gate/line ingresses that touch the entered chart(s). Selected by default.</p>
     <p class="run-stale-hint no-print" id="runStaleHint" hidden>Changes made — Press to Update</p>
     <button type="button" id="runBtn">Run Human Design / Transit Analysis</button>
-    <p class="model-id" id="modelLabel">Model HDTA 6.4.13</p>
+    <p class="model-id" id="modelLabel">Model HDTA 6.4.14</p>
     <div class="status" id="status"></div>
   </section>
 
@@ -1190,13 +1236,13 @@ window.HDTA_MODEL='6.4.13';
           <input type="checkbox" id="askGrokBox" checked />
           Ask a question about Advantages and Difficulties
         </label>
-        <label class="check" for="askPlainLanguage">
+        <label class="check" for="askPlainLanguage" id="askPlainLanguageLabel">
           <input type="checkbox" id="askPlainLanguage" checked />
-          Non-technical language with concrete answers
+          Plain-language: how each person works with each other
         </label>
       </div>
       <p class="hint" id="askGrokHint" style="margin:.05rem 0 .15rem">Checked by default. When on, a question box appears. The question is answered from the checked sections' output (or the full regular report if neither section is checked). The date range and member names are included. The answer is added under its heading in the report above so it prints and saves as PDF. Always available here, whether or not Real-World Influence is checked.</p>
-      <p class="hint" id="askPlainLanguageHint" style="margin:.05rem 0 .35rem">Checked by default. When on, answers use everyday wording and name specific people, weekdays, 12-hour times, and practical next steps.</p>
+      <p class="hint" id="askPlainLanguageHint" style="margin:.05rem 0 .35rem">Checked by default. When on, answers use everyday wording, explain how the whole group works together, and, for every pair, how they work with each other — what each brings, where they click, where friction may arise, and a practical suggestion, with weekdays and 12-hour times. Tap a section to open or close it.</p>
       <div id="askGrokPanel" class="no-print" style="display:block">
         <p id="askProcessingMsg" hidden>Answer is in process, please wait</p>
         <label for="askGrokQuestion">Your question</label>
@@ -1287,8 +1333,8 @@ window.HDTA_MODEL='6.4.13';
 </div>
 
 <!-- Data is separate from the UI. Script order matters. Works via file:// on Windows and via https on iPhone/iPad Firefox. -->
-<script src="astronomy.browser.min.js?v=202611151250"></script>
-<script src="data.js?v=202611151250"></script>
+<script src="astronomy.browser.min.js?v=202611151330"></script>
+<script src="data.js?v=202611151330"></script>
 
 <script>
 /* ES5 quick-load + Full/Brief bootstrap: works even if later scripts fail. */
@@ -1405,8 +1451,8 @@ window.HDTA_MODEL='6.4.13';
   else { boot(); }
 })();
 </script>
-<script src="analyzer.js?v=202611151250"></script>
-<script src="app.js?v=202611151250"></script>
+<script src="analyzer.js?v=202611151330"></script>
+<script src="app.js?v=202611151330"></script>
 <div id="answerPrintRoot" hidden></div>
 </body>
 </html>
