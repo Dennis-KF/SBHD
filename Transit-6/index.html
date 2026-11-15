@@ -1,15 +1,15 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta http-equiv="Cache-Control" content="202611142100" />
-  <meta name="ta-build" content="202611142100" />
+  <meta http-equiv="Cache-Control" content="202611142330" />
+  <meta name="ta-build" content="202611142330" />
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="theme-color" content="#0f1419" />
-<title>Human Design Transit Analyzer - Model HDTA 6.3.3</title>
+<title>Human Design Transit Analyzer - Model HDTA 6.3.6</title>
 <link rel="manifest" href="manifest.webmanifest" />
 <style>
 
@@ -138,14 +138,37 @@ body.hl-between-on .hl-between-block,
   font-style:italic!important;
 }
 #hlToggleStatus{margin:.15rem 0 .35rem;font-size:.9rem;color:var(--muted);min-height:1.2em}
+
 @media print{
   body.hl-underline-on span.hl-transit,
-  #report.hl-underline-on span.hl-transit{text-decoration:underline!important}
+  #report.hl-underline-on span.hl-transit,
+  #answerPrintRoot span.hl-transit,
+  #displayOverlay.hl-underline-on span.hl-transit{
+    text-decoration:underline!important;
+    text-underline-offset:.12em;
+    -webkit-print-color-adjust:exact;
+    print-color-adjust:exact;
+  }
   body.hl-affected-on span.hl-affected,
-  #report.hl-affected-on span.hl-affected{font-weight:700!important}
+  #report.hl-affected-on span.hl-affected,
+  #answerPrintRoot span.hl-affected,
+  #displayOverlay.hl-affected-on span.hl-affected{
+    font-weight:700!important;
+    font-style:normal;
+    -webkit-print-color-adjust:exact;
+    print-color-adjust:exact;
+  }
   body.hl-between-on .hl-between-block,
-  #report.hl-between-on .hl-between-block{font-weight:700!important;font-style:italic!important}
+  #report.hl-between-on .hl-between-block,
+  #answerPrintRoot .hl-between-block,
+  #displayOverlay.hl-between-on .hl-between-block{
+    font-weight:700!important;
+    font-style:italic!important;
+    -webkit-print-color-adjust:exact;
+    print-color-adjust:exact;
+  }
 }
+
 
 #extraOutputOpts input[disabled]{cursor:not-allowed}
 .more-members{margin:.75rem 0 .55rem;border:1px solid var(--border);border-radius:8px;padding:.25rem .7rem .55rem;background:rgba(0,0,0,.15)}
@@ -518,10 +541,51 @@ html{scroll-padding-top:calc(var(--hdta-sticky-offset, 0px) + 3.4rem)}
   max-width:20px;
 }
 
+
+#storyToolbar.toolbar button,
+.ask-answer-actions button{
+  min-height:44px;
+  white-space:normal;
+  line-height:1.2;
+  text-align:center;
+}
+
+
+#report .grok-answer-header{
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  justify-content:space-between;
+  gap:.45rem .65rem;
+  margin:1.2rem 0 .5rem;
+}
+#report .grok-answer-header h2{
+  margin:0;
+  flex:1 1 12rem;
+  min-width:8rem;
+  line-height:1.3;
+}
+#report .grok-answer-header .ask-answer-actions-slot,
+#report .grok-answer-header .ask-answer-actions{
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  gap:.35rem;
+  margin:0;
+  flex:0 1 auto;
+  max-width:100%;
+}
+@media print{
+  #report .grok-answer-header .ask-answer-actions,
+  #report .grok-answer-header .ask-answer-actions-slot,
+  #report .ask-answer-actions{display:none!important}
+  #report .grok-answer-header h2{flex:none;margin:0.9em 0 0.35em}
+}
+
 </style>
 <script>
-/* Single source for the visible model number. Increment the last digit on each update (e.g. 6.3.3 → next). */
-window.HDTA_MODEL='6.3.3';
+/* Single source for the visible model number. Increment the last digit on each update (e.g. 6.3.6 → next). */
+window.HDTA_MODEL='6.3.6';
 (function(){
   var MODEL=window.HDTA_MODEL;
   var full='Human Design Transit Analyzer - Model HDTA '+MODEL;
@@ -591,7 +655,7 @@ window.HDTA_MODEL='6.3.3';
 <body>
 <div id="taErrorBanner" hidden role="alert"></div>
 <header>
-  <h1 id="appTitle">Human Design Transit Analyzer - Model HDTA 6.3.3</h1>
+  <h1 id="appTitle">Human Design Transit Analyzer - Model HDTA 6.3.6</h1>
   <p>Up to six members · Offline-capable ephemeris · True Lunar Node · Plain-language transit stories</p>
 </header>
 <div class="banner" id="cdnBanner"></div>
@@ -973,14 +1037,14 @@ window.HDTA_MODEL='6.3.3';
     </div>
     <p class="hint" id="timelineHint" style="display:block;margin:.35rem 0 .5rem">Timeline scans the selected day or range in the chosen timezone (from local midnight to midnight) for gate/line ingresses that touch the entered chart(s). Selected by default.</p>
     <button type="button" id="runBtn">Run Human Design / Transit Analysis</button>
-    <p class="model-id" id="modelLabel">Model HDTA 6.3.3</p>
+    <p class="model-id" id="modelLabel">Model HDTA 6.3.6</p>
     <div class="status" id="status"></div>
   </section>
 
   <section class="panel" id="storyPanel">
     <div class="toolbar" id="storyToolbar">
-      <button type="button" class="secondary no-print" id="printBtn" title="Print or save the report as PDF">Print / Save as PDF</button>
-      <button type="button" class="secondary no-print" id="shareBtn" title="Email or text the current report">Email / Text</button>
+      <button type="button" class="secondary no-print" id="printBtn" title="Print or save the complete report as PDF">Print Full Report</button>
+      <button type="button" class="secondary no-print" id="shareBtn" title="Email or text the complete report">Text / Email Full Report</button>
       <button type="button" class="secondary no-print" id="reportDisplayBtn" disabled title="Open the current report in a full-screen readable view with Find">Display / Find</button>
     </div>
     <h2>Story</h2>
@@ -1008,8 +1072,8 @@ window.HDTA_MODEL='6.3.3';
         <div id="askAnswerActionsPark">
         <div class="ask-answer-actions no-print" id="askAnswerActions" hidden>
           <button type="button" class="secondary no-print" id="answerDisplayBtn" disabled title="Open a full-screen readable view with Find">Display / Find</button>
-          <button type="button" class="secondary no-print" id="answerPrintBtn" disabled title="Print or save the answer as PDF">Print / Save as PDF</button>
-          <button type="button" class="secondary no-print" id="answerShareBtn" disabled title="Email or text the answer">Text / Email</button>
+          <button type="button" class="secondary no-print" id="answerPrintBtn" disabled title="Print or save only the question and its answer as PDF">Print Question &amp; Answer</button>
+          <button type="button" class="secondary no-print" id="answerShareBtn" disabled title="Email or text only the question and its answer">Text / Email Question &amp; Answer</button>
         </div>
         </div>
     </div>
@@ -1086,8 +1150,8 @@ window.HDTA_MODEL='6.3.3';
 </div>
 
 <!-- Data is separate from the UI. Script order matters. Works via file:// on Windows and via https on iPhone/iPad Firefox. -->
-<script src="astronomy.browser.min.js?v=202611142100"></script>
-<script src="data.js?v=202611142100"></script>
+<script src="astronomy.browser.min.js?v=202611142330"></script>
+<script src="data.js?v=202611142330"></script>
 
 <script>
 /* ES5 quick-load + Full/Brief bootstrap: works even if later scripts fail. */
@@ -1204,7 +1268,7 @@ window.HDTA_MODEL='6.3.3';
   else { boot(); }
 })();
 </script>
-<script src="analyzer.js?v=202611142100"></script>
-<script src="app.js?v=202611142100"></script>
+<script src="analyzer.js?v=202611142330"></script>
+<script src="app.js?v=202611142330"></script>
 </body>
 </html>

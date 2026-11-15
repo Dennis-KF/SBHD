@@ -1721,7 +1721,7 @@ function finishNatalOnlyReport(people, meta) {
   window.__LAST_DAY_TRANSITS__ = [];
   window.__LAST_REPORT_MD__ = lastMd;
   const wrap = $("report");
-  if (wrap) wrap.innerHTML = lastHtml;
+  parkThenSetReportHtml(lastHtml);
   try {
     rememberReportBase();
   } catch (e) {
@@ -1959,12 +1959,38 @@ function parkAskAnswerActions() {
   if (!row || !park) return;
   if (row.parentNode !== park) park.appendChild(row);
 }
+function ensureAskAnswerSlot() {
+  const ans = document.querySelector("#report .grok-answer");
+  if (!ans) return null;
+  let slot = ans.querySelector(".ask-answer-actions-slot");
+  if (slot) return slot;
+  let header = ans.querySelector(".grok-answer-header");
+  if (!header) {
+    header = document.createElement("div");
+    header.className = "grok-answer-header";
+    const h2 = ans.querySelector("h2");
+    if (h2 && h2.parentNode) {
+      h2.parentNode.insertBefore(header, h2);
+      header.appendChild(h2);
+    } else if (ans.firstChild) {
+      ans.insertBefore(header, ans.firstChild);
+    } else {
+      ans.appendChild(header);
+    }
+  }
+  slot = document.createElement("div");
+  slot.className = "ask-answer-actions-slot no-print";
+  header.appendChild(slot);
+  return slot;
+}
 function placeAskAnswerActions() {
   const row = document.getElementById("askAnswerActions");
   if (!row) return;
-  const slot = document.querySelector("#report .grok-answer .ask-answer-actions-slot");
+  const slot = ensureAskAnswerSlot();
   if (slot && typeof hasSuccessfulGrokAnswer === "function" && hasSuccessfulGrokAnswer()) {
     if (row.parentNode !== slot) slot.appendChild(row);
+    row.removeAttribute("hidden");
+    row.hidden = false;
   } else {
     parkAskAnswerActions();
   }
@@ -2537,7 +2563,7 @@ function applyHighlightToggles() {
   const onA = highlightAffectedOn();
   const onB = highlightBetweenOn();
   const onU = highlightUnderlineOn();
-  const roots = [document.body, document.getElementById("report"), document.getElementById("displayOverlay")];
+  const roots = [document.body, document.getElementById("report"), document.getElementById("displayOverlay"), document.getElementById("answerPrintRoot")];
   for (let i = 0; i < roots.length; i++) {
     setHighlightClass(roots[i], "hl-affected-on", onA);
     setHighlightClass(roots[i], "hl-between-on", onB);
@@ -2545,6 +2571,7 @@ function applyHighlightToggles() {
   }
   applyHighlightInline(document.getElementById("report"));
   applyHighlightInline(document.getElementById("displayOverlay"));
+  applyHighlightInline(document.getElementById("answerPrintRoot"));
   try {
     updateHighlightStatus();
   } catch (e) {
@@ -2886,12 +2913,20 @@ function markBetweenBlocks(root, index) {
 function markupHighlightReport() {
   const root = document.getElementById("report");
   if (!root) return;
+  try {
+    parkAskAnswerActions();
+  } catch (e) {
+  }
   const index = buildHighlightIndex();
   unwrapHighlightSpans(root);
   wrapTransitMentions(root, index);
   wrapAffectedNames(root, index);
   markBetweenBlocks(root, index);
   applyHighlightToggles();
+  try {
+    placeAskAnswerActions();
+  } catch (e) {
+  }
 }
 function onHighlightUserInput(ev) {
   applyHighlightToggles();
@@ -3319,17 +3354,36 @@ function grokSectionHtml(kind, question, body, meta) {
     }
   }
   const cls = "grok-answer" + (kind === "loading" ? " grok-loading" : "") + (kind === "error" ? " grok-error" : "");
-  const slot = kind === "ok" ? '<div class="ask-answer-actions-slot no-print"></div>' : "";
-  return '<div class="' + cls + '">' + slot + "<h2>Question \u2014 Advantages and Difficulties</h2>\n" + inner + "</div>";
+  const heading = kind === "ok" ? '<div class="grok-answer-header"><h2>Question \u2014 Advantages and Difficulties</h2><div class="ask-answer-actions-slot no-print"></div></div>\n' : "<h2>Question \u2014 Advantages and Difficulties</h2>\n";
+  return '<div class="' + cls + '">' + heading + inner + "</div>";
 }
 function stripGrokFromHtml(html) {
-  return String(html || "").replace(/<div class="grok-answer[\s\S]*?<\/div>\s*$/i, "").replace(/<div class="grok-answer[\s\S]*?<\/div>/gi, "");
+  try {
+    const tmp = document.createElement("div");
+    tmp.innerHTML = String(html || "");
+    const found = tmp.querySelectorAll(".grok-answer");
+    for (let i = 0; i < found.length; i++) found[i].parentNode.removeChild(found[i]);
+    return tmp.innerHTML;
+  } catch (e) {
+    return String(html || "").replace(/<div class="grok-answer[\s\S]*?<\/div>\s*$/i, "").replace(/<div class="grok-answer[\s\S]*?<\/div>/gi, "");
+  }
 }
-function setReportHtml(html) {
+function parkThenSetReportHtml(html) {
+  try {
+    parkAskAnswerActions();
+  } catch (e) {
+  }
   const wrap = $("report");
   if (wrap) wrap.innerHTML = html;
+}
+function setReportHtml(html) {
+  parkThenSetReportHtml(html);
   try {
     if (typeof markupHighlightReport === "function") markupHighlightReport();
+  } catch (e) {
+  }
+  try {
+    placeAskAnswerActions();
   } catch (e) {
   }
 }
@@ -3532,7 +3586,7 @@ function runAnalysis() {
     let stopChart2 = function(msg) {
       const wrap = $("report");
       const htmlMsg = '<p class="empty-hint">' + String(msg).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/\n/g, "<br>") + "</p>";
-      if (wrap) wrap.innerHTML = htmlMsg;
+      parkThenSetReportHtml(htmlMsg);
       lastHtml = wrap ? wrap.innerHTML : "";
       lastMd = msg;
       status(msg.split("\n")[0], "err");
@@ -3558,7 +3612,7 @@ function runAnalysis() {
     if (!p1) {
       const friendly = !sel.anyExtra ? "Add a chart to get started \u2014 paste JSON or text, upload a file, or load a sample for Person 1 (Inputs 2\u20136 are optional)." : "Person 1 is empty \u2014 add a chart in Person 1, or clear the other inputs and use Person 1 for a solo report.";
       const wrap = $("report");
-      if (wrap) wrap.innerHTML = '<p class="empty-hint">' + friendly + "</p>";
+      parkThenSetReportHtml('<p class="empty-hint">' + friendly + "</p>");
       lastHtml = wrap ? wrap.innerHTML : "";
       lastMd = friendly;
       status(friendly, "err");
@@ -3643,7 +3697,7 @@ function runAnalysis() {
           lastHtml = _x.html;
           lastMd = _x.md;
         }
-        $("report").innerHTML = lastHtml;
+        parkThenSetReportHtml(lastHtml);
         rememberReportBase();
         applyGrokAnswerToReport();
         try {
@@ -3668,7 +3722,7 @@ function runAnalysis() {
         lastHtml = _x.html;
       }
       lastMd = lastHtml.replace(/<script[\s\S]*?<\/script>/gi, "").replace(/<h2>/gi, "# ").replace(/<\/h2>/gi, "\n").replace(/<h3>/gi, "## ").replace(/<\/h3>/gi, "\n").replace(/<p><em>/gi, "").replace(/<\/em><\/p>/gi, "\n").replace(/<p>/gi, "").replace(/<\/p>/gi, "\n\n").replace(/<strong>/gi, "**").replace(/<\/strong>/gi, "**").replace(/<br\s*\/?>/gi, "\n").replace(/<div class="tech"><details class="tech"><summary>Technical details \(gates, channels, ephemeris\)<\/summary><pre>/gi, "\n\n<details><summary>Technical details</summary>\n\n```\n").replace(/<\/pre><\/details><\/div>/gi, "\n```\n</details>\n").replace(/<[^>]+>/g, "").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"');
-      $("report").innerHTML = lastHtml;
+      parkThenSetReportHtml(lastHtml);
       rememberReportBase();
       applyGrokAnswerToReport();
       try {
@@ -3721,7 +3775,7 @@ function runAnalysis() {
       lastHtml = _x.html;
       lastMd = _x.md;
     }
-    $("report").innerHTML = lastHtml;
+    parkThenSetReportHtml(lastHtml);
     rememberReportBase();
     applyGrokAnswerToReport();
     try {
@@ -4146,7 +4200,12 @@ function buildAnswerHeaderText() {
   return lines.join("\n");
 }
 function answerShareText() {
-  return (buildAnswerHeaderText() + "\n\n" + (lastGrokAnswerText || "")).trim();
+  const q = String(lastGrokQuestion || "").trim();
+  const a = String(lastGrokAnswerText || "").trim();
+  const lines = ["Question & Answer"];
+  if (q) lines.push("Question: " + q);
+  if (a) lines.push("", a);
+  return lines.join("\n").trim();
 }
 function answerPrintModel() {
   return {
@@ -4157,19 +4216,71 @@ function answerPrintModel() {
     answer: lastGrokAnswerText || ""
   };
 }
+function highlightedAnswerFragment() {
+  const reportAns = document.querySelector("#report .grok-answer");
+  if (!reportAns) return "";
+  const clone = reportAns.cloneNode(true);
+  try {
+    clone.querySelectorAll(".ask-answer-actions, .ask-answer-actions-slot, #askAnswerActions, h2, .grok-q, .grok-length-note, .grok-answer-header").forEach(function(el) {
+      el.remove();
+    });
+  } catch (e) {
+  }
+  return (clone.innerHTML || "").trim();
+}
+function markupHighlightRoot(root) {
+  if (!root) return;
+  const index = typeof buildHighlightIndex === "function" ? buildHighlightIndex() : { members: [], transits: [] };
+  try {
+    unwrapHighlightSpans(root);
+  } catch (e) {
+  }
+  try {
+    wrapTransitMentions(root, index);
+  } catch (e) {
+  }
+  try {
+    wrapAffectedNames(root, index);
+  } catch (e) {
+  }
+  try {
+    markBetweenBlocks(root, index);
+  } catch (e) {
+  }
+  try {
+    applyHighlightInline(root);
+  } catch (e) {
+  }
+  try {
+    setHighlightClass(root, "hl-affected-on", highlightAffectedOn());
+    setHighlightClass(root, "hl-between-on", highlightBetweenOn());
+    setHighlightClass(root, "hl-underline-on", highlightUnderlineOn());
+  } catch (e) {
+  }
+}
 function answerPrintInnerHtml(model) {
   model = model || answerPrintModel();
-  const paras = String(model.answer || "").split(/\n{2,}/).map(function(s) {
-    return s.trim();
-  }).filter(Boolean);
-  const meta = [];
-  if (model.question) meta.push('<p class="answer-meta"><strong>Question:</strong> ' + escapeGrok(model.question) + "</p>");
-  if (model.members && model.members.length) meta.push('<p class="answer-meta"><strong>Members:</strong> ' + escapeGrok(model.members.join(", ")) + "</p>");
-  if (model.range) meta.push('<p class="answer-meta"><strong>Date range:</strong> ' + escapeGrok(model.range) + "</p>");
-  const body = paras.map(function(p) {
-    return "<p>" + escapeGrok(p).replace(/\n/g, "<br>") + "</p>";
-  }).join("\n");
-  return "<h1>" + escapeGrok(model.title || "Question \u2014 Advantages and Difficulties") + "</h1>\n" + meta.join("\n") + "\n" + body;
+  const q = String(model.question || "").trim();
+  const meta = q ? '<p class="answer-meta"><strong>Question:</strong> ' + escapeGrok(q) + "</p>" : "";
+  let body = "";
+  try {
+    if (typeof markupHighlightReport === "function") markupHighlightReport();
+  } catch (e) {
+  }
+  try {
+    body = highlightedAnswerFragment();
+  } catch (e) {
+    body = "";
+  }
+  if (!body) {
+    const paras = String(model.answer || "").split(/\n{2,}/).map(function(s) {
+      return s.trim();
+    }).filter(Boolean);
+    body = paras.map(function(p) {
+      return "<p>" + escapeGrok(p).replace(/\n/g, "<br>") + "</p>";
+    }).join("\n");
+  }
+  return "<h1>Question &amp; Answer</h1>\n" + meta + "\n" + body;
 }
 function fillAnswerPrintRoot(model) {
   const root = $("answerPrintRoot");
@@ -4177,13 +4288,17 @@ function fillAnswerPrintRoot(model) {
   const html = answerPrintInnerHtml(model || answerPrintModel());
   root.innerHTML = html;
   root.removeAttribute("hidden");
-  return html;
+  try {
+    markupHighlightRoot(root);
+  } catch (e) {
+  }
+  return root.innerHTML;
 }
 function sharePayload(kind) {
   if (kind === "answer") {
-    return { kind: "answer", title: "Question \u2014 Advantages and Difficulties", text: answerShareText(), filename: "transit-answer" };
+    return { kind: "answer", title: "Question & Answer", text: answerShareText(), html: fillAnswerPrintRoot(answerPrintModel()), filename: "transit-answer" };
   }
-  return { kind: "report", title: currentReportTitle(), text: reportPlainText({ includeAnswer: true }), filename: "transit-report" };
+  return { kind: "report", title: currentReportTitle(), text: reportPlainText({ includeAnswer: true }), html: highlightedReportFragment(), filename: "transit-report" };
 }
 function encodeWithinLimit(prefix, body, limit, note) {
   limit = limit || MAILTO_SAFE;
@@ -4227,13 +4342,41 @@ function hasWebShare() {
     return false;
   }
 }
+function shareFormattedHtml(payload) {
+  payload = payload || {};
+  const css = 'body{font-family:Georgia,"Times New Roman",Times,serif;font-size:11pt;line-height:1.5;color:#111;max-width:820px;margin:2rem auto;padding:0 1rem}h1,h2,h3{color:#111}span.hl-transit{text-decoration:underline!important}span.hl-affected{font-weight:700!important} .hl-between-block{font-weight:700!important;font-style:italic!important}';
+  let body = (payload.html || "").trim();
+  if (!body) {
+    body = '<pre style="white-space:pre-wrap;font-family:Georgia,serif;line-height:1.5">' + escapeGrok(payload.text || "") + "</pre>";
+  }
+  return '<!DOCTYPE html><html><head><meta charset="utf-8"><title>' + escapeGrok(payload.title || "Transit report") + "</title><style>" + css + "</style></head><body>" + body + "</body></html>";
+}
+function highlightedReportFragment() {
+  const report = document.getElementById("report");
+  if (!report) return "";
+  try {
+    if (typeof markupHighlightReport === "function") markupHighlightReport();
+  } catch (e) {
+  }
+  const clone = report.cloneNode(true);
+  try {
+    clone.querySelectorAll(".tech, #timelineEventsJson, .ask-answer-actions, .ask-answer-actions-slot, #askAnswerActions").forEach(function(el) {
+      el.remove();
+    });
+  } catch (e) {
+  }
+  try {
+    applyHighlightInline(clone);
+  } catch (e) {
+  }
+  return (clone.innerHTML || "").trim();
+}
 function makeShareFile(payload, ext) {
   payload = payload || sharePayload("report");
   ext = ext || "txt";
   const name = (payload.filename || "transit-report") + "." + ext;
   if (ext === "html") {
-    const html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>' + escapeGrok(payload.title || "Transit report") + '</title></head><body><pre style="white-space:pre-wrap;font-family:Georgia,serif;max-width:820px;margin:2rem auto;line-height:1.5">' + escapeGrok(payload.text || "") + "</pre></body></html>";
-    return new File([html], name, { type: "text/html" });
+    return new File([shareFormattedHtml(payload)], name, { type: "text/html" });
   }
   return new File([payload.text || ""], name, { type: "text/plain" });
 }
@@ -4367,7 +4510,7 @@ async function shareOrFallback(kind, anchor) {
 }
 function printAnswerOnly() {
   if (!hasSuccessfulGrokAnswer()) {
-    status("Ask a question first \u2014 then Print / Save as PDF prints only the answer.", "err");
+    status("Ask a question first \u2014 then Print Question & Answer prints only the question and its answer.", "err");
     return false;
   }
   fillAnswerPrintRoot(answerPrintModel());
@@ -4410,8 +4553,12 @@ function printAnswerOnly() {
 function printReport() {
   const report = $("report");
   if (!report || !(report.textContent || "").trim() || /Load the ephemeris/.test(report.textContent || "")) {
-    status("Run an analysis first \u2014 then Print / Save as PDF prints only the report.", "err");
+    status("Run an analysis first \u2014 then Print Full Report prints the complete report.", "err");
     return;
+  }
+  try {
+    document.body.classList.remove("print-answer-only");
+  } catch (e) {
   }
   try {
     window.print();
