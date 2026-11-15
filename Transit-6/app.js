@@ -1829,11 +1829,108 @@ function showReportStaleUi(doScroll) {
     }
   }
 }
+var pendingReturnToAsk = false;
+var askReadyPulseTimer = null;
 function promptRunBeforeAsk() {
+  pendingReturnToAsk = true;
   showReportStaleUi(true);
   try {
     setAskStatus("Changes made \u2014 Press to Update, then ask again.");
   } catch (e) {
+  }
+}
+function iosBottomReserve() {
+  var safe = 0;
+  try {
+    var probe = document.createElement("div");
+    probe.style.cssText = "position:absolute;left:-9999px;visibility:hidden;pointer-events:none;height:env(safe-area-inset-bottom,0px)";
+    document.body.appendChild(probe);
+    safe = probe.getBoundingClientRect().height || 0;
+    if (probe.parentNode) probe.parentNode.removeChild(probe);
+  } catch (e) {
+    safe = 0;
+  }
+  return Math.max(safe + 8, 72);
+}
+function scrollToAskControls() {
+  var label = document.querySelector('label[for="askGrokQuestion"]');
+  var btn = document.getElementById("askGrokBtn");
+  var el = label || btn || document.getElementById("askGrokPanel");
+  if (!el) return;
+  try {
+    if (typeof syncStickyOffsets === "function") syncStickyOffsets();
+  } catch (e) {
+  }
+  var header = document.querySelector("header");
+  var bar = document.getElementById("storyToolbar");
+  var topOffset = (header ? header.getBoundingClientRect().height : 0) + (bar ? bar.getBoundingClientRect().height : 0) + 10;
+  var bottomReserve = iosBottomReserve();
+  var vh = window.innerHeight || 0;
+  var y = window.pageYOffset || document.documentElement.scrollTop || 0;
+  var labelTop = el.getBoundingClientRect().top + y;
+  var btnBottom = btn ? btn.getBoundingClientRect().bottom + y : el.getBoundingClientRect().bottom + y;
+  var blockH = btnBottom - labelTop;
+  var available = vh - topOffset - bottomReserve;
+  var target;
+  if (blockH <= available) {
+    target = labelTop - topOffset;
+  } else {
+    target = btnBottom - (vh - bottomReserve);
+  }
+  try {
+    window.scrollTo({ top: Math.max(0, target), behavior: "smooth" });
+  } catch (e) {
+    try {
+      window.scrollTo(0, Math.max(0, target));
+    } catch (_e) {
+    }
+  }
+}
+function pulseAskButton() {
+  var btn = document.getElementById("askGrokBtn");
+  if (!btn) return;
+  btn.classList.remove("ask-ready-pulse");
+  try {
+    void btn.offsetWidth;
+  } catch (e) {
+  }
+  btn.classList.add("ask-ready-pulse");
+  if (askReadyPulseTimer) {
+    try {
+      clearTimeout(askReadyPulseTimer);
+    } catch (e) {
+    }
+  }
+  askReadyPulseTimer = setTimeout(function() {
+    var b = document.getElementById("askGrokBtn");
+    if (b) b.classList.remove("ask-ready-pulse");
+    askReadyPulseTimer = null;
+  }, 2e3);
+}
+function scheduleReturnToAsk() {
+  pendingReturnToAsk = false;
+  function go() {
+    try {
+      scrollToAskControls();
+    } catch (e) {
+    }
+    try {
+      pulseAskButton();
+    } catch (e) {
+    }
+    try {
+      setAskStatus("Press Ask to continue.");
+    } catch (e) {
+    }
+  }
+  try {
+    requestAnimationFrame(function() {
+      requestAnimationFrame(function() {
+        setTimeout(go, 80);
+      });
+    });
+  } catch (e) {
+    setTimeout(go, 160);
   }
 }
 function wireReportStale() {
@@ -4463,6 +4560,12 @@ function runAnalysis() {
           showReportStaleUi(false);
         } catch (e) {
         }
+      }
+    } else if (pendingReturnToAsk) {
+      try {
+        scheduleReturnToAsk();
+      } catch (e) {
+        pendingReturnToAsk = false;
       }
     }
   }
