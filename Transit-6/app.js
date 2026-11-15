@@ -4539,102 +4539,159 @@ function hoistAnswerPrintRoot() {
   }
   return root;
 }
+function qaPrintHighlightCss() {
+  const bits = [];
+  bits.push("html,body{background:#fff;color:#000;margin:0;}");
+  bits.push('body{font-family:Georgia,"Times New Roman",Times,serif;font-size:11pt;line-height:1.5;padding:16px 18px 32px;}');
+  bits.push("h1{font-size:1.25rem;margin:0 0 .5em;color:#000;}");
+  bits.push("h2,h3{color:#000;margin:0.8em 0 0.35em;}");
+  bits.push("p{color:#000;orphans:3;widows:3;margin:0 0 0.85em;}");
+  bits.push(".answer-meta{color:#222;margin:0 0 1em;}");
+  bits.push(".qa-toolbar{display:flex;flex-wrap:wrap;gap:.5rem;margin:0 0 1rem;padding:0 0 .75rem;border-bottom:1px solid #ccc;}");
+  bits.push(".qa-toolbar button{min-height:44px;min-width:44px;padding:.55rem 1rem;font-size:1rem;line-height:1.2;}");
+  if (typeof highlightUnderlineOn === "function" && highlightUnderlineOn()) {
+    bits.push("span.hl-transit{text-decoration:underline!important;text-underline-offset:.12em;-webkit-print-color-adjust:exact;print-color-adjust:exact;}");
+  }
+  if (typeof highlightAffectedOn === "function" && highlightAffectedOn()) {
+    bits.push("span.hl-affected{font-weight:700!important;font-style:normal;-webkit-print-color-adjust:exact;print-color-adjust:exact;}");
+  }
+  if (typeof highlightBetweenOn === "function" && highlightBetweenOn()) {
+    bits.push(".hl-between-block{font-weight:700!important;font-style:italic!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}");
+  }
+  bits.push("@page{margin:12mm;}");
+  bits.push("@media print{.qa-toolbar,.no-print{display:none!important}body{padding:0}}");
+  return bits.join("\n");
+}
+function buildQaPrintBodyHtml() {
+  try {
+    if (typeof markupHighlightReport === "function") markupHighlightReport();
+  } catch (e) {
+  }
+  const wrap = document.createElement("div");
+  let inner = "";
+  try {
+    if (typeof highlightedAnswerFragment === "function") inner = highlightedAnswerFragment();
+  } catch (e) {
+    inner = "";
+  }
+  const model = typeof answerPrintModel === "function" ? answerPrintModel() : { question: lastGrokQuestion || "", answer: lastGrokAnswerText || "" };
+  const q = String(model.question || "").trim();
+  const meta = q ? '<p class="answer-meta"><strong>Question:</strong> ' + escapeGrok(q) + "</p>" : "";
+  if (!inner) {
+    const paras = String(model.answer || "").split(/\n{2,}/).map(function(s) {
+      return s.trim();
+    }).filter(Boolean);
+    inner = paras.map(function(p) {
+      return "<p>" + escapeGrok(p).replace(/\n/g, "<br>") + "</p>";
+    }).join("\n");
+  }
+  wrap.innerHTML = "<h1>Question &amp; Answer</h1>\n" + meta + "\n" + inner;
+  try {
+    if (typeof markupHighlightRoot === "function") markupHighlightRoot(wrap);
+  } catch (e) {
+  }
+  return wrap.innerHTML;
+}
+function buildQaPrintDocumentHtml() {
+  const body = buildQaPrintBodyHtml();
+  const css = qaPrintHighlightCss();
+  const cls = [];
+  if (typeof highlightAffectedOn === "function" && highlightAffectedOn()) cls.push("hl-affected-on");
+  if (typeof highlightBetweenOn === "function" && highlightBetweenOn()) cls.push("hl-between-on");
+  if (typeof highlightUnderlineOn === "function" && highlightUnderlineOn()) cls.push("hl-underline-on");
+  const toolbar = '<div class="qa-toolbar no-print"><button type="button" id="qaPrintBtn">Print / Save as PDF</button> <button type="button" id="qaCloseBtn">Close</button></div>';
+  const boot = '<script>(function(){function go(){try{window.focus();}catch(e){}try{window.print();}catch(e){}}function ready(fn){if(document.readyState==="complete")fn();else window.addEventListener("load",fn);}ready(function(){var p=document.getElementById("qaPrintBtn");if(p)p.onclick=function(){try{window.print();}catch(e){}};var c=document.getElementById("qaCloseBtn");if(c)c.onclick=function(){try{window.close();}catch(e){}};setTimeout(go,60);});})();<\/script>';
+  return '<!DOCTYPE html><html data-hdta-print="qa" lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Question &amp; Answer</title><style>' + css + '</style></head><body class="' + cls.join(" ") + '">' + toolbar + body + boot + "</body></html>";
+}
+function printQaViaBlob(html) {
+  try {
+    const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const w = window.open(url, "_blank");
+    if (!w) {
+      try {
+        URL.revokeObjectURL(url);
+      } catch (e) {
+      }
+      return false;
+    }
+    try {
+      w.focus();
+    } catch (e) {
+    }
+    setTimeout(function() {
+      try {
+        URL.revokeObjectURL(url);
+      } catch (e) {
+      }
+    }, 12e4);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+function printQaViaIframe(html) {
+  try {
+    let frame = document.getElementById("qaPrintFrame");
+    if (frame && frame.parentNode) frame.parentNode.removeChild(frame);
+    frame = document.createElement("iframe");
+    frame.id = "qaPrintFrame";
+    frame.setAttribute("title", "Question and Answer print");
+    frame.setAttribute("aria-hidden", "true");
+    frame.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;opacity:0;pointer-events:none;";
+    frame.srcdoc = html;
+    document.body.appendChild(frame);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
 function printAnswerOnly() {
   if (!hasSuccessfulGrokAnswer()) {
     status("Ask a question first \u2014 then Print Question & Answer prints only the question and its answer.", "err");
     return false;
   }
+  let win = null;
   try {
-    endAnswerPrintMode();
+    win = window.open("", "_blank");
   } catch (e) {
+    win = null;
   }
-  const root = hoistAnswerPrintRoot();
-  fillAnswerPrintRoot(answerPrintModel());
-  if (root) {
-    root.removeAttribute("hidden");
-    try {
-      root.setAttribute("aria-hidden", "false");
+  let html = "";
+  try {
+    html = buildQaPrintDocumentHtml();
+  } catch (e) {
+    html = "";
+  }
+  if (!html) {
+    if (win) try {
+      win.close();
     } catch (e) {
     }
+    status("Could not prepare the question and answer for printing.", "err");
+    return false;
   }
-  document.documentElement.classList.add("print-answer-only");
-  document.body.classList.add("print-answer-only");
-  let cleaned = false;
-  let sawPrintMedia = false;
-  let onPrintMq = null;
-  const cleanup = function() {
-    if (cleaned) return;
-    cleaned = true;
-    answerPrintCleanupFn = null;
+  if (win) {
     try {
-      if (answerPrintCleanupTimer) {
-        clearTimeout(answerPrintCleanupTimer);
-        answerPrintCleanupTimer = 0;
+      win.document.open("text/html", "replace");
+      win.document.write(html);
+      win.document.close();
+      try {
+        win.focus();
+      } catch (e) {
       }
+      return true;
     } catch (e) {
-    }
-    try {
-      document.documentElement.classList.remove("print-answer-only");
-    } catch (e) {
-    }
-    try {
-      document.body.classList.remove("print-answer-only");
-    } catch (e) {
-    }
-    try {
-      window.removeEventListener("afterprint", cleanup);
-    } catch (e) {
-    }
-    try {
-      if (onPrintMq && window.matchMedia) {
-        const mq = window.matchMedia("print");
-        if (mq.removeEventListener) mq.removeEventListener("change", onPrintMq);
-        else if (mq.removeListener) mq.removeListener(onPrintMq);
+      try {
+        win.close();
+      } catch (e2) {
       }
-    } catch (e) {
     }
-  };
-  onPrintMq = function(ev) {
-    if (ev && ev.matches === true) {
-      sawPrintMedia = true;
-      return;
-    }
-    if (sawPrintMedia) cleanup();
-  };
-  answerPrintCleanupFn = cleanup;
-  try {
-    window.addEventListener("afterprint", cleanup);
-  } catch (e) {
   }
-  try {
-    if (window.matchMedia) {
-      const mq = window.matchMedia("print");
-      if (mq.addEventListener) mq.addEventListener("change", onPrintMq);
-      else if (mq.addListener) mq.addListener(onPrintMq);
-    }
-  } catch (e) {
-  }
-  answerPrintCleanupTimer = setTimeout(cleanup, 18e4);
-  const kick = function() {
-    try {
-      window.print();
-    } catch (e) {
-      cleanup();
-      status("Print failed: " + (e && e.message ? e.message : e), "err");
-    }
-  };
-  try {
-    if (typeof requestAnimationFrame === "function") {
-      requestAnimationFrame(function() {
-        requestAnimationFrame(kick);
-      });
-    } else {
-      setTimeout(kick, 50);
-    }
-  } catch (e) {
-    kick();
-  }
-  return true;
+  if (printQaViaBlob(html)) return true;
+  if (printQaViaIframe(html)) return true;
+  status("A pop-up was blocked. Allow pop-ups for this site, then try Print Question & Answer again.", "err");
+  return false;
 }
 function printReport() {
   const report = $("report");
