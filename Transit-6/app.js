@@ -3358,7 +3358,7 @@ function askGrokBoxOn() {
   }
 }
 const PLAIN_LANG_STORAGE_KEY = "hdta_ask_plain_language";
-const PLAIN_LANG_INSTRUCTION = 'PLAIN LANGUAGE AND HOW THEY WORK TOGETHER: First answer the user\'s actual question in everyday wording. Then explain how ALL loaded members work together as one group, and then how EVERY pair works directly with each other. Avoid Human Design jargon (gates, lines, channels, centers, Type, Strategy, Authority, Not-Self, definition, and similar terms). If a technical idea is essential, explain it in one short plain sentence instead of using the term. Be concrete and practical: name the people, use weekdays and 12-hour AM/PM times from the supplied context, and give practical suggestions. Keep potentials, not predictions (for example, "this may favor" or "this can feel like," never "this will happen"). Use first names only. Eike is she/her. Cover every member. Pair names in alphabetical first-name order (A & B). Do not invent facts. After the prose, output one fenced block marked ```hdta with JSON: {"answer":"...","people":[{"name":"...","impression":"..."}],"group":{"strengths":"...","flow":"...","snag":"...","roles":"...","suggestions":"..."},"pairs":[{"a":"...","b":"...","brings":"...","click":"...","friction":"...","suggestion":"..."}]} and nothing after that block.';
+const PLAIN_LANG_INSTRUCTION = `PLAIN LANGUAGE STORY: Write ONE comprehensive, continuous narrative in flowing paragraphs, as a thoughtful friend would tell it. Fold the user's actual question into the story so it is answered as the story unfolds \u2014 do not start with a separate outline or bullet summary. Tell how these members interact and react with each other according to their designs, and how the selected transit period affects each of their designs and therefore the group dynamic. Weave every member into the story in a meaningful way, and naturally touch the important ways they work with one another, without turning the answer into a catalog, a pair-by-pair rundown, per-person data snippets, bullet lists, or labeled sections. No headings except perhaps one short title. Use everyday wording. Avoid Human Design jargon (gates, lines, channels, centers, Type, Strategy, Authority, Not-Self, definition, and similar terms). If a technical idea is essential, explain it in one short plain sentence instead of using the term. Be concrete: say what it may look or feel like in practice, give everyday examples, name the people, and weave in weekdays and 12-hour AM/PM times from the supplied context. Keep potentials, not predictions (for example, "this may favor" or "this can feel like," never "this will happen"). Use first names only. Eike is she/her. Cover every member. Still use only the supplied meanings and context; do not invent facts. Do not output JSON, fenced code blocks, or structured section labels.`;
 function askPlainLanguageOn() {
   try {
     const el = document.getElementById("askPlainLanguage");
@@ -3397,16 +3397,22 @@ function applyPlainLanguageToAsk(out) {
     out.context.plainLanguage = false;
   }
   try {
+    out.advantagesFocus = typeof askGrokBoxOn === "function" ? !!askGrokBoxOn() : true;
+    out.context.advantagesFocus = out.advantagesFocus;
+    if (out.advantagesFocus) {
+      out.context.instruction = String(out.context.instruction || "") + "\nEmphasize the advantages and difficulties that may show up in this period, still as part of the same continuous story (or the usual technical answer if plain language is off).";
+    } else {
+      out.context.instruction = String(out.context.instruction || "") + "\nAnswer the user's question fully. Do not force an advantages-and-difficulties frame if the question points elsewhere.";
+    }
+  } catch (e) {
+  }
+  try {
     if (on && typeof listAskPairNames === "function") {
       var names = listAskPairNames();
       out.requiredPeople = names.people;
-      out.requiredPairs = names.pairs;
       out.context.requiredPeople = names.people;
-      out.context.requiredPairs = names.pairs;
       if (names.people.length) {
-        var extra = "Required members (every one, first names only): " + names.people.join(", ") + ".";
-        if (names.pairs.length) extra += " Required pairs (every pair once, this order): " + names.pairs.join("; ") + ".";
-        extra += " Also include an All-together group section covering strengths, where it flows, where it may snag, roles, and practical suggestions.";
+        var extra = "Required members (every one must appear meaningfully, first names only): " + names.people.join(", ") + ". Weave their important interactions naturally through one continuous story. Do not write a pair-by-pair catalog, per-person snippets, bullet lists, or labeled sections.";
         out.context.instruction = String(out.context.instruction || "") + "\n" + extra;
       }
     }
@@ -3789,22 +3795,20 @@ function updateAskGrokCount() {
   }
 }
 function syncAskGrokPanel() {
-  const on = askGrokBoxOn();
   try {
-    document.body.classList.toggle("ask-question-off", !on);
+    document.body.classList.remove("ask-question-off");
   } catch (e) {
   }
   const panel = $("askGrokPanel");
   if (panel) {
-    panel.style.display = on ? "block" : "none";
-    panel.hidden = !on;
+    panel.style.display = "block";
+    panel.hidden = false;
   }
   const plLab = document.getElementById("askPlainLanguageLabel") || document.querySelector('label[for="askPlainLanguage"]');
-  if (plLab) plLab.hidden = !on;
+  if (plLab) plLab.hidden = false;
   const plHint = document.getElementById("askPlainLanguageHint");
-  if (plHint) plHint.hidden = !on;
+  if (plHint) plHint.hidden = false;
   updateAskGrokCount();
-  applyGrokAnswerToReport();
 }
 function escapeGrok(s) {
   return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -4543,21 +4547,17 @@ function grokSectionHtml(kind, question, body, meta) {
   } else if (kind === "error") {
     inner = "<p>" + escapeGrok(body || "Something went wrong.") + "</p>";
   } else {
-    const paras = String(body || "").split(/\n{2,}/).map((s) => s.trim()).filter(Boolean);
+    var prose = String(body || "").replace(/```(?:hdta|json)[\s\S]*?```/gi, "").trim();
+    const paras = prose.split(/\n{2,}/).map((s) => s.trim()).filter(Boolean);
     inner = (q ? '<p class="grok-q"><em>Asked: ' + q + "</em></p>" : "") + paras.map((p) => "<p>" + escapeGrok(p).replace(/\n/g, "<br>") + "</p>").join("\n");
-    try {
-      if (typeof askPlainLanguageOn === "function" && askPlainLanguageOn() && typeof renderPlainLanguageAnswerHtml === "function") {
-        var structured = renderPlainLanguageAnswerHtml(question || "", body);
-        if (structured) inner = structured;
-      }
-    } catch (e) {
-    }
     if (meta && meta.finishReason === "length") {
       inner += '<p class="grok-length-note"><em>' + escapeGrok("This answer reached the length limit; ask a narrower follow-up for more.") + "</em></p>";
     }
   }
   const cls = "grok-answer" + (kind === "loading" ? " grok-loading" : "") + (kind === "error" ? " grok-error" : "");
-  const heading = kind === "ok" ? '<div class="grok-answer-header"><h2>Question \u2014 Advantages and Difficulties</h2><div class="ask-answer-actions-slot no-print"></div></div>\n' : "<h2>Question \u2014 Advantages and Difficulties</h2>\n";
+  var adv = typeof askGrokBoxOn === "function" ? askGrokBoxOn() : true;
+  var title = adv ? "Question \u2014 Advantages and Difficulties" : "Question &amp; Answer";
+  const heading = kind === "ok" ? '<div class="grok-answer-header"><h2>' + title + '</h2><div class="ask-answer-actions-slot no-print"></div></div>\n' : "<h2>" + title + "</h2>\n";
   return '<div class="' + cls + '">' + heading + inner + "</div>";
 }
 function stripGrokFromHtml(html) {
@@ -4609,7 +4609,7 @@ function applyGrokAnswerToReport() {
     return;
   }
   const base = lastHtmlBase != null ? lastHtmlBase : stripGrokFromHtml(wrap.innerHTML);
-  if (!askGrokBoxOn() || !lastGrokAnswerHtml) {
+  if (!lastGrokAnswerHtml) {
     if (wrap.innerHTML !== base) wrap.innerHTML = base;
     if (typeof lastHtml !== "undefined" && lastHtmlBase != null) lastHtml = lastHtmlBase;
     if (typeof syncAnswerShareButtons === "function") syncAnswerShareButtons();
