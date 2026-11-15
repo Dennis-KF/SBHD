@@ -1603,20 +1603,7 @@ function enforceRangeDescMutualExclusion(changedId) {
   }
 }
 function rerunFromRefine() {
-  if (!reportAlreadyGenerated()) return;
-  const wrap = $("reportWrap");
-  const opts = $("extraOutputOpts");
-  try {
-    if (typeof runAnalysis === "function") runAnalysis();
-  } finally {
-    try {
-      if (wrap) wrap.scrollTop = 0;
-      if (opts && opts.style && opts.style.display !== "none") {
-        opts.scrollIntoView({ block: "end", inline: "nearest" });
-      }
-    } catch (e) {
-    }
-  }
+  return;
 }
 function timeTransitBasedOn() {
   const el = document.getElementById("timeTransitBased");
@@ -1629,6 +1616,231 @@ function reportAlreadyGenerated() {
   } catch (e) {
   }
   return false;
+}
+var lastRunSignature = null;
+var staleUiVisible = false;
+var __hdtaRunInProgress = false;
+var RESULT_CONTROL_IDS = {
+  includeRangeFullDesc: 1,
+  includeRangeBriefDesc: 1,
+  includeRangeTransitField: 1,
+  timeTransitBased: 1,
+  dateFrom: 1,
+  dateTo: 1,
+  timeFrom: 1,
+  timeTo: 1,
+  timeOfDay: 1,
+  hour12: 1,
+  minute: 1,
+  ampm: 1,
+  tz: 1,
+  includeCodes: 1,
+  realWorldInfluence: 1,
+  moonGateOnly: 1,
+  sunGateOnly: 1,
+  allGateOnly: 1,
+  omitLights: 1,
+  notSelfLandscape: 1,
+  betweenMembers: 1
+};
+function hashText(s) {
+  s = String(s || "");
+  var h = 2166136261;
+  for (var i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return (h >>> 0).toString(36);
+}
+function checkboxSig(id) {
+  var el = document.getElementById(id);
+  return el && el.checked ? "1" : "0";
+}
+function collectResultSignature() {
+  var parts = [];
+  try {
+    var max = typeof PERSON_SLOT_MAX === "number" ? PERSON_SLOT_MAX : 6;
+    for (var n = 1; n <= max; n++) {
+      var raw = "";
+      try {
+        raw = typeof getPersonRaw === "function" ? getPersonRaw(n) : "";
+      } catch (e) {
+        raw = "";
+      }
+      parts.push("p" + n + ":" + hashText(raw));
+    }
+  } catch (e) {
+  }
+  try {
+    parts.push("mode:" + String(typeof mode !== "undefined" ? mode : ""));
+  } catch (e) {
+  }
+  try {
+    parts.push("start:" + String(typeof startDate !== "undefined" && startDate ? startDate : ""));
+  } catch (e) {
+  }
+  try {
+    parts.push("end:" + String(typeof endDate !== "undefined" && endDate ? endDate : ""));
+  } catch (e) {
+  }
+  try {
+    parts.push("tFrom:" + (typeof getRangeStartHm === "function" ? getRangeStartHm() : ""));
+  } catch (e) {
+  }
+  try {
+    parts.push("tTo:" + (typeof getRangeEndHm === "function" ? getRangeEndHm() : ""));
+  } catch (e) {
+  }
+  try {
+    var tod = document.getElementById("timeOfDay");
+    parts.push("tod:" + (tod && tod.value ? tod.value : ""));
+  } catch (e) {
+  }
+  try {
+    var tz = document.getElementById("tz");
+    parts.push("tz:" + (tz && tz.value ? tz.value : ""));
+  } catch (e) {
+  }
+  try {
+    parts.push("reportMode:" + String(typeof reportMode !== "undefined" ? reportMode : ""));
+  } catch (e) {
+  }
+  var ids = ["timeTransitBased", "includeRangeFullDesc", "includeRangeBriefDesc", "includeRangeTransitField", "includeCodes", "realWorldInfluence", "moonGateOnly", "sunGateOnly", "allGateOnly", "omitLights", "notSelfLandscape", "betweenMembers"];
+  for (var i = 0; i < ids.length; i++) parts.push(ids[i] + ":" + checkboxSig(ids[i]));
+  try {
+    var betweenOn = checkboxSig("betweenMembers") === "1";
+    if (betweenOn && typeof getSelectedBetweenPairKeys === "function") {
+      parts.push("pairs:" + getSelectedBetweenPairKeys().slice().sort().join(","));
+    } else {
+      parts.push("pairs:");
+    }
+  } catch (e) {
+    parts.push("pairs:");
+  }
+  return parts.join("|");
+}
+function resultNeedsRunBeforeAsk() {
+  if (!lastRunSignature) return true;
+  try {
+    return collectResultSignature() !== lastRunSignature;
+  } catch (e) {
+    return true;
+  }
+}
+function captureLastRunSignature() {
+  try {
+    lastRunSignature = collectResultSignature();
+  } catch (e) {
+    lastRunSignature = "captured";
+  }
+  clearReportStaleUi();
+}
+function ensureStaleUiElements() {
+  var hint = document.getElementById("runStaleHint");
+  if (!hint) {
+    var btn = document.getElementById("runBtn");
+    if (btn && btn.parentNode) {
+      hint = document.createElement("p");
+      hint.className = "run-stale-hint no-print";
+      hint.id = "runStaleHint";
+      hint.hidden = true;
+      hint.textContent = "Changes made \u2014 Press to Update";
+      btn.parentNode.insertBefore(hint, btn);
+    }
+  }
+  var banner = document.getElementById("reportStaleBanner");
+  if (!banner) {
+    var wrap = document.getElementById("reportWrap");
+    if (wrap) {
+      banner = document.createElement("button");
+      banner.type = "button";
+      banner.className = "report-stale-banner no-print";
+      banner.id = "reportStaleBanner";
+      banner.hidden = true;
+      banner.textContent = "Out of date \u2014 Press to Update";
+      if (wrap.firstChild) wrap.insertBefore(banner, wrap.firstChild);
+      else wrap.appendChild(banner);
+    }
+  }
+  if (banner && banner.getAttribute("data-stale-wired") !== "1") {
+    banner.setAttribute("data-stale-wired", "1");
+    banner.addEventListener("click", function() {
+      try {
+        scrollToRunButton();
+      } catch (e) {
+      }
+    });
+  }
+  return { hint, banner };
+}
+function scrollToRunButton() {
+  var hint = document.getElementById("runStaleHint");
+  var btn = document.getElementById("runBtn");
+  var el = hint && !hint.hidden ? hint : btn || hint;
+  if (!el) return;
+  try {
+    if (typeof syncStickyOffsets === "function") syncStickyOffsets();
+  } catch (e) {
+  }
+  var header = document.querySelector("header");
+  var offset = (header ? header.getBoundingClientRect().height : 0) + 16;
+  var top = el.getBoundingClientRect().top + (window.pageYOffset || document.documentElement.scrollTop || 0) - offset;
+  try {
+    window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+  } catch (e) {
+    try {
+      window.scrollTo(0, Math.max(0, top));
+    } catch (_e) {
+    }
+  }
+}
+function clearReportStaleUi() {
+  staleUiVisible = false;
+  try {
+    document.body.classList.remove("report-stale");
+  } catch (e) {
+  }
+  try {
+    var hint = document.getElementById("runStaleHint");
+    if (hint) hint.hidden = true;
+    var banner = document.getElementById("reportStaleBanner");
+    if (banner) banner.hidden = true;
+  } catch (e) {
+  }
+}
+function showReportStaleUi(doScroll) {
+  ensureStaleUiElements();
+  staleUiVisible = true;
+  try {
+    document.body.classList.add("report-stale");
+  } catch (e) {
+  }
+  try {
+    var hint = document.getElementById("runStaleHint");
+    if (hint) hint.hidden = false;
+    var banner = document.getElementById("reportStaleBanner");
+    if (banner) banner.hidden = false;
+  } catch (e) {
+  }
+  if (doScroll) {
+    try {
+      scrollToRunButton();
+    } catch (e) {
+    }
+  }
+}
+function promptRunBeforeAsk() {
+  showReportStaleUi(true);
+  try {
+    setAskStatus("Changes made \u2014 Press to Update, then ask again.");
+  } catch (e) {
+  }
+}
+function wireReportStale() {
+  try {
+    ensureStaleUiElements();
+  } catch (e) {
+  }
 }
 function natalControlsToDisable() {
   return ["modeSingle", "modeRange", "dateFrom", "dateTo", "timeFrom", "timeTo", "month", "clearDates", "hour12", "minute", "ampm", "tz", "nowBtn", "includeRangeTransitField", "calPrev", "calNext"];
@@ -1750,7 +1962,7 @@ function finishNatalOnlyReport(people, meta) {
   }
 }
 function rerunIfReportExists() {
-  if (reportAlreadyGenerated()) runAnalysis();
+  return;
 }
 function hasGeneratedReport() {
   try {
@@ -3860,6 +4072,13 @@ function rememberReportBase() {
   const wrap = $("report");
   lastHtmlBase = wrap ? stripGrokFromHtml(wrap.innerHTML) : "";
   if (typeof lastHtml !== "undefined") lastHtml = lastHtmlBase;
+  if (__hdtaRunInProgress) {
+    __hdtaRunInProgress = false;
+    try {
+      captureLastRunSignature();
+    } catch (e) {
+    }
+  }
 }
 function setAskStatus(msg, kind) {
   const el = $("askGrokStatus");
@@ -3893,6 +4112,17 @@ async function askGrok() {
   if (question.length > ASK_MAX) {
     setAskStatus("Question is too long (max 5000 characters).");
     return;
+  }
+  if (typeof resultNeedsRunBeforeAsk === "function" && resultNeedsRunBeforeAsk()) {
+    try {
+      promptRunBeforeAsk();
+    } catch (e) {
+    }
+    return;
+  }
+  try {
+    clearReportStaleUi();
+  } catch (e) {
   }
   if (!window.__LAST_TRANSIT__ && !($("report") && /Transit|Real-world|Not-Self|Story/.test($("report").innerText || ""))) {
   }
@@ -4000,6 +4230,12 @@ async function askGrok() {
   }
 }
 function runAnalysis() {
+  var staleUiWasVisible = !!staleUiVisible;
+  try {
+    clearReportStaleUi();
+  } catch (e) {
+  }
+  __hdtaRunInProgress = true;
   try {
     let stopChart2 = function(msg) {
       const wrap = $("report");
@@ -4219,6 +4455,16 @@ function runAnalysis() {
   } catch (e) {
     status(String(e.message || e), "err");
     console.error(e);
+  } finally {
+    if (__hdtaRunInProgress) {
+      __hdtaRunInProgress = false;
+      if (staleUiWasVisible && typeof resultNeedsRunBeforeAsk === "function" && resultNeedsRunBeforeAsk()) {
+        try {
+          showReportStaleUi(false);
+        } catch (e) {
+        }
+      }
+    }
   }
 }
 function loadCoupleSample() {
@@ -5313,7 +5559,6 @@ function wire() {
       } catch (e) {
       }
       try {
-        if (reportAlreadyGenerated()) runAnalysis();
       } catch (e) {
       }
     });
@@ -5331,7 +5576,6 @@ function wire() {
       } catch (e) {
       }
       try {
-        if (reportAlreadyGenerated()) runAnalysis();
       } catch (e) {
       }
     });
@@ -5349,7 +5593,6 @@ function wire() {
       } catch (e) {
       }
       try {
-        if (reportAlreadyGenerated()) runAnalysis();
       } catch (e) {
       }
     });
@@ -5359,7 +5602,6 @@ function wire() {
   safe("codes", () => {
     const ic = $("includeCodes");
     if (ic) ic.onchange = () => {
-      if (reportAlreadyGenerated()) runAnalysis();
     };
   });
   safe("realWorld", () => {
@@ -5412,27 +5654,23 @@ function wire() {
   safe("moonGate", () => {
     const moonCb = $("moonGateOnly");
     if (moonCb) moonCb.onchange = () => {
-      if (reportAlreadyGenerated()) runAnalysis();
     };
   });
   safe("sunGate", () => {
     const sunCb = $("sunGateOnly");
     if (sunCb) sunCb.onchange = () => {
-      if (reportAlreadyGenerated()) runAnalysis();
     };
   });
   safe("allGate", () => {
     const allGateCb = $("allGateOnly");
     if (allGateCb) allGateCb.onchange = () => {
       syncOmitLightsUI();
-      if (reportAlreadyGenerated()) runAnalysis();
     };
   });
   safe("omitLights", () => {
     const omitCb = $("omitLights");
     if (omitCb) omitCb.onchange = () => {
       syncOmitLightsUI();
-      if (reportAlreadyGenerated()) runAnalysis();
     };
   });
   safe("omitUI", syncOmitLightsUI);
@@ -5445,7 +5683,6 @@ function wire() {
       } catch (e) {
       }
       try {
-        if (reportAlreadyGenerated()) runAnalysis();
       } catch (e) {
       }
     };
@@ -5460,6 +5697,10 @@ function wire() {
     if (runBtn) runBtn.onclick = runAnalysis;
     try {
       wireRunPulse();
+    } catch (e) {
+    }
+    try {
+      wireReportStale();
     } catch (e) {
     }
     try {
