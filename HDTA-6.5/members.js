@@ -5,7 +5,7 @@
 window.HDTA_MEMBERS = {
  "version": 1,
  "model": "6.5.1",
- "updated": "2026-11-15",
+ "updated": "2026-11-16",
  "members": [
   {
    "key": "dennis",
@@ -1059,6 +1059,1175 @@ window.HDTA_MEMBERS = {
      "32-54"
     ],
     "notes": "Computed from natal planets; matches source Emotional Manifestor and channel list (source typo 32.54 → 32-54)."
+   }
+  },
+  {
+   "key": "becky",
+   "name": "Becky",
+   "gender": "female",
+   "pronouns": "she/her",
+   "chart": {
+    "name": "Becky Hoffman AI",
+    "planets": {
+     "Saturn": "26.2",
+     "Pluto": "44.3",
+     "Venus": "10.3",
+     "Sun": "7.4",
+     "Moon": "2.2",
+     "Earth": "13.4",
+     "NorthNode": "48.5",
+     "SouthNode": "21.5",
+     "Mars": "51.5",
+     "Neptune": "58.4",
+     "Jupiter": "36.2"
+    },
+    "design_planets": {
+     "Mars": "26.4",
+     "Pluto": "44.1",
+     "SouthNode": "57.6",
+     "Sun": "1.6",
+     "Moon": "63.3",
+     "Earth": "2.6",
+     "NorthNode": "48.5",
+     "Venus": "44.2",
+     "Neptune": "58.1",
+     "Saturn": "9.4",
+     "Jupiter": "63.2"
+    },
+    "hanging_gates": [],
+    "defined_channels": [
+     "26-44",
+     "26-44"
+    ],
+    "activations": [
+     {
+      "planet": "Saturn",
+      "gate": 26,
+      "line": 2,
+      "gl": "26.2",
+      "side": "personality"
+     },
+     {
+      "planet": "Pluto",
+      "gate": 44,
+      "line": 3,
+      "gl": "44.3",
+      "side": "personality"
+     },
+     {
+      "planet": "Mars",
+      "gate": 26,
+      "line": 4,
+      "gl": "26.4",
+      "side": "design"
+     },
+     {
+      "planet": "Pluto",
+      "gate": 44,
+      "line": 1,
+      "gl": "44.1",
+      "side": "design"
+     },
+     {
+      "planet": "Venus",
+      "gate": 10,
+      "line": 3,
+      "gl": "10.3",
+      "side": "personality"
+     },
+     {
+      "planet": "SouthNode",
+      "gate": 57,
+      "line": 6,
+      "gl": "57.6",
+      "side": "design"
+     },
+     {
+      "planet": "Sun",
+      "gate": 1,
+      "line": 6,
+      "gl": "1.6",
+      "side": "design"
+     },
+     {
+      "planet": "Sun",
+      "gate": 7,
+      "line": 4,
+      "gl": "7.4",
+      "side": "personality"
+     },
+     {
+      "planet": "Moon",
+      "gate": 2,
+      "line": 2,
+      "gl": "2.2",
+      "side": "personality"
+     },
+     {
+      "planet": "Moon",
+      "gate": 63,
+      "line": 3,
+      "gl": "63.3",
+      "side": "design"
+     },
+     {
+      "planet": "Earth",
+      "gate": 13,
+      "line": 4,
+      "gl": "13.4",
+      "side": "personality"
+     },
+     {
+      "planet": "NorthNode",
+      "gate": 48,
+      "line": 5,
+      "gl": "48.5",
+      "side": "personality"
+     },
+     {
+      "planet": "SouthNode",
+      "gate": 21,
+      "line": 5,
+      "gl": "21.5",
+      "side": "personality"
+     },
+     {
+      "planet": "Venus",
+      "gate": 55,
+      "line": 3,
+      "gl": "55.3",
+      "side": "personality"
+     },
+     {
+      "planet": "Mars",
+      "gate": 11,
+      "line": 4,
+      "gl": "11.4",
+      "side": "personality"
+     },
+     {
+      "planet": "Mars",
+      "gate": 51,
+      "line": 5,
+      "gl": "51.5",
+      "side": "personality"
+     },
+     {
+      "planet": "Neptune",
+      "gate": 58,
+      "line": 4,
+      "gl": "58.4",
+      "side": "personality"
+     },
+     {
+      "planet": "Jupiter",
+      "gate": 36,
+      "line": 2,
+      "gl": "36.2",
+      "side": "personality"
+     },
+     {
+      "planet": "Earth",
+      "gate": 2,
+      "line": 6,
+      "gl": "2.6",
+      "side": "design"
+     },
+     {
+      "planet": "NorthNode",
+      "gate": 51,
+      "line": 6,
+      "gl": "51.6",
+      "side": "design"
+     },
+     {
+      "planet": "Venus",
+      "gate": 43,
+      "line": 5,
+      "gl": "43.5",
+      "side": "design"
+     },
+     {
+      "planet": "Mars",
+      "gate": 49,
+      "line": 2,
+      "gl": "49.2",
+      "side": "design"
+     },
+     {
+      "planet": "Venus",
+      "gate": 44,
+      "line": 2,
+      "gl": "44.2",
+      "side": "design"
+     },
+     {
+      "planet": "Neptune",
+      "gate": 58,
+      "line": 1,
+      "gl": "58.1",
+      "side": "design"
+     },
+     {
+      "planet": "Saturn",
+      "gate": 9,
+      "line": 4,
+      "gl": "9.4",
+      "side": "design"
+     },
+     {
+      "planet": "Jupiter",
+      "gate": 63,
+      "line": 2,
+      "gl": "63.2",
+      "side": "design"
+     },
+     {
+      "planet": "NorthNode",
+      "gate": 48,
+      "line": 5,
+      "gl": "48.5",
+      "side": "design"
+     }
+    ],
+    "gender": "female",
+    "pronouns": "she/her"
+   }
+  },
+  {
+   "key": "holly",
+   "name": "Holly",
+   "gender": "female",
+   "pronouns": "she/her",
+   "chart": {
+    "name": "Holly Finley AI",
+    "planets": {
+     "Earth": "24.5",
+     "Sun": "44.5",
+     "Moon": "2.4",
+     "NorthNode": "9.1",
+     "SouthNode": "16.1",
+     "Venus": "3.4",
+     "Mars": "43.6",
+     "Neptune": "10.4",
+     "Saturn": "44.6",
+     "Jupiter": "38.4",
+     "Pluto": "50.5"
+    },
+    "design_planets": {
+     "Pluto": "28.1",
+     "Venus": "38.1",
+     "Sun": "13.1",
+     "Moon": "30.1",
+     "Earth": "7.1",
+     "NorthNode": "9.1",
+     "SouthNode": "5.3",
+     "Mars": "44.4",
+     "Neptune": "10.3",
+     "Saturn": "1.3",
+     "Jupiter": "10.6"
+    },
+    "hanging_gates": [],
+    "defined_channels": [
+     "28-38"
+    ],
+    "activations": [
+     {
+      "planet": "Pluto",
+      "gate": 28,
+      "line": 1,
+      "gl": "28.1",
+      "side": "design"
+     },
+     {
+      "planet": "Venus",
+      "gate": 38,
+      "line": 1,
+      "gl": "38.1",
+      "side": "design"
+     },
+     {
+      "planet": "Earth",
+      "gate": 24,
+      "line": 5,
+      "gl": "24.5",
+      "side": "personality"
+     },
+     {
+      "planet": "Venus",
+      "gate": 61,
+      "line": 1,
+      "gl": "61.1",
+      "side": "design"
+     },
+     {
+      "planet": "Sun",
+      "gate": 13,
+      "line": 1,
+      "gl": "13.1",
+      "side": "design"
+     },
+     {
+      "planet": "Sun",
+      "gate": 44,
+      "line": 5,
+      "gl": "44.5",
+      "side": "personality"
+     },
+     {
+      "planet": "Moon",
+      "gate": 2,
+      "line": 4,
+      "gl": "2.4",
+      "side": "personality"
+     },
+     {
+      "planet": "Moon",
+      "gate": 30,
+      "line": 1,
+      "gl": "30.1",
+      "side": "design"
+     },
+     {
+      "planet": "NorthNode",
+      "gate": 9,
+      "line": 1,
+      "gl": "9.1",
+      "side": "personality"
+     },
+     {
+      "planet": "SouthNode",
+      "gate": 16,
+      "line": 1,
+      "gl": "16.1",
+      "side": "personality"
+     },
+     {
+      "planet": "Venus",
+      "gate": 3,
+      "line": 1,
+      "gl": "3.1",
+      "side": "personality"
+     },
+     {
+      "planet": "Mars",
+      "gate": 5,
+      "line": 2,
+      "gl": "5.2",
+      "side": "personality"
+     },
+     {
+      "planet": "Venus",
+      "gate": 3,
+      "line": 4,
+      "gl": "3.4",
+      "side": "personality"
+     },
+     {
+      "planet": "Mars",
+      "gate": 43,
+      "line": 6,
+      "gl": "43.6",
+      "side": "personality"
+     },
+     {
+      "planet": "Neptune",
+      "gate": 10,
+      "line": 4,
+      "gl": "10.4",
+      "side": "personality"
+     },
+     {
+      "planet": "Saturn",
+      "gate": 44,
+      "line": 6,
+      "gl": "44.6",
+      "side": "personality"
+     },
+     {
+      "planet": "Jupiter",
+      "gate": 38,
+      "line": 4,
+      "gl": "38.4",
+      "side": "personality"
+     },
+     {
+      "planet": "Pluto",
+      "gate": 50,
+      "line": 5,
+      "gl": "50.5",
+      "side": "personality"
+     },
+     {
+      "planet": "Earth",
+      "gate": 7,
+      "line": 1,
+      "gl": "7.1",
+      "side": "design"
+     },
+     {
+      "planet": "NorthNode",
+      "gate": 35,
+      "line": 3,
+      "gl": "35.3",
+      "side": "design"
+     },
+     {
+      "planet": "SouthNode",
+      "gate": 5,
+      "line": 3,
+      "gl": "5.3",
+      "side": "design"
+     },
+     {
+      "planet": "Mars",
+      "gate": 5,
+      "line": 2,
+      "gl": "5.2",
+      "side": "design"
+     },
+     {
+      "planet": "Mars",
+      "gate": 44,
+      "line": 4,
+      "gl": "44.4",
+      "side": "design"
+     },
+     {
+      "planet": "Neptune",
+      "gate": 10,
+      "line": 3,
+      "gl": "10.3",
+      "side": "design"
+     },
+     {
+      "planet": "Saturn",
+      "gate": 1,
+      "line": 3,
+      "gl": "1.3",
+      "side": "design"
+     },
+     {
+      "planet": "Jupiter",
+      "gate": 10,
+      "line": 6,
+      "gl": "10.6",
+      "side": "design"
+     },
+     {
+      "planet": "NorthNode",
+      "gate": 9,
+      "line": 1,
+      "gl": "9.1",
+      "side": "design"
+     }
+    ],
+    "gender": "female",
+    "pronouns": "she/her"
+   }
+  },
+  {
+   "key": "josh",
+   "name": "Josh",
+   "gender": "male",
+   "pronouns": "he/him",
+   "chart": {
+    "name": "Josh Hoffman AI",
+    "planets": {
+     "Moon": "2.6",
+     "Jupiter": "14.3",
+     "Mars": "3.5",
+     "NorthNode": "60.6",
+     "Sun": "27.1",
+     "Earth": "28.1",
+     "SouthNode": "56.6",
+     "Venus": "28.2",
+     "Neptune": "63.3",
+     "Saturn": "58.1",
+     "Pluto": "54.5"
+    },
+    "design_planets": {
+     "Venus": "4.5",
+     "Neptune": "63.6",
+     "Sun": "31.3",
+     "Moon": "60.6",
+     "Earth": "41.3",
+     "NorthNode": "60.6",
+     "SouthNode": "41.5",
+     "Mars": "41.3",
+     "Saturn": "10.6",
+     "Jupiter": "1.1",
+     "Pluto": "54.5"
+    },
+    "hanging_gates": [],
+    "defined_channels": [
+     "2-14",
+     "3-60",
+     "4-63"
+    ],
+    "activations": [
+     {
+      "planet": "Moon",
+      "gate": 2,
+      "line": 6,
+      "gl": "2.6",
+      "side": "personality"
+     },
+     {
+      "planet": "Jupiter",
+      "gate": 14,
+      "line": 3,
+      "gl": "14.3",
+      "side": "personality"
+     },
+     {
+      "planet": "Mars",
+      "gate": 3,
+      "line": 5,
+      "gl": "3.5",
+      "side": "personality"
+     },
+     {
+      "planet": "NorthNode",
+      "gate": 60,
+      "line": 6,
+      "gl": "60.6",
+      "side": "personality"
+     },
+     {
+      "planet": "Venus",
+      "gate": 4,
+      "line": 5,
+      "gl": "4.5",
+      "side": "design"
+     },
+     {
+      "planet": "Neptune",
+      "gate": 63,
+      "line": 6,
+      "gl": "63.6",
+      "side": "design"
+     },
+     {
+      "planet": "Sun",
+      "gate": 31,
+      "line": 3,
+      "gl": "31.3",
+      "side": "design"
+     },
+     {
+      "planet": "Sun",
+      "gate": 27,
+      "line": 1,
+      "gl": "27.1",
+      "side": "personality"
+     },
+     {
+      "planet": "Moon",
+      "gate": 60,
+      "line": 6,
+      "gl": "60.6",
+      "side": "design"
+     },
+     {
+      "planet": "Earth",
+      "gate": 28,
+      "line": 1,
+      "gl": "28.1",
+      "side": "personality"
+     },
+     {
+      "planet": "SouthNode",
+      "gate": 56,
+      "line": 6,
+      "gl": "56.6",
+      "side": "personality"
+     },
+     {
+      "planet": "Venus",
+      "gate": 43,
+      "line": 5,
+      "gl": "43.5",
+      "side": "personality"
+     },
+     {
+      "planet": "Venus",
+      "gate": 28,
+      "line": 2,
+      "gl": "28.2",
+      "side": "personality"
+     },
+     {
+      "planet": "Mars",
+      "gate": 13,
+      "line": 5,
+      "gl": "13.5",
+      "side": "personality"
+     },
+     {
+      "planet": "Neptune",
+      "gate": 63,
+      "line": 3,
+      "gl": "63.3",
+      "side": "personality"
+     },
+     {
+      "planet": "Saturn",
+      "gate": 58,
+      "line": 1,
+      "gl": "58.1",
+      "side": "personality"
+     },
+     {
+      "planet": "Pluto",
+      "gate": 54,
+      "line": 5,
+      "gl": "54.5",
+      "side": "personality"
+     },
+     {
+      "planet": "Earth",
+      "gate": 41,
+      "line": 3,
+      "gl": "41.3",
+      "side": "design"
+     },
+     {
+      "planet": "NorthNode",
+      "gate": 31,
+      "line": 5,
+      "gl": "31.5",
+      "side": "design"
+     },
+     {
+      "planet": "SouthNode",
+      "gate": 41,
+      "line": 5,
+      "gl": "41.5",
+      "side": "design"
+     },
+     {
+      "planet": "Mars",
+      "gate": 27,
+      "line": 1,
+      "gl": "27.1",
+      "side": "design"
+     },
+     {
+      "planet": "Mars",
+      "gate": 41,
+      "line": 3,
+      "gl": "41.3",
+      "side": "design"
+     },
+     {
+      "planet": "Venus",
+      "gate": 47,
+      "line": 3,
+      "gl": "47.3",
+      "side": "design"
+     },
+     {
+      "planet": "Saturn",
+      "gate": 10,
+      "line": 6,
+      "gl": "10.6",
+      "side": "design"
+     },
+     {
+      "planet": "Jupiter",
+      "gate": 1,
+      "line": 1,
+      "gl": "1.1",
+      "side": "design"
+     },
+     {
+      "planet": "Pluto",
+      "gate": 54,
+      "line": 5,
+      "gl": "54.5",
+      "side": "design"
+     },
+     {
+      "planet": "NorthNode",
+      "gate": 60,
+      "line": 6,
+      "gl": "60.6",
+      "side": "design"
+     }
+    ],
+    "gender": "male",
+    "pronouns": "he/him"
+   }
+  },
+  {
+   "key": "emmie",
+   "name": "Emmie",
+   "gender": "",
+   "pronouns": "",
+   "chart": {
+    "name": "Emmie Hoffman AI",
+    "planets": {
+     "Mars": "3.2",
+     "Saturn": "60.6",
+     "Sun": "39.3",
+     "Moon": "4.4",
+     "Earth": "38.3",
+     "NorthNode": "26.3",
+     "SouthNode": "45.3",
+     "Venus": "26.6",
+     "Neptune": "22.2",
+     "Jupiter": "41.2",
+     "Pluto": "61.4"
+    },
+    "design_planets": {
+     "Moon": "16.6",
+     "Sun": "48.6",
+     "Earth": "21.6",
+     "NorthNode": "26.3",
+     "Mars": "24.3",
+     "Pluto": "61.2",
+     "SouthNode": "26.6",
+     "Venus": "44.2",
+     "Neptune": "22.3",
+     "Saturn": "61.5",
+     "Jupiter": "54.4"
+    },
+    "hanging_gates": [],
+    "defined_channels": [
+     "3-60",
+     "16-48",
+     "21-45",
+     "24-61",
+     "26-44"
+    ],
+    "activations": [
+     {
+      "planet": "Mars",
+      "gate": 3,
+      "line": 2,
+      "gl": "3.2",
+      "side": "personality"
+     },
+     {
+      "planet": "Saturn",
+      "gate": 60,
+      "line": 6,
+      "gl": "60.6",
+      "side": "personality"
+     },
+     {
+      "planet": "Moon",
+      "gate": 16,
+      "line": 6,
+      "gl": "16.6",
+      "side": "design"
+     },
+     {
+      "planet": "Sun",
+      "gate": 48,
+      "line": 6,
+      "gl": "48.6",
+      "side": "design"
+     },
+     {
+      "planet": "Earth",
+      "gate": 21,
+      "line": 6,
+      "gl": "21.6",
+      "side": "design"
+     },
+     {
+      "planet": "NorthNode",
+      "gate": 45,
+      "line": 6,
+      "gl": "45.6",
+      "side": "design"
+     },
+     {
+      "planet": "Mars",
+      "gate": 24,
+      "line": 3,
+      "gl": "24.3",
+      "side": "design"
+     },
+     {
+      "planet": "Pluto",
+      "gate": 61,
+      "line": 2,
+      "gl": "61.2",
+      "side": "design"
+     },
+     {
+      "planet": "SouthNode",
+      "gate": 26,
+      "line": 6,
+      "gl": "26.6",
+      "side": "design"
+     },
+     {
+      "planet": "Venus",
+      "gate": 44,
+      "line": 2,
+      "gl": "44.2",
+      "side": "design"
+     },
+     {
+      "planet": "Sun",
+      "gate": 39,
+      "line": 3,
+      "gl": "39.3",
+      "side": "personality"
+     },
+     {
+      "planet": "Moon",
+      "gate": 4,
+      "line": 4,
+      "gl": "4.4",
+      "side": "personality"
+     },
+     {
+      "planet": "Earth",
+      "gate": 38,
+      "line": 3,
+      "gl": "38.3",
+      "side": "personality"
+     },
+     {
+      "planet": "NorthNode",
+      "gate": 26,
+      "line": 3,
+      "gl": "26.3",
+      "side": "personality"
+     },
+     {
+      "planet": "SouthNode",
+      "gate": 45,
+      "line": 3,
+      "gl": "45.3",
+      "side": "personality"
+     },
+     {
+      "planet": "Venus",
+      "gate": 54,
+      "line": 6,
+      "gl": "54.6",
+      "side": "personality"
+     },
+     {
+      "planet": "Mars",
+      "gate": 27,
+      "line": 6,
+      "gl": "27.6",
+      "side": "personality"
+     },
+     {
+      "planet": "Venus",
+      "gate": 26,
+      "line": 6,
+      "gl": "26.6",
+      "side": "personality"
+     },
+     {
+      "planet": "Neptune",
+      "gate": 22,
+      "line": 2,
+      "gl": "22.2",
+      "side": "personality"
+     },
+     {
+      "planet": "Jupiter",
+      "gate": 41,
+      "line": 2,
+      "gl": "41.2",
+      "side": "personality"
+     },
+     {
+      "planet": "Pluto",
+      "gate": 61,
+      "line": 4,
+      "gl": "61.4",
+      "side": "personality"
+     },
+     {
+      "planet": "Mars",
+      "gate": 42,
+      "line": 3,
+      "gl": "42.3",
+      "side": "design"
+     },
+     {
+      "planet": "Venus",
+      "gate": 59,
+      "line": 6,
+      "gl": "59.6",
+      "side": "design"
+     },
+     {
+      "planet": "Neptune",
+      "gate": 22,
+      "line": 3,
+      "gl": "22.3",
+      "side": "design"
+     },
+     {
+      "planet": "Saturn",
+      "gate": 61,
+      "line": 5,
+      "gl": "61.5",
+      "side": "design"
+     },
+     {
+      "planet": "Jupiter",
+      "gate": 54,
+      "line": 4,
+      "gl": "54.4",
+      "side": "design"
+     },
+     {
+      "planet": "NorthNode",
+      "gate": 26,
+      "line": 3,
+      "gl": "26.3",
+      "side": "design"
+     }
+    ]
+   }
+  },
+  {
+   "key": "owen",
+   "name": "Owen",
+   "gender": "male",
+   "pronouns": "he/him",
+   "chart": {
+    "name": "Owen Blaise Braun",
+    "planets": {
+     "Moon": "43.4",
+     "Uranus": "23.5",
+     "Sun": "36.5",
+     "Neptune": "36.4",
+     "Venus": "40.4",
+     "Mars": "57.1",
+     "Earth": "6.5",
+     "NorthNode": "32.5",
+     "SouthNode": "42.5",
+     "Mercury": "7.4",
+     "Jupiter": "2.3",
+     "Saturn": "55.3",
+     "Pluto": "60.2"
+    },
+    "design_planets": {
+     "Venus": "35.5",
+     "Saturn": "37.2",
+     "Earth": "10.1",
+     "Sun": "15.1",
+     "Moon": "62.3",
+     "NorthNode": "32.5",
+     "SouthNode": "28.1",
+     "Mercury": "33.6",
+     "Mars": "7.5",
+     "Jupiter": "27.6",
+     "Uranus": "23.3",
+     "Neptune": "36.6",
+     "Pluto": "60.4"
+    },
+    "hanging_gates": [],
+    "defined_channels": [
+     "23-43"
+    ],
+    "activations": [
+     {
+      "planet": "Moon",
+      "gate": 43,
+      "line": 4,
+      "gl": "43.4",
+      "side": "personality"
+     },
+     {
+      "planet": "Uranus",
+      "gate": 23,
+      "line": 5,
+      "gl": "23.5",
+      "side": "personality"
+     },
+     {
+      "planet": "Venus",
+      "gate": 35,
+      "line": 5,
+      "gl": "35.5",
+      "side": "design"
+     },
+     {
+      "planet": "Sun",
+      "gate": 36,
+      "line": 5,
+      "gl": "36.5",
+      "side": "personality"
+     },
+     {
+      "planet": "Neptune",
+      "gate": 36,
+      "line": 4,
+      "gl": "36.4",
+      "side": "personality"
+     },
+     {
+      "planet": "Saturn",
+      "gate": 37,
+      "line": 2,
+      "gl": "37.2",
+      "side": "design"
+     },
+     {
+      "planet": "Venus",
+      "gate": 40,
+      "line": 4,
+      "gl": "40.4",
+      "side": "personality"
+     },
+     {
+      "planet": "Earth",
+      "gate": 10,
+      "line": 1,
+      "gl": "10.1",
+      "side": "design"
+     },
+     {
+      "planet": "Mars",
+      "gate": 57,
+      "line": 1,
+      "gl": "57.1",
+      "side": "personality"
+     },
+     {
+      "planet": "Earth",
+      "gate": 6,
+      "line": 5,
+      "gl": "6.5",
+      "side": "personality"
+     },
+     {
+      "planet": "NorthNode",
+      "gate": 32,
+      "line": 5,
+      "gl": "32.5",
+      "side": "personality"
+     },
+     {
+      "planet": "SouthNode",
+      "gate": 42,
+      "line": 5,
+      "gl": "42.5",
+      "side": "personality"
+     },
+     {
+      "planet": "Mercury",
+      "gate": 7,
+      "line": 4,
+      "gl": "7.4",
+      "side": "personality"
+     },
+     {
+      "planet": "Jupiter",
+      "gate": 2,
+      "line": 3,
+      "gl": "2.3",
+      "side": "personality"
+     },
+     {
+      "planet": "Saturn",
+      "gate": 55,
+      "line": 3,
+      "gl": "55.3",
+      "side": "personality"
+     },
+     {
+      "planet": "Pluto",
+      "gate": 60,
+      "line": 2,
+      "gl": "60.2",
+      "side": "personality"
+     },
+     {
+      "planet": "Sun",
+      "gate": 15,
+      "line": 1,
+      "gl": "15.1",
+      "side": "design"
+     },
+     {
+      "planet": "Moon",
+      "gate": 62,
+      "line": 3,
+      "gl": "62.3",
+      "side": "design"
+     },
+     {
+      "planet": "NorthNode",
+      "gate": 27,
+      "line": 1,
+      "gl": "27.1",
+      "side": "design"
+     },
+     {
+      "planet": "SouthNode",
+      "gate": 28,
+      "line": 1,
+      "gl": "28.1",
+      "side": "design"
+     },
+     {
+      "planet": "Mercury",
+      "gate": 33,
+      "line": 6,
+      "gl": "33.6",
+      "side": "design"
+     },
+     {
+      "planet": "Mars",
+      "gate": 7,
+      "line": 5,
+      "gl": "7.5",
+      "side": "design"
+     },
+     {
+      "planet": "Jupiter",
+      "gate": 27,
+      "line": 6,
+      "gl": "27.6",
+      "side": "design"
+     },
+     {
+      "planet": "Uranus",
+      "gate": 23,
+      "line": 3,
+      "gl": "23.3",
+      "side": "design"
+     },
+     {
+      "planet": "Neptune",
+      "gate": 36,
+      "line": 6,
+      "gl": "36.6",
+      "side": "design"
+     },
+     {
+      "planet": "Pluto",
+      "gate": 60,
+      "line": 4,
+      "gl": "60.4",
+      "side": "design"
+     },
+     {
+      "planet": "NorthNode",
+      "gate": 32,
+      "line": 5,
+      "gl": "32.5",
+      "side": "design"
+     }
+    ],
+    "gender": "male",
+    "pronouns": "he/him"
    }
   }
  ]
