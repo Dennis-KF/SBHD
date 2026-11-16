@@ -1763,8 +1763,8 @@ window.HDTA_MEMBERS = {
   {
    "key": "emmie",
    "name": "Emmie",
-   "gender": "",
-   "pronouns": "",
+   "gender": "female",
+   "pronouns": "she/her",
    "chart": {
     "name": "Emmie Hoffman AI",
     "planets": {
@@ -1991,7 +1991,9 @@ window.HDTA_MEMBERS = {
       "gl": "26.3",
       "side": "design"
      }
-    ]
+    ],
+    "gender": "female",
+    "pronouns": "she/her"
    }
   },
   {
