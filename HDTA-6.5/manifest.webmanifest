@@ -1,0 +1,11 @@
+{
+  "name": "Human Design Transit Analyzer — HDTA 6.5",
+  "short_name": "HDTA 6.5",
+  "description": "Natal chart transit analyzer for up to six members, with Real-World Influence readings",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0f1419",
+  "theme_color": "#0f1419",
+  "icons": []
+}

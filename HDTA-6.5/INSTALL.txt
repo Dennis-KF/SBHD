@@ -1,0 +1,138 @@
+Human Design Transit Analyzer - Model HDTA 6.5.1 — installation
+========================================================
+
+Build 202611151735. This folder is the complete file set for GitHub Pages
+path /HDTA-6.5/ (https://sbhd.net/HDTA-6.5/index.html).
+
+The earlier Transit-6 site (Model HDTA 6.4.18 at
+https://sbhd.net/Transit-6/index.html) is unchanged. Leave that folder alone.
+
+What you upload to GitHub (HDTA-6.5 folder)
+-------------------------------------------
+  index.html               — the app shell (open this)
+  members.js               — official member roster (edit with the Member Manager)
+  data.js                  — gate / line / center / channel meanings + fallback samples
+  analyzer.js              — chart + transit engine
+  app.js                   — buttons, uploads, report UI (up to six members)
+  astronomy.browser.min.js — offline ephemeris library
+  manifest.webmanifest     — optional “Add to Home Screen” metadata (HDTA 6.5)
+  netlify.toml             — optional hint for Netlify
+  README.md                — short project notes
+  INSTALL.txt              — this file
+
+Do not upload the Member Manager HTML to GitHub or to the HDTA-6.5 folder.
+Keep that file on your own computer (or a private drive). Visitors never
+need it, and it is the only place official members can be added or removed.
+
+Keep every uploaded file in the same HDTA-6.5 folder. Unzip so index.html
+is at the folder root (not nested an extra level).
+
+iPhone / iPad: serve over https (GitHub Pages). Opening a lone .html from
+the Files app via file:// is unreliable in iOS Firefox / Safari. On Windows
+you can double-click the live single-file page or the Member Manager
+(file://). The public site should still be served over https.
+
+This package is independent of the /Transits/, /Transit-Test/, and
+/Transit-6/ folders.
+
+How the official member list works
+----------------------------------
+  The public page reads its official members from members.js. If that file
+  is missing, it falls back to the original six (Dennis, Eike, Judy,
+  Carolyn, Milena, Teresa). Visitors can still upload their own charts
+  into the six inputs for a session, and they can keep up to six personal
+  quick-load charts in their own browser. They cannot add, edit, or remove
+  official roster members on the public page.
+
+Member Manager (private, on your computer)
+------------------------------------------
+  File: HDTA-Member-Manager-6.5.1.html
+  Keep this file only where you have access to it. Double-click it in a
+  desktop browser (Chrome, Edge, or Firefox on Windows or a Mac). It works
+  offline. It does not send charts or names anywhere.
+
+  Starting list: the original six members, already loaded.
+
+  Open members.js
+    Use this to load a members.js you saved earlier, so you can keep
+    editing the same roster.
+
+  Browse for a chart file
+    Adds one member from a .json, .txt, or .docx bodygraph file (the same
+    kinds the analyzer already accepts). You can also drag a chart file
+    onto the page. A PNG image is not enough — the manager needs the
+    chart data itself. After a file is added you can edit the first name
+    and, if needed, the small female/male tag.
+
+    Once you are comfortable with the manager, the Browse control is easy
+    to turn off: open the Member Manager in a text editor, find the line
+      var ENABLE_BROWSE = true;
+    near the top, and change true to false. Save the file. Opening and
+    saving members.js still works; only browsing and dragging chart files
+    is hidden.
+
+  Remove
+    Removes that person from the official list (including the original
+    six, if you choose). This does not change Transit-6.
+
+  Up / Down
+    Changes the order of the official quick-load buttons on the public
+    page.
+
+  Restore the original six
+    Replaces the current list with Dennis, Eike, Judy, Carolyn, Milena,
+    and Teresa. You will be asked to confirm.
+
+  Save members.js
+    Downloads a new members.js. Upload that file into the GitHub
+    HDTA-6.5 folder, replacing the previous members.js, and leave the
+    other site files as they are. After GitHub Pages updates (often
+    about 10 minutes), refresh https://sbhd.net/HDTA-6.5/index.html
+    and the official quick-load buttons will match your list.
+
+  You can have as many official members as you like. The public page
+  still analyzes up to six at a time; people pick who to load into
+  the six inputs.
+
+Windows / desktop
+-----------------
+  The public site is meant to be used at https://sbhd.net/HDTA-6.5/.
+  A live single-file HTML is also provided for a local check. The
+  Member Manager is a separate single file for your own use.
+
+Gender
+------
+  Gender is read automatically from the chart file, then from the first
+  name, then left unknown. The public page shows only a small muted tag
+  (female, male, or a faint dash). Tap the tag only if you need to change
+  it. If gender is unknown, answers use the first name only, with no
+  pronouns. Run and ASK never stop to ask for a gender.
+
+Question box
+------------
+  The question box and “Plain-language story: how everyone interacts”
+  stay visible. “Ask a question about Advantages and Difficulties”
+  only changes what the answer emphasizes. Changing either checkbox
+  does not mark the report out of date.
+
+First Run vs. later
+-------------------
+  The first press of Run stays at the beginning of the report. After
+  you change a setting that affects the result, press ASK, and then
+  press Run, the page returns to ASK.
+
+Times and names
+---------------
+  Reports use first names only. Each time is mentioned once unless
+  something actually changes at that time. Times are in 12-hour AM/PM
+  with the weekday.
+
+Upload checklist
+----------------
+  1. Create a GitHub folder named HDTA-6.5 (sibling of Transit-6).
+  2. Upload every file listed under “What you upload to GitHub” above,
+     including members.js.
+  3. Do not upload the Member Manager HTML.
+  4. Wait a few minutes, then open https://sbhd.net/HDTA-6.5/index.html
+     and refresh if you still see an older page.
+  5. Leave /Transit-6/ as Model HDTA 6.4.18.
