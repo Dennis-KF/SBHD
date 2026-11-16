@@ -329,8 +329,12 @@ function parseChartText(text) {
   return data;
 }
 function firstNameOnly(n) {
-  const s = String(n == null ? "" : n).trim();
+  let s = String(n == null ? "" : n).trim();
   if (!s) return "Unknown";
+  if (s.indexOf(",") >= 0) {
+    const after = s.split(",")[1];
+    if (after && after.trim()) s = after.trim();
+  }
   return s.split(/\s+/)[0] || "Unknown";
 }
 function extraList(p3) {
@@ -434,11 +438,11 @@ function normalizePronouns(pronouns, gender) {
   if (p === "he/him" || p === "he" || p === "him" || g === "male" || g === "man" || g === "m") {
     return { known: true, label: "he/him", gender: "male", subject: "he", object: "him", possessive: "his", possessivePronoun: "his", reflexive: "himself" };
   }
-  return { known: false, label: "they/them", gender: null, subject: "they", object: "them", possessive: "their", possessivePronoun: "theirs", reflexive: "themself" };
+  return { known: false, label: "", gender: null, subject: "", object: "", possessive: "", possessivePronoun: "", reflexive: "" };
 }
 function personPronouns(person) {
   if (!person) return normalizePronouns(null, null);
-  if (person.pronounSet && person.pronounSet.label) return person.pronounSet;
+  if (person.pronounSet && person.pronounSet.known) return person.pronounSet;
   const raw = person.raw || {};
   return normalizePronouns(person.pronouns || raw.pronouns || raw.pronoun, person.gender || raw.gender);
 }
@@ -503,10 +507,13 @@ function coerceChartObject(data) {
     const dk = "Design " + p;
     if (data[dk] != null && out.design_planets[p] == null) out.design_planets[p] = data[dk];
   }
-  if (data.gender != null && String(data.gender).trim() !== "") out.gender = data.gender;
-  else if (data.Gender != null && String(data.Gender).trim() !== "") out.gender = data.Gender;
+  const gIn = data.gender || data.Gender || data.sex || data.Sex;
+  if (gIn != null && String(gIn).trim() !== "") out.gender = gIn;
   const pr = data.pronouns || data.Pronouns || data.pronoun || data.Pronoun;
-  if (pr != null && String(pr).trim() !== "") out.pronouns = pr;
+  if (pr != null && String(pr).trim() !== "") {
+    const pnorm = String(pr).toLowerCase().replace(/\s+/g, "");
+    if (pnorm !== "they/them" && pnorm !== "they" && pnorm !== "them") out.pronouns = pr;
+  }
   return out;
 }
 function formatActivationList(person) {
@@ -6202,90 +6209,6 @@ function renderNatalOnlyMarkdown(people, meta2) {
   const html = renderNatalOnlyHtml(people, meta2);
   return String(html || "").replace(/<\/h2>/gi, "\n\n").replace(/<\/h3>/gi, "\n\n").replace(/<\/p>/gi, "\n\n").replace(/<br\s*\/?>/gi, "\n").replace(/<[^>]+>/g, "").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/\n{3,}/g, "\n\n").trim();
 }
-function centerForGate(gate) {
-  const g = gateInfo(gate);
-  return g && g.center ? normalizeCenterName(g.center) : "";
-}
-function summarizePersonTransit(person, transit) {
-  const day = analyzeDay(person, transit);
-  const profile = deriveHdProfile(person);
-  const open = openCentersOf(person);
-  const defined = [];
-  const defSeen = {};
-  const rawDefined = person && person.defined_centers ? Array.from(person.defined_centers) : [];
-  for (let i = 0; i < rawDefined.length; i++) {
-    const c = normalizeCenterName(rawDefined[i]);
-    if (c && !defSeen[c]) {
-      defSeen[c] = 1;
-      defined.push(c);
-    }
-  }
-  const openSet = {};
-  for (let i = 0; i < open.length; i++) openSet[normalizeCenterName(open[i])] = 1;
-  const defSet = {};
-  for (let i = 0; i < defined.length; i++) defSet[defined[i]] = 1;
-  function inList(list, center) {
-    const c = normalizeCenterName(center);
-    if (!list) return false;
-    for (let i = 0; i < list.length; i++) {
-      if (normalizeCenterName(list[i]) === c) return true;
-    }
-    return false;
-  }
-  const newlyDefined = [];
-  for (let i = 0; i < open.length; i++) {
-    const c = open[i];
-    if (inList(day.centers_activated_with_natal, c) || inList(day.centers_defined_by_transit, c)) newlyDefined.push(c);
-  }
-  const completedByTransit = [];
-  const chs = day.completed_channels || [];
-  for (let i = 0; i < chs.length; i++) {
-    const ch = chs[i];
-    if (ch && (ch.kind === "electromagnetic" || ch.kind === "completion")) completedByTransit.push(ch);
-  }
-  const amplifiedCenters = [];
-  for (let i = 0; i < defined.length; i++) {
-    if (inList(day.centers_activated_with_natal, defined[i])) amplifiedCenters.push(defined[i]);
-  }
-  const openCenterGates = [];
-  const planets = (transit && transit.planets) || {};
-  const pnames = Object.keys(planets);
-  for (let i = 0; i < pnames.length; i++) {
-    const pname = pnames[i];
-    const p = planets[pname];
-    if (!p) continue;
-    const center = centerForGate(p.gate);
-    if (center && openSet[center]) {
-      openCenterGates.push({
-        planet: pname,
-        gate: p.gate,
-        line: p.line,
-        gl: p.gl || (p.gate + "." + p.line),
-        center: center,
-        natalGate: !!(person.gates && person.gates.has(p.gate))
-      });
-    }
-  }
-  return {
-    person: person && person.name,
-    profile: {
-      type: (profile && profile.type) || "",
-      strategy: (profile && profile.strategy) || "",
-      authority: (profile && profile.authority) || "",
-      definition: (profile && profile.definition) || ""
-    },
-    definedCenters: defined,
-    openCenters: open.slice(),
-    newlyDefined: newlyDefined,
-    completedChannels: completedByTransit,
-    amplifiedCenters: amplifiedCenters,
-    openCenterGates: openCenterGates,
-    touches: day.touches || [],
-    centersDefinedByTransit: day.centers_defined_by_transit || [],
-    centersActivatedWithNatal: day.centers_activated_with_natal || []
-  };
-}
-
 window.HD = {
   PLANET_ORDER,
   lonToGateLine,
@@ -6295,11 +6218,6 @@ window.HD = {
   parseGl,
   analyzeDay,
   coupleDynamics,
-  centerForGate,
-  summarizePersonTransit,
-  gateInfo,
-  spanForPlanetAt,
-  findPlanetSpanAround,
   renderNarrativeHtml,
   renderNarrativeMarkdown,
   dateRangeList,

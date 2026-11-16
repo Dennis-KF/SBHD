@@ -1,8 +1,8 @@
-# Human Design Transit Analyzer - Model HDTA 6.4.15
+# Human Design Transit Analyzer - Model HDTA 6.4.18
 
 Static web app for GitHub Pages folder `Transit-6` (`https://sbhd.net/Transit-6/index.html`).
 
-Build: **202611151345**. Up to six members (Input 1 required; Inputs 2–6 optional). Forked from Transit Analyzer build 202611121715; this folder is independent of `/Transits/` and `/Transit-Test/`.
+Build: **202611151640**. Up to six members (Input 1 required; Inputs 2–6 optional). A small muted label beside each loaded member shows female or male when that can be read from the chart file or a clearly gendered first name. Tap it only if you need to change it. If a name is not clearly gendered, the label is a faint dash and answers use the first name only (no pronouns). Forked from Transit Analyzer build 202611121715; this folder is independent of `/Transits/` and `/Transit-Test/`.
 
 ## Files
 
@@ -18,7 +18,7 @@ Build: **202611151345**. Up to six members (Input 1 required; Inputs 2–6 optio
 | `INSTALL.txt` | Install notes for iPhone / iPad and Windows. |
 | `README.md` | This file. |
 
-Keep these files together in the `Transit-6` folder (same directory). Cache-bust query strings (`?v=202611151345`) are already on the script tags.
+Keep these files together in the `Transit-6` folder (same directory). Cache-bust query strings (`?v=202611151640`) are already on the script tags.
 
 ## Usage notes
 

@@ -52,6 +52,10 @@ function syncPersonInputLabel(n) {
   const filled = personInputIsFilled(n);
   lab.classList.toggle("is-filled", filled);
   lab.classList.toggle("is-empty", !filled);
+  try {
+    syncPersonGenderFromName(n);
+  } catch (e) {
+  }
 }
 function syncAllPersonInputLabels() {
   for (let i = 1; i <= PERSON_SLOT_MAX; i++) {
@@ -59,6 +63,387 @@ function syncAllPersonInputLabels() {
       syncPersonInputLabel(i);
     } catch (e) {
     }
+  }
+}
+const KNOWN_MEMBER_GENDER = { dennis: "male", eike: "female", judy: "female", milena: "female", teresa: "female", carolyn: "female" };
+const COMMON_FIRST_NAME_GENDER = (function() {
+  const map = {};
+  const female = "aaliyah,abigail,aisha,aisling,alana,alanna,alejandra,alessandra,alessia,alexa,alexandra,alexia,alia,alice,alicia,alina,alisa,alison,allie,allison,alma,alondra,alyson,alyssa,amanda,amber,ambra,amelia,amina,amira,amy,ana,anastasia,anaya,angela,anika,anisa,anissa,anita,anja,anke,ann,anna,annabelle,anne,annette,annie,annika,antoinette,antonia,anya,aoife,april,aria,ariadna,ariadne,ariana,arianna,arielle,arlene,asha,ashlee,ashleigh,ashley,ashlyn,astrid,athena,audra,audrey,aura,aurelia,aurora,autumn,ava,aviva,ayla,barbara,beate,beatrice,beatrix,beatriz,bela,belen,belinda,bella,bernadette,bernice,bertha,bessie,beth,bethany,betsy,bette,betty,beulah,beverly,bianca,birgit,bonnie,brenda,briana,brianna,bridget,britta,brittany,brittney,bronwyn,caitlin,caitlyn,camila,camilla,camille,candace,candice,candida,cara,carina,carissa,carla,carlotta,carmela,carmella,carmen,carol,carole,carolina,caroline,carolyn,carrie,cassandra,cassie,catalina,catherine,cathy,cecelia,cecile,cecilia,celeste,celia,celina,chana,chantal,chantel,charity,charlene,charlotte,chelsea,cheryl,chiara,chloe,christa,christi,christie,christina,christine,christy,ciara,cicely,cindy,claire,clara,clare,clarissa,claudette,claudia,coleen,colleen,concepcion,connie,constance,consuelo,cora,cordelia,corinne,cristina,crystal,cynthia,dagmar,daisy,danica,daniela,danielle,daphne,daria,darlene,davina,dawn,deanna,deanne,debbie,debora,deborah,debra,dela,delia,delilah,delores,dena,denise,desiree,diana,diane,diann,dianna,dilys,dolores,donatella,donna,dora,doreen,doris,dorothea,dorothy,edith,edna,eike,eileen,ekaterina,elaina,elaine,eleanor,elena,eliana,elisa,elisabeth,elise,eliza,elizabeth,ella,ellen,ellie,elodie,eloise,elsa,elsie,elvira,elyse,emilia,emilie,emily,emma,enid,erica,erika,erin,erminia,esme,esmeralda,esperanza,essie,esther,ethel,ettie,eugenia,eugenie,eunice,eva,evangelina,evangeline,eve,evelyn,evie,fabiola,faith,fannie,fanny,fatima,fay,faye,felicia,fernanda,fiona,flavie,flora,florence,fran,frances,francesca,francisca,frauke,freda,freya,gabi,gabriela,gabriella,gabrielle,gail,gemma,gena,geneva,genevieve,georgia,georgina,geraldine,gertrude,gilda,gina,ginny,giovanna,gisela,giselle,giulia,giuseppina,gladys,glenda,gloria,grace,gracia,gracie,graciela,greta,gretchen,gudrun,gwen,gwendolyn,hailey,halle,hallie,hana,hannah,harriet,hattie,hayley,hazel,heather,heidi,heike,helen,helena,helene,hilary,hilda,hildegard,hilke,hillary,hollie,holly,hope,hortense,ida,ilana,ileana,ilene,ilona,imelda,imogene,ina,ines,ingrid,irene,irina,iris,irma,irmgard,isabel,isabela,isabella,isabelle,isla,iva,ivana,ivy,izabella,jacinta,jacqueline,jade,jane,janelle,janet,janette,janice,janie,janine,janis,jasmin,jasmine,jayla,jayne,jeanette,jeanie,jeanine,jeanne,jeannette,jeannie,jemima,jenifer,jenna,jennifer,jenny,jessica,jill,jillian,joan,joann,joanna,joanne,jocelyn,jodi,johanna,josefa,josefina,josephine,josie,joyce,juana,juanita,judith,judy,julia,juliana,julianna,julie,june,justine,jutta,kaia,kaitlin,kaitlyn,kaleigh,kali,karen,kari,karin,karina,karla,katarina,kate,katelin,katelyn,katharine,katherine,kathie,kathleen,kathrine,kathryn,kathy,katie,katja,katrina,katy,kay,kayla,kaylee,keira,keisha,kendra,kenya,kerstin,kimberly,kira,kirsten,krista,kristen,kristi,kristie,kristin,kristina,kristine,krystal,kyla,kylie,lacey,laila,lana,lara,larissa,latoya,laura,laurel,lauren,laurie,layla,lea,leah,leann,leanna,leanne,leila,leilani,lena,leona,leonora,leticia,lidia,lila,liliana,lillian,lillie,lily,linda,lisa,liselotte,lisette,liz,liza,lizzie,lois,lola,lora,lorena,loretta,lori,lorraine,louise,lourdes,luann,lucia,luciana,lucille,lucy,luisa,luz,lydia,lynda,lynette,lynne,mabel,mable,maddalena,madeline,madelyn,madge,madison,magda,magdalena,maggie,makayla,mallory,mamie,mandy,manon,manuela,mara,marcela,marcella,marcia,margaret,margarete,margarita,margherita,margie,margo,margot,maria,mariah,marian,mariana,marianne,maribel,marie,mariel,mariela,marilyn,marina,marine,marisa,marisol,marissa,maritza,marjorie,marlene,marta,martha,martina,mary,maryann,maryanne,maryellen,mathilde,matilda,maureen,mavis,maxine,may,maya,meagan,megan,meghan,melan,melanie,melinda,melissa,melodie,melody,mercedes,mia,michaela,michela,michelle,mildred,milena,millicent,millie,mindy,minnie,mira,miranda,miriam,misty,mitzi,molly,mona,monica,monika,monique,montserrat,muriel,myra,myrtle,nadia,nadine,nancy,naomi,natalia,natalie,nell,nellie,nettie,nia,niamh,nicole,nicoletta,nieves,nikki,nina,noelle,nola,nora,noreen,norma,nydia,oceane,olga,olivia,opal,ophelia,ornella,ortensia,paige,paloma,pamela,paola,patricia,patsy,paula,paulette,paulina,pauline,pearl,peggy,penelope,petra,phyllis,pia,pilar,polly,prima,priscilla,queen,rachel,rachelle,rae,raffaella,ramona,raquel,rebeca,rebecca,rebekah,regina,renate,renee,rhea,rhoda,rhonda,rita,roberta,rochel,rochelle,ronda,rosa,rosalie,rosalind,rosalinda,rosalyn,roseann,rosemary,rosette,rosie,rossella,rowena,roxana,roxanne,ruby,ruth,sabine,sabrina,saidee,sally,samantha,sandra,sara,sarah,sarai,sarina,scarlett,selena,selene,selma,serena,shakira,shania,shanna,sharon,shauna,shawna,sheila,shelley,shelly,sheri,sherri,sherrie,sherry,sheryl,shirley,silke,silvia,simone,sinead,siobhan,sofia,soledad,solene,sonia,sonja,sonya,sophia,sophie,stacey,stacy,stefania,steffi,stella,stephanie,stephany,sue,susan,susana,susanna,susanne,susie,suzanne,suzette,sybil,sylvia,tabitha,talia,tamara,tami,tammie,tammy,tania,tanja,tanya,tara,tasha,teresa,teri,terra,terri,tess,tessa,thelma,theresa,therese,tia,tiana,tiara,tiffany,tina,tiziana,tonya,traci,tricia,trina,ulla,ulrike,ursula,uta,ute,valentina,valeria,valerie,vandana,vanessa,vera,veronica,vicki,vickie,victoria,vida,viola,violet,virginia,vivian,viviana,waltraud,wanda,wendy,whitney,wiebke,wilhelmina,willa,willow,wilma,winifred,winnie,yolanda,yvette,yvonne,zahra,zara,zelda,zoe,zoey,zofia,zola".split(",");
+  const male = "aaron,abdullah,adam,ahmed,alan,albert,alberto,alessandro,alexander,alfonso,alvaro,amir,andre,andreas,andres,andrew,angelo,anthony,antoine,anton,antonio,arnaud,arnie,arno,arnold,art,arthur,arturo,augustus,austin,axel,barney,bart,bartholomew,basil,ben,benito,benjamin,bennie,benny,benoit,bernard,bernardo,bernd,bernhard,bert,bertram,bill,billy,bjorn,bob,brad,bradford,bradley,brandon,brandt,brendan,bret,brian,brock,broderick,bruce,bruno,bryant,bryce,byron,caesar,caleb,calvin,carl,carlo,carlos,carlton,cesar,cesare,chad,charles,chester,christian,christoph,christophe,christopher,cian,cillian,clarence,clark,claude,clay,clayton,cliff,clifford,clifton,clint,clinton,clyde,colin,collin,colm,colton,conrad,craig,curtis,cyril,cyrus,damian,damien,damon,daniel,danny,dante,darius,darrell,darren,darryl,dave,david,davide,dean,declan,denis,dennis,derek,desmond,detlef,dick,diego,dieter,dirk,dmitri,dmitry,domenico,dominic,dominick,don,donald,doug,douglas,duane,duke,duncan,dustin,dwayne,dwight,eamon,eamonn,earl,eddie,edgar,edmond,edmund,eduardo,edward,edwin,ekkehard,eli,elias,elijah,elmer,elton,elvis,emil,emilio,emmanuel,emmett,enrico,enrique,eoin,eric,ernesto,erwin,esteban,ethan,etienne,eugene,evan,everett,ezekiel,ezra,fabian,fabien,fabio,federico,felipe,felix,ferdinand,fergus,fernando,fidel,filippo,fionn,florian,floyd,forrest,francesco,francis,francisco,franck,franco,frank,franklin,fred,freddie,frederic,frederick,fredrick,fritz,gabriel,gael,garrett,gary,gaston,gavin,gene,geoffrey,george,gerald,gerard,gerd,gerhard,giacomo,gilles,gino,giovanni,giuseppe,glen,glenn,gonzalo,gordon,graham,grant,greg,gregg,gregory,guillaume,guillermo,gunter,gunther,gustav,gustavo,gwyn,hamza,hans,hari,harold,harry,harvey,hassan,hector,heinrich,heinz,henri,henry,herbert,herman,hernan,hernando,herve,hiroshi,holger,horace,horacio,howard,hubert,hugh,hugo,humberto,hussein,ian,ibrahim,ignacio,igor,immanuel,irvin,irving,isaac,isaiah,ishmael,ismael,ismail,israel,ivan,ivo,jacek,jack,jacob,jacques,jake,jakob,james,jared,jarrod,jason,javier,jay,jeff,jefferson,jeffrey,jens,jeremy,jerome,jerry,jesus,jim,jimmy,joachim,joaquin,joe,joel,joey,johan,johannes,john,johnny,jon,jonathan,jonathon,jorge,jose,josef,joseph,joshua,josiah,jozef,juan,juergen,julien,julio,julius,jurgen,justin,karim,karl,keith,ken,kenji,kenneth,kenny,kent,kevin,khaled,khalid,kirk,klaus,konrad,kurt,kyle,lamar,lance,larry,lars,laurence,laurent,lawrence,leo,leon,leonard,leonardo,leroy,les,lester,levi,lewis,liam,lloyd,lorenzo,lou,louis,luc,luca,lucas,luigi,luis,luka,luke,malcolm,mandela,manuel,marc,marco,marcus,mario,mark,markus,marshall,martin,marvin,mason,massimo,mateo,mathew,mathias,matteo,matthew,matthias,maurice,max,maxim,maximilian,maximiliano,michael,michel,miguel,mike,milton,mitch,mitchell,mohamed,mohammad,mohammed,morris,moses,mustafa,nathan,nathanael,nathaniel,neal,neil,nelson,niall,nicholas,nick,nicolas,nigel,niklas,niko,nikos,noah,nolan,norman,odhran,olaf,oleg,oliver,olivier,omar,orlando,oscar,osvaldo,othman,otto,owen,pablo,padraig,paolo,pascal,patrick,paul,pavel,peter,petr,phil,philip,philippe,phillip,pierre,pieter,pietro,piotr,preston,qasim,quentin,rafael,ralf,ralph,ramon,randal,randall,randy,raul,ray,raymond,ricardo,richard,rick,ricky,riku,robert,roberto,rod,roderick,rodney,roger,roland,rolando,roman,ron,ronald,ronan,roy,ruairi,ruben,rudolph,rudy,rufus,rupert,russ,russell,ryan,salvador,salvatore,sam,samuel,santiago,saul,scott,sean,sebastian,sebastien,serge,sergei,sergey,sergio,seth,seymour,shane,simon,solomon,stanley,stefan,stefano,stephen,steve,steven,stewart,stuart,sven,sylvain,tadashi,takeshi,ted,teddy,theodore,thierry,thomas,tim,timothy,tobias,todd,tom,tomas,tommaso,tommy,tony,trevor,tyler,tyrone,tyson,udo,ulf,ulrich,ulysses,umberto,uri,uriah,vicente,victor,vincent,vincenzo,virgil,vladimir,volker,wallace,walter,warren,wayne,werner,wilbert,wilbur,wilfred,wilhelm,will,william,willie,wilson,winfried,wolfgang,woody,wyatt,xavier,yahir,yahya,yann,yosef,youssef,yuri,yury,yusuf,yves,zach,zachariah,zachary,zack,zain,zoltan".split(",");
+  for (let i = 0; i < female.length; i++) {
+    if (female[i]) map[female[i]] = "female";
+  }
+  for (let i = 0; i < male.length; i++) {
+    if (male[i]) map[male[i]] = "male";
+  }
+  for (const k in KNOWN_MEMBER_GENDER) {
+    if (Object.prototype.hasOwnProperty.call(KNOWN_MEMBER_GENDER, k)) map[k] = KNOWN_MEMBER_GENDER[k];
+  }
+  return map;
+})();
+const lastGenderNameBySlot = {};
+function normalizeGenderValue(v) {
+  const s = String(v == null ? "" : v).toLowerCase().trim().replace(/\s+/g, "");
+  if (s === "female" || s === "woman" || s === "f" || s === "she" || s === "she/her" || s === "sexf" || s === "f/female") return "female";
+  if (s === "male" || s === "man" || s === "m" || s === "he" || s === "he/him" || s === "sexm" || s === "m/male") return "male";
+  return "";
+}
+function normalizeNameKey(name) {
+  let s = String(name == null ? "" : name).trim();
+  if (!s) return "";
+  if (s.indexOf(",") >= 0) {
+    const after = s.split(",")[1];
+    if (after && after.trim()) s = after.trim();
+  }
+  s = s.split(/\s+/)[0] || "";
+  s = s.replace(/[.'’`´"“”]/g, "");
+  try {
+    if (s.normalize) s = s.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  } catch (e) {
+  }
+  return s.toLowerCase();
+}
+function firstNameMember(n) {
+  let s = String(n == null ? "" : n).trim();
+  if (!s) return "";
+  if (s.indexOf(",") >= 0) {
+    const after = s.split(",")[1];
+    if (after && after.trim()) s = after.trim();
+  }
+  return s.split(/\s+/)[0] || "";
+}
+function knownGenderForName(name) {
+  const k = normalizeNameKey(name);
+  if (!k) return "";
+  if (KNOWN_MEMBER_GENDER[k]) return KNOWN_MEMBER_GENDER[k];
+  if (COMMON_FIRST_NAME_GENDER[k]) return COMMON_FIRST_NAME_GENDER[k];
+  return "";
+}
+function genderFromChartFields(raw) {
+  if (!raw || typeof raw !== "object") return "";
+  return normalizeGenderValue(raw.gender || raw.Gender || raw.sex || raw.Sex || raw.pronouns || raw.Pronouns || raw.pronoun || raw.Pronoun);
+}
+function getPersonGenderOverride(n) {
+  try {
+    const el = document.getElementById("personGender" + n);
+    return normalizeGenderValue(el && el.value);
+  } catch (e) {
+    return "";
+  }
+}
+function detectPersonGender(n) {
+  try {
+    const raw = typeof loadParsedFromBox === "function" ? loadParsedFromBox(n) : null;
+    const fromFile = genderFromChartFields(raw);
+    if (fromFile) return fromFile;
+    const name = (typeof firstNameForSlot === "function" ? firstNameForSlot(n) : "") || raw && rawNameFields(raw) || "";
+    return knownGenderForName(name);
+  } catch (e) {
+    return "";
+  }
+}
+function resolvePersonGender(n) {
+  return getPersonGenderOverride(n) || detectPersonGender(n) || "";
+}
+function getPersonGender(n) {
+  return resolvePersonGender(n);
+}
+function setPersonGenderSelect(n, gender) {
+  const el = document.getElementById("personGender" + n);
+  if (el) {
+    const v = normalizeGenderValue(gender);
+    el.value = v || "";
+  }
+  try {
+    updateGenderChip(n);
+  } catch (e) {
+  }
+}
+function updateGenderAutoLabel(n) {
+  try {
+    updateGenderChip(n);
+  } catch (e) {
+  }
+}
+function pronounBasisAria(n) {
+  const g = resolvePersonGender(n);
+  if (g === "female") return "pronoun basis: female, tap to change";
+  if (g === "male") return "pronoun basis: male, tap to change";
+  return "pronoun basis not set, tap to change";
+}
+function closeGenderMenu(n) {
+  try {
+    const menu = document.getElementById("personGenderMenu" + n);
+    const chip = document.getElementById("personGenderChip" + n);
+    const wrap = document.getElementById("personGenderWrap" + n);
+    if (menu) menu.hidden = true;
+    if (chip) chip.setAttribute("aria-expanded", "false");
+    if (wrap) wrap.classList.remove("is-open");
+  } catch (e) {
+  }
+}
+function closeAllGenderMenus(except) {
+  const max = typeof PERSON_SLOT_MAX === "number" ? PERSON_SLOT_MAX : 6;
+  for (var i = 1; i <= max; i++) {
+    if (except && i === except) continue;
+    closeGenderMenu(i);
+  }
+}
+function syncGenderMenuState(n) {
+  const menu = document.getElementById("personGenderMenu" + n);
+  if (!menu) return;
+  const over = getPersonGenderOverride(n);
+  const btns = menu.querySelectorAll("button[data-gender]");
+  for (let i = 0; i < btns.length; i++) {
+    const v = btns[i].getAttribute("data-gender") || "";
+    const cur = over ? normalizeGenderValue(v) === over : v === "";
+    btns[i].classList.toggle("is-current", cur);
+    btns[i].setAttribute("aria-pressed", cur ? "true" : "false");
+  }
+}
+function openGenderMenu(n) {
+  try {
+    if (typeof personInputIsFilled === "function" && !personInputIsFilled(n)) return;
+    closeAllGenderMenus(n);
+    updateGenderChip(n);
+    syncGenderMenuState(n);
+    const menu = document.getElementById("personGenderMenu" + n);
+    const chip = document.getElementById("personGenderChip" + n);
+    const wrap = document.getElementById("personGenderWrap" + n);
+    if (menu) menu.hidden = false;
+    if (chip) chip.setAttribute("aria-expanded", "true");
+    if (wrap) wrap.classList.add("is-open");
+  } catch (e) {
+  }
+}
+function toggleGenderMenu(n) {
+  const chip = document.getElementById("personGenderChip" + n);
+  const open = chip && chip.getAttribute("aria-expanded") === "true";
+  if (open) closeGenderMenu(n);
+  else openGenderMenu(n);
+}
+function updateGenderChip(n) {
+  try {
+    const wrap = document.getElementById("personGenderWrap" + n);
+    const chip = document.getElementById("personGenderChip" + n);
+    if (!chip) return;
+    const filled = typeof personInputIsFilled === "function" && personInputIsFilled(n);
+    if (!filled) {
+      chip.hidden = true;
+      chip.textContent = "";
+      closeGenderMenu(n);
+      if (wrap) wrap.classList.add("is-vacant");
+      return;
+    }
+    if (wrap) wrap.classList.remove("is-vacant");
+    chip.hidden = false;
+    const g = resolvePersonGender(n);
+    chip.classList.toggle("is-unknown", !g);
+    chip.textContent = g ? g : "\u2014";
+    chip.setAttribute("aria-label", pronounBasisAria(n));
+    if (chip.getAttribute("aria-expanded") === "true") syncGenderMenuState(n);
+  } catch (e) {
+  }
+}
+function applyPersonGenderChoice(n, gender) {
+  setPersonGenderSelect(n, gender || "");
+  closeGenderMenu(n);
+  try {
+    const chip = document.getElementById("personGenderChip" + n);
+    if (chip && chip.focus) chip.focus();
+  } catch (e) {
+  }
+}
+function clearGenderNeeded(n) {
+  try {
+    const wrap = document.getElementById("personGenderWrap" + n);
+    if (wrap) wrap.classList.remove("gender-needed");
+    const sel = document.getElementById("personGender" + n);
+    if (sel) {
+      sel.classList.remove("gender-needed");
+      sel.removeAttribute("aria-invalid");
+    }
+    const msg = document.getElementById("genderNeeded" + n);
+    if (msg) msg.hidden = true;
+  } catch (e) {
+  }
+}
+function markGenderNeeded(n, on) {
+  try {
+    if (!on) clearGenderNeeded(n);
+  } catch (e) {
+  }
+}
+function firstNameForSlot(n) {
+  try {
+    const raw = loadParsedFromBox(n);
+    return firstNameFromRaw(raw, "") || "";
+  } catch (e) {
+    return "";
+  }
+}
+function syncPersonGenderFromName(n) {
+  try {
+    clearGenderNeeded(n);
+    if (!personInputIsFilled(n)) {
+      lastGenderNameBySlot[n] = "";
+      setPersonGenderSelect(n, "");
+      return;
+    }
+    const name = firstNameForSlot(n);
+    const key = normalizeNameKey(name);
+    const prev = lastGenderNameBySlot[n] || "";
+    if (key !== prev) {
+      lastGenderNameBySlot[n] = key;
+      if (prev) setPersonGenderSelect(n, "");
+    }
+    updateGenderAutoLabel(n);
+  } catch (e) {
+  }
+}
+function applyGenderToChart(raw, n) {
+  if (!raw || typeof raw !== "object") return raw;
+  const g = resolvePersonGender(n);
+  const out = {};
+  for (const k in raw) {
+    if (Object.prototype.hasOwnProperty.call(raw, k)) out[k] = raw[k];
+  }
+  try {
+    delete out.gender;
+    delete out.Gender;
+    delete out.sex;
+    delete out.Sex;
+    delete out.pronouns;
+    delete out.Pronouns;
+    delete out.pronoun;
+    delete out.Pronoun;
+  } catch (e) {
+  }
+  if (g) {
+    out.gender = g;
+    out.pronouns = g === "male" ? "he/him" : "she/her";
+  }
+  return out;
+}
+function listFilledMemberSlots() {
+  const out = [];
+  const max = typeof PERSON_SLOT_MAX === "number" ? PERSON_SLOT_MAX : 6;
+  for (var n = 1; n <= max; n++) {
+    if (!personInputIsFilled(n)) continue;
+    const g = resolvePersonGender(n);
+    out.push({
+      slot: n,
+      name: firstNameForSlot(n) || "Input " + n,
+      gender: g,
+      pronouns: g === "male" ? "he/him" : g === "female" ? "she/her" : "",
+      nameOnly: !g
+    });
+  }
+  return out;
+}
+function membersMissingGender() {
+  return [];
+}
+function collectMemberGenders() {
+  return listFilledMemberSlots().map(function(m) {
+    return {
+      name: m.name,
+      gender: m.gender || "",
+      pronouns: m.pronouns || "",
+      nameOnly: !!m.nameOnly
+    };
+  });
+}
+function promptMissingGender() {
+  return "";
+}
+function wirePersonGenderSelects() {
+  const max = typeof PERSON_SLOT_MAX === "number" ? PERSON_SLOT_MAX : 6;
+  for (var n = 1; n <= max; n++) {
+    (function(slot) {
+      const chip = document.getElementById("personGenderChip" + slot);
+      const menu = document.getElementById("personGenderMenu" + slot);
+      if (chip) {
+        chip.addEventListener("click", function(ev) {
+          try {
+            ev.preventDefault();
+            ev.stopPropagation();
+          } catch (e) {
+          }
+          toggleGenderMenu(slot);
+        });
+        chip.addEventListener("keydown", function(ev) {
+          const key = ev && ev.key;
+          if (key === "Escape") {
+            closeGenderMenu(slot);
+            return;
+          }
+          if (key === "ArrowDown" || key === "Enter" || key === " ") {
+            if (chip.getAttribute("aria-expanded") !== "true") {
+              if (key === "ArrowDown") {
+                ev.preventDefault();
+                openGenderMenu(slot);
+              }
+            }
+            if (key === "ArrowDown" && menu) {
+              ev.preventDefault();
+              const first = menu.querySelector("button");
+              if (first && first.focus) first.focus();
+            }
+          }
+        });
+      }
+      if (menu) {
+        menu.addEventListener("click", function(ev) {
+          try {
+            ev.stopPropagation();
+          } catch (e) {
+          }
+          const btn = ev.target && ev.target.closest ? ev.target.closest("button[data-gender]") : null;
+          if (!btn) return;
+          applyPersonGenderChoice(slot, btn.getAttribute("data-gender") || "");
+        });
+        menu.addEventListener("keydown", function(ev) {
+          const key = ev && ev.key;
+          const btns = Array.prototype.slice.call(menu.querySelectorAll("button[data-gender]"));
+          const i = btns.indexOf(document.activeElement);
+          if (key === "Escape") {
+            ev.preventDefault();
+            closeGenderMenu(slot);
+            if (chip && chip.focus) chip.focus();
+            return;
+          }
+          if (key === "ArrowRight" || key === "ArrowDown") {
+            ev.preventDefault();
+            const next = btns[(i < 0 ? 0 : i + 1) % btns.length];
+            if (next && next.focus) next.focus();
+          }
+          if (key === "ArrowLeft" || key === "ArrowUp") {
+            ev.preventDefault();
+            const prev = btns[(i < 0 ? 0 : i - 1 + btns.length) % btns.length];
+            if (prev && prev.focus) prev.focus();
+          }
+        });
+      }
+    })(n);
+    try {
+      syncPersonGenderFromName(n);
+    } catch (e) {
+    }
+  }
+  if (!wirePersonGenderSelects._docWired) {
+    wirePersonGenderSelects._docWired = true;
+    document.addEventListener("click", function(ev) {
+      try {
+        const t = ev.target;
+        if (t && t.closest && t.closest(".person-gender-wrap")) return;
+        closeAllGenderMenus();
+      } catch (e) {
+      }
+    });
+    document.addEventListener("keydown", function(ev) {
+      if (ev && ev.key === "Escape") closeAllGenderMenus();
+    });
   }
 }
 function loadParsedFromBox(n) {
@@ -93,9 +478,31 @@ function selectedPeopleFromBoxes() {
     anyExtra: extras.length > 0
   };
 }
+function rawNameFields(raw) {
+  let obj = raw;
+  if (obj == null) return "";
+  if (typeof obj === "string") {
+    const t = obj.trim();
+    if (!t) return "";
+    if (t.charAt(0) === "{") {
+      try {
+        obj = JSON.parse(t);
+      } catch (e) {
+        return "";
+      }
+    } else return "";
+  }
+  if (typeof obj !== "object") return "";
+  const keys = ["name", "Natal Name", "Name", "fullName", "label", "displayName", "firstName", "First Name", "natalName", "personName"];
+  for (let i = 0; i < keys.length; i++) {
+    const v = obj[keys[i]];
+    if (v != null && String(v).trim()) return String(v).trim();
+  }
+  return "";
+}
 function firstNameFromRaw(raw, fallback) {
   try {
-    const n = firstNameMember(raw && raw.name);
+    const n = firstNameMember(rawNameFields(raw));
     if (n) return n;
   } catch (e) {
   }
@@ -1668,6 +2075,11 @@ function collectResultSignature() {
         raw = "";
       }
       parts.push("p" + n + ":" + hashText(raw));
+      try {
+        parts.push("g" + n + ":" + (typeof getPersonGender === "function" ? getPersonGender(n) : ""));
+      } catch (e) {
+        parts.push("g" + n + ":");
+      }
     }
   } catch (e) {
   }
@@ -3358,7 +3770,7 @@ function askGrokBoxOn() {
   }
 }
 const PLAIN_LANG_STORAGE_KEY = "hdta_ask_plain_language";
-const PLAIN_LANG_INSTRUCTION = `PLAIN LANGUAGE STORY: Write ONE comprehensive, continuous narrative in flowing paragraphs, as a thoughtful friend would tell it. Fold the user's actual question into the story so it is answered as the story unfolds \u2014 do not start with a separate outline or bullet summary. Tell how these members interact and react with each other according to their designs, and how the selected transit period affects each of their designs and therefore the group dynamic. Weave every member into the story in a meaningful way, and naturally touch the important ways they work with one another, without turning the answer into a catalog, a pair-by-pair rundown, per-person data snippets, bullet lists, or labeled sections. No headings except perhaps one short title. Use everyday wording. Avoid Human Design jargon (gates, lines, channels, centers, Type, Strategy, Authority, Not-Self, definition, and similar terms). If a technical idea is essential, explain it in one short plain sentence instead of using the term. Be concrete: say what it may look or feel like in practice, give everyday examples, name the people, and weave in weekdays and 12-hour AM/PM times from the supplied context. Keep potentials, not predictions (for example, "this may favor" or "this can feel like," never "this will happen"). Use first names only. Eike is she/her. Cover every member. Still use only the supplied meanings and context; do not invent facts. Do not output JSON, fenced code blocks, or structured section labels.`;
+const PLAIN_LANG_INSTRUCTION = `PLAIN LANGUAGE STORY: Write ONE comprehensive, continuous narrative in flowing paragraphs, as a thoughtful friend would tell it. Fold the user's actual question into the story so it is answered as the story unfolds \u2014 do not start with a separate outline or bullet summary. Tell how these members interact and react with each other according to their designs, and how the selected transit period affects each of their designs and therefore the group dynamic. Weave every member into the story in a meaningful way, and naturally touch the important ways they work with one another, without turning the answer into a catalog, a pair-by-pair rundown, per-person data snippets, bullet lists, or labeled sections. No headings except perhaps one short title. Use everyday wording. Avoid Human Design jargon (gates, lines, channels, centers, Type, Strategy, Authority, Not-Self, definition, and similar terms). If a technical idea is essential, explain it in one short plain sentence instead of using the term. Be concrete: say what it may look or feel like in practice, give everyday examples, name the people, and weave in weekdays and 12-hour AM/PM times from the supplied context. Keep potentials, not predictions (for example, "this may favor" or "this can feel like," never "this will happen"). Use first names only. Cover every member. When a gender is supplied for someone, use only that person's she/her or he/him pronouns. Never use they/them for an individual. Never append a pronoun tag after a name. After naming someone whose pronouns are known, use he or she as supplied in later sentences; they is only correct for two or more people together. If a member has no gender supplied, refer to that person by first name only and do not use he, she, or they for that person. Mention a given clock time or time span only once; mention that time again only when it marks a relevant change, such as a transit or definition actually shifting. Still use only the supplied meanings and context; do not invent facts. Do not output JSON, fenced code blocks, or structured section labels.`;
 function askPlainLanguageOn() {
   try {
     const el = document.getElementById("askPlainLanguage");
@@ -3414,6 +3826,23 @@ function applyPlainLanguageToAsk(out) {
       if (names.people.length) {
         var extra = "Required members (every one must appear meaningfully, first names only): " + names.people.join(", ") + ". Weave their important interactions naturally through one continuous story. Do not write a pair-by-pair catalog, per-person snippets, bullet lists, or labeled sections.";
         out.context.instruction = String(out.context.instruction || "") + "\n" + extra;
+      }
+    }
+  } catch (e) {
+  }
+  try {
+    if (typeof collectMemberGenders === "function") {
+      var genders = collectMemberGenders();
+      out.genders = genders;
+      out.context = out.context || {};
+      out.context.genders = genders;
+      var lines = genders.map(function(g) {
+        if (g.gender === "female") return g.name + ": female, use she/her naturally in sentences, never as a tag after the name.";
+        if (g.gender === "male") return g.name + ": male, use he/him naturally in sentences, never as a tag after the name.";
+        return g.name + ": gender not known \u2014 refer to this person by first name only; do not use he, she, they, or any pronoun; do not append a tag after the name.";
+      });
+      if (lines.length) {
+        out.context.instruction = String(out.context.instruction || "") + '\nMember genders (authoritative; never they/them for an individual; never write "Name (she/her)" or "Name (he/him)"; if gender is not known, use the first name only and no pronoun): ' + lines.join(" ");
       }
     }
   } catch (e) {
@@ -3813,10 +4242,6 @@ function syncAskGrokPanel() {
 function escapeGrok(s) {
   return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
-function firstNameMember(n) {
-  const s = String(n == null ? "" : n).trim();
-  return s ? s.split(/\s+/)[0] : "";
-}
 function clipAsk(s, n) {
   s = String(s == null ? "" : s);
   if (s.length <= n) return s;
@@ -4043,10 +4468,11 @@ function compactDesignSummary(person) {
     return (ch.name || ch.id || "") + (cents ? " (" + cents + ")" : "") + (gates ? " " + gates : "");
   });
   const pn = window.HD && typeof HD.personPronouns === "function" ? HD.personPronouns(person) : null;
+  const genderKnown = !!(pn && pn.known && pn.gender);
   return {
     name: firstNameMember(person.name),
-    pronouns: pn && pn.label || "they/them",
-    gender: pn && pn.gender || "",
+    pronouns: genderKnown ? pn.label || "" : "",
+    gender: genderKnown ? pn.gender : "",
     type: profile.type || "",
     strategy: profile.strategy || "",
     authority: profile.authority || "",
@@ -4063,7 +4489,9 @@ function loadAskPersonFromBox(which) {
     const raw = String(getPersonRaw(which) || "").trim();
     if (!raw) return null;
     if (!window.HD || typeof HD.loadPerson !== "function") return null;
-    return HD.loadPerson(parseInput(raw) || raw);
+    const parsed = parseInput(raw) || raw;
+    const n = arguments.length && arguments[0];
+    return HD.loadPerson(typeof applyGenderToChart === "function" && n ? applyGenderToChart(parsed, n) : parsed);
   } catch (e) {
     return null;
   }
@@ -4081,8 +4509,11 @@ function loadedPeopleList() {
       const raw = loadParsedFromBox(n);
       if (!raw) continue;
       if (!window.HD || typeof HD.loadPerson !== "function") continue;
-      const person = HD.loadPerson(raw);
-      if (person) out.push(person);
+      const person = HD.loadPerson(typeof applyGenderToChart === "function" ? applyGenderToChart(raw, n) : raw);
+      if (person) {
+        person._inputSlot = n;
+        out.push(person);
+      }
     } catch (e) {
     }
   }
@@ -4856,12 +5287,13 @@ function runAnalysis() {
       status(friendly, "err");
       return;
     }
-    const person1 = HD.loadPerson(p1);
+    const person1 = HD.loadPerson(typeof applyGenderToChart === "function" ? applyGenderToChart(p1, 1) : p1);
     person1._inputSlot = 1;
     const extraPeople = [];
     (sel.extrasRaw || []).forEach(function(raw, i) {
-      const person = HD.loadPerson(raw);
-      person._inputSlot = sel.extraSlots[i];
+      const slot = sel.extraSlots[i];
+      const person = HD.loadPerson(typeof applyGenderToChart === "function" ? applyGenderToChart(raw, slot) : raw);
+      person._inputSlot = slot;
       extraPeople.push(person);
     });
     const person2 = extraPeople[0] || null;
@@ -6329,6 +6761,10 @@ function wire() {
   });
   safe("nowBtn", syncNowBtnHighlight);
   safe("runBtn", () => {
+    try {
+      wirePersonGenderSelects();
+    } catch (e) {
+    }
     const runBtn = $("runBtn");
     if (runBtn) runBtn.onclick = runAnalysis;
     try {

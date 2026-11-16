@@ -1,15 +1,15 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta http-equiv="Cache-Control" content="202611151345" />
-  <meta name="ta-build" content="202611151345" />
+  <meta http-equiv="Cache-Control" content="202611151640" />
+  <meta name="ta-build" content="202611151640" />
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="theme-color" content="#0f1419" />
-<title>Human Design Transit Analyzer - Model HDTA 6.4.15</title>
+<title>Human Design Transit Analyzer - Model HDTA 6.4.18</title>
 <link rel="manifest" href="manifest.webmanifest" />
 <style>
 
@@ -288,6 +288,126 @@ mark.display-hl-current{background:#e6c44c;color:#111;outline:2px solid #fff;}
 .toolbar button{width:auto;margin-top:0;padding:.4rem .7rem;font-size:.82rem}
 .toolbar #reportDisplayBtn{min-height:44px;min-width:44px;padding:.55rem .9rem;font-size:.95rem}
 .label-row{display:flex;align-items:center;justify-content:space-between;gap:.5rem;margin:.55rem 0 .22rem}
+.person-gender-wrap{
+  display:flex;
+  align-items:center;
+  gap:.22rem;
+  flex:0 0 auto;
+  margin:0 0 0 .15rem;
+  position:relative;
+  min-width:0;
+}
+.person-gender-wrap.is-vacant{
+  display:none;
+}
+.person-gender-chip{
+  appearance:none;
+  -webkit-appearance:none;
+  position:relative;
+  margin:0;
+  padding:.05rem .38rem;
+  min-height:0;
+  min-width:0;
+  font:400 .68rem/1.25 system-ui, -apple-system, sans-serif;
+  letter-spacing:.02em;
+  color:#8a96a3;
+  background:transparent;
+  border:1px solid rgba(138,150,163,.28);
+  border-radius:999px;
+  cursor:pointer;
+  text-transform:lowercase;
+  box-shadow:none;
+}
+.person-gender-chip::before{
+  content:'';
+  position:absolute;
+  inset:-8px -7px;
+}
+.person-gender-chip.is-unknown{
+  color:#6a7682;
+  border-color:transparent;
+  opacity:.5;
+}
+.person-gender-chip:hover{
+  color:#9aa6b2;
+  border-color:rgba(138,150,163,.42);
+  background:transparent;
+}
+.person-gender-chip:focus{
+  outline:none;
+}
+.person-gender-chip:focus-visible{
+  color:#9aa6b2;
+  border-color:rgba(138,150,163,.55);
+  outline:1px solid rgba(138,150,163,.4);
+  outline-offset:1px;
+}
+.person-gender-chip[aria-expanded="true"]{
+  border-color:rgba(138,150,163,.5);
+}
+.person-gender-menu{
+  display:flex;
+  flex-wrap:nowrap;
+  gap:.15rem;
+  align-items:center;
+  position:absolute;
+  top:calc(100% + 2px);
+  right:0;
+  z-index:8;
+  margin:0;
+  padding:2px;
+  background:rgba(16,22,32,.96);
+  border:1px solid rgba(138,150,163,.22);
+  border-radius:999px;
+  box-shadow:none;
+}
+.person-gender-menu[hidden]{
+  display:none !important;
+}
+.person-gender-menu button{
+  appearance:none;
+  -webkit-appearance:none;
+  margin:0;
+  padding:.05rem .38rem;
+  min-height:28px;
+  min-width:0;
+  font:400 .68rem/1.25 system-ui, -apple-system, sans-serif;
+  letter-spacing:.02em;
+  color:#8a96a3;
+  background:transparent;
+  border:1px solid rgba(138,150,163,.28);
+  border-radius:999px;
+  cursor:pointer;
+  text-transform:lowercase;
+  box-shadow:none;
+}
+.person-gender-menu button:hover,
+.person-gender-menu button:focus-visible{
+  color:#9aa6b2;
+  border-color:rgba(138,150,163,.5);
+  outline:none;
+}
+.person-gender-menu button:focus-visible{
+  outline:1px solid rgba(138,150,163,.4);
+  outline-offset:1px;
+}
+.person-gender-menu button.is-current{
+  color:#a7b2bd;
+  border-color:rgba(138,150,163,.5);
+}
+.person-gender-sr{
+  position:absolute !important;
+  width:1px !important;
+  height:1px !important;
+  padding:0 !important;
+  margin:-1px !important;
+  overflow:hidden !important;
+  clip:rect(0,0,0,0) !important;
+  clip-path:inset(50%) !important;
+  white-space:nowrap !important;
+  border:0 !important;
+}
+
 .label-row label{margin:0;flex:1}
 .clear-btn{width:auto;min-width:1.7rem;height:auto;min-height:1.7rem;padding:2px 7px;margin:0;flex-shrink:0;border-radius:6px;border:1px solid var(--border);background:#1a2433;color:#e02020;font-size:.7rem;line-height:1.15;cursor:pointer;font-weight:700;white-space:nowrap}
 .clear-btn:hover{background:#2a1a1a;color:#ff3b3b;border-color:#8a3030}
@@ -753,8 +873,8 @@ html{scroll-padding-top:calc(var(--hdta-sticky-offset, 0px) + 3.4rem)}
 
 </style>
 <script>
-/* Single source for the visible model number. Increment the last digit on each update (e.g. 6.4.15 → next). */
-window.HDTA_MODEL='6.4.15';
+/* Single source for the visible model number. Increment the last digit on each update (e.g. 6.4.18 → next). */
+window.HDTA_MODEL='6.4.18';
 (function(){
   var MODEL=window.HDTA_MODEL;
   var full='Human Design Transit Analyzer - Model HDTA '+MODEL;
@@ -824,7 +944,7 @@ window.HDTA_MODEL='6.4.15';
 <body>
 <div id="taErrorBanner" hidden role="alert"></div>
 <header>
-  <h1 id="appTitle">Human Design Transit Analyzer - Model HDTA 6.4.15</h1>
+  <h1 id="appTitle">Human Design Transit Analyzer - Model HDTA 6.4.18</h1>
   <p>Up to six members · Offline-capable ephemeris · True Lunar Node · Plain-language transit stories</p>
 </header>
 <div class="banner" id="cdnBanner"></div>
@@ -833,9 +953,22 @@ window.HDTA_MODEL='6.4.15';
     <h2>Inputs</h2>
     <div class="label-row">
       <label id="personLabel1" class="person-input-label is-empty">Person / Input 1 (JSON, text, or .docx)</label>
-      <button type="button" class="clear-btn" id="clearPerson1" title="Remove Input" aria-label="Remove Input 1">REMOVE INPUT</button>
+          <div class="person-gender-wrap is-vacant" id="personGenderWrap1">
+        <button type="button" class="person-gender-chip" id="personGenderChip1" aria-expanded="false" aria-haspopup="true" aria-controls="personGenderMenu1" hidden></button>
+        <div class="person-gender-menu" id="personGenderMenu1" hidden role="menu" aria-label="Change pronoun basis">
+          <button type="button" role="menuitem" data-gender="female">female</button>
+          <button type="button" role="menuitem" data-gender="male">male</button>
+          <button type="button" role="menuitem" data-gender="">auto</button>
+        </div>
+        <select id="personGender1" class="person-gender-sr" tabindex="-1" aria-hidden="true">
+          <option value="">Auto</option>
+          <option value="female">Female</option>
+          <option value="male">Male</option>
+        </select>
+      </div>
+<button type="button" class="clear-btn" id="clearPerson1" title="Remove Input" aria-label="Remove Input 1">REMOVE INPUT</button>
     </div>
-    <div class="chart-status" id="chartStatus1" aria-live="polite"></div>
+<div class="chart-status" id="chartStatus1" aria-live="polite"></div>
     <div class="row">
       <div>
         <label>Upload .json / .txt / .docx / .png</label>
@@ -870,9 +1003,22 @@ window.HDTA_MODEL='6.4.15';
 
     <div class="label-row">
       <label id="personLabel2" class="person-input-label is-empty">Person / Input 2 (optional couple)</label>
-      <button type="button" class="clear-btn" id="clearPerson2" title="Remove Input" aria-label="Remove Input 2">REMOVE INPUT</button>
+          <div class="person-gender-wrap is-vacant" id="personGenderWrap2">
+        <button type="button" class="person-gender-chip" id="personGenderChip2" aria-expanded="false" aria-haspopup="true" aria-controls="personGenderMenu2" hidden></button>
+        <div class="person-gender-menu" id="personGenderMenu2" hidden role="menu" aria-label="Change pronoun basis">
+          <button type="button" role="menuitem" data-gender="female">female</button>
+          <button type="button" role="menuitem" data-gender="male">male</button>
+          <button type="button" role="menuitem" data-gender="">auto</button>
+        </div>
+        <select id="personGender2" class="person-gender-sr" tabindex="-1" aria-hidden="true">
+          <option value="">Auto</option>
+          <option value="female">Female</option>
+          <option value="male">Male</option>
+        </select>
+      </div>
+<button type="button" class="clear-btn" id="clearPerson2" title="Remove Input" aria-label="Remove Input 2">REMOVE INPUT</button>
     </div>
-    <div class="chart-status" id="chartStatus2" aria-live="polite"></div>
+<div class="chart-status" id="chartStatus2" aria-live="polite"></div>
     <div class="row">
       <div>
         <label>Upload .json / .txt / .docx / .png</label>
@@ -908,9 +1054,22 @@ window.HDTA_MODEL='6.4.15';
 
     <div class="label-row">
       <label id="personLabel3" class="person-input-label is-empty">Person / Input 3 (optional)</label>
-      <button type="button" class="clear-btn" id="clearPerson3" title="Remove Input" aria-label="Remove Input 3">REMOVE INPUT</button>
+          <div class="person-gender-wrap is-vacant" id="personGenderWrap3">
+        <button type="button" class="person-gender-chip" id="personGenderChip3" aria-expanded="false" aria-haspopup="true" aria-controls="personGenderMenu3" hidden></button>
+        <div class="person-gender-menu" id="personGenderMenu3" hidden role="menu" aria-label="Change pronoun basis">
+          <button type="button" role="menuitem" data-gender="female">female</button>
+          <button type="button" role="menuitem" data-gender="male">male</button>
+          <button type="button" role="menuitem" data-gender="">auto</button>
+        </div>
+        <select id="personGender3" class="person-gender-sr" tabindex="-1" aria-hidden="true">
+          <option value="">Auto</option>
+          <option value="female">Female</option>
+          <option value="male">Male</option>
+        </select>
+      </div>
+<button type="button" class="clear-btn" id="clearPerson3" title="Remove Input" aria-label="Remove Input 3">REMOVE INPUT</button>
     </div>
-    <div class="chart-status" id="chartStatus3" aria-live="polite"></div>
+<div class="chart-status" id="chartStatus3" aria-live="polite"></div>
     <div class="row">
       <div>
         <label>Upload .json / .txt / .docx / .png</label>
@@ -948,9 +1107,22 @@ window.HDTA_MODEL='6.4.15';
     <div class="person-block" data-person="4">
     <div class="label-row">
       <label id="personLabel4" class="person-input-label is-empty">Person / Input 4 (optional)</label>
-      <button type="button" class="clear-btn" id="clearPerson4" title="Remove Input" aria-label="Remove Input 4">REMOVE INPUT</button>
+          <div class="person-gender-wrap is-vacant" id="personGenderWrap4">
+        <button type="button" class="person-gender-chip" id="personGenderChip4" aria-expanded="false" aria-haspopup="true" aria-controls="personGenderMenu4" hidden></button>
+        <div class="person-gender-menu" id="personGenderMenu4" hidden role="menu" aria-label="Change pronoun basis">
+          <button type="button" role="menuitem" data-gender="female">female</button>
+          <button type="button" role="menuitem" data-gender="male">male</button>
+          <button type="button" role="menuitem" data-gender="">auto</button>
+        </div>
+        <select id="personGender4" class="person-gender-sr" tabindex="-1" aria-hidden="true">
+          <option value="">Auto</option>
+          <option value="female">Female</option>
+          <option value="male">Male</option>
+        </select>
+      </div>
+<button type="button" class="clear-btn" id="clearPerson4" title="Remove Input" aria-label="Remove Input 4">REMOVE INPUT</button>
     </div>
-    <div class="chart-status" id="chartStatus4" aria-live="polite"></div>
+<div class="chart-status" id="chartStatus4" aria-live="polite"></div>
     <div class="row">
       <div>
         <label>Upload .json / .txt / .docx / .png</label>
@@ -985,9 +1157,22 @@ window.HDTA_MODEL='6.4.15';
     <div class="person-block" data-person="5">
     <div class="label-row">
       <label id="personLabel5" class="person-input-label is-empty">Person / Input 5 (optional)</label>
-      <button type="button" class="clear-btn" id="clearPerson5" title="Remove Input" aria-label="Remove Input 5">REMOVE INPUT</button>
+          <div class="person-gender-wrap is-vacant" id="personGenderWrap5">
+        <button type="button" class="person-gender-chip" id="personGenderChip5" aria-expanded="false" aria-haspopup="true" aria-controls="personGenderMenu5" hidden></button>
+        <div class="person-gender-menu" id="personGenderMenu5" hidden role="menu" aria-label="Change pronoun basis">
+          <button type="button" role="menuitem" data-gender="female">female</button>
+          <button type="button" role="menuitem" data-gender="male">male</button>
+          <button type="button" role="menuitem" data-gender="">auto</button>
+        </div>
+        <select id="personGender5" class="person-gender-sr" tabindex="-1" aria-hidden="true">
+          <option value="">Auto</option>
+          <option value="female">Female</option>
+          <option value="male">Male</option>
+        </select>
+      </div>
+<button type="button" class="clear-btn" id="clearPerson5" title="Remove Input" aria-label="Remove Input 5">REMOVE INPUT</button>
     </div>
-    <div class="chart-status" id="chartStatus5" aria-live="polite"></div>
+<div class="chart-status" id="chartStatus5" aria-live="polite"></div>
     <div class="row">
       <div>
         <label>Upload .json / .txt / .docx / .png</label>
@@ -1022,9 +1207,22 @@ window.HDTA_MODEL='6.4.15';
     <div class="person-block" data-person="6">
     <div class="label-row">
       <label id="personLabel6" class="person-input-label is-empty">Person / Input 6 (optional)</label>
-      <button type="button" class="clear-btn" id="clearPerson6" title="Remove Input" aria-label="Remove Input 6">REMOVE INPUT</button>
+          <div class="person-gender-wrap is-vacant" id="personGenderWrap6">
+        <button type="button" class="person-gender-chip" id="personGenderChip6" aria-expanded="false" aria-haspopup="true" aria-controls="personGenderMenu6" hidden></button>
+        <div class="person-gender-menu" id="personGenderMenu6" hidden role="menu" aria-label="Change pronoun basis">
+          <button type="button" role="menuitem" data-gender="female">female</button>
+          <button type="button" role="menuitem" data-gender="male">male</button>
+          <button type="button" role="menuitem" data-gender="">auto</button>
+        </div>
+        <select id="personGender6" class="person-gender-sr" tabindex="-1" aria-hidden="true">
+          <option value="">Auto</option>
+          <option value="female">Female</option>
+          <option value="male">Male</option>
+        </select>
+      </div>
+<button type="button" class="clear-btn" id="clearPerson6" title="Remove Input" aria-label="Remove Input 6">REMOVE INPUT</button>
     </div>
-    <div class="chart-status" id="chartStatus6" aria-live="polite"></div>
+<div class="chart-status" id="chartStatus6" aria-live="polite"></div>
     <div class="row">
       <div>
         <label>Upload .json / .txt / .docx / .png</label>
@@ -1207,7 +1405,7 @@ window.HDTA_MODEL='6.4.15';
     <p class="hint" id="timelineHint" style="display:block;margin:.35rem 0 .5rem">Timeline scans the selected day or range in the chosen timezone (from local midnight to midnight) for gate/line ingresses that touch the entered chart(s). Selected by default.</p>
     <p class="run-stale-hint no-print" id="runStaleHint" hidden>Changes made — Press to Update</p>
     <button type="button" id="runBtn">Run Human Design / Transit Analysis</button>
-    <p class="model-id" id="modelLabel">Model HDTA 6.4.15</p>
+    <p class="model-id" id="modelLabel">Model HDTA 6.4.18</p>
     <div class="status" id="status"></div>
   </section>
 
@@ -1326,8 +1524,8 @@ window.HDTA_MODEL='6.4.15';
 </div>
 
 <!-- Data is separate from the UI. Script order matters. Works via file:// on Windows and via https on iPhone/iPad Firefox. -->
-<script src="astronomy.browser.min.js?v=202611151345"></script>
-<script src="data.js?v=202611151345"></script>
+<script src="astronomy.browser.min.js?v=202611151640"></script>
+<script src="data.js?v=202611151640"></script>
 
 <script>
 /* ES5 quick-load + Full/Brief bootstrap: works even if later scripts fail. */
@@ -1444,8 +1642,8 @@ window.HDTA_MODEL='6.4.15';
   else { boot(); }
 })();
 </script>
-<script src="analyzer.js?v=202611151345"></script>
-<script src="app.js?v=202611151345"></script>
+<script src="analyzer.js?v=202611151640"></script>
+<script src="app.js?v=202611151640"></script>
 <div id="answerPrintRoot" hidden></div>
 </body>
 </html>
