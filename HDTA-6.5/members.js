@@ -1064,8 +1064,8 @@ window.HDTA_MEMBERS = {
   {
    "key": "becky",
    "name": "Becky",
-   "gender": "female",
-   "pronouns": "she/her",
+   "gender": "",
+   "pronouns": "",
    "chart": {
     "name": "Becky Hoffman AI",
     "planets": {
@@ -1289,9 +1289,7 @@ window.HDTA_MEMBERS = {
       "gl": "48.5",
       "side": "design"
      }
-    ],
-    "gender": "female",
-    "pronouns": "she/her"
+    ]
    }
   },
   {
@@ -1529,8 +1527,8 @@ window.HDTA_MEMBERS = {
   {
    "key": "josh",
    "name": "Josh",
-   "gender": "male",
-   "pronouns": "he/him",
+   "gender": "",
+   "pronouns": "",
    "chart": {
     "name": "Josh Hoffman AI",
     "planets": {
@@ -1755,16 +1753,14 @@ window.HDTA_MEMBERS = {
       "gl": "60.6",
       "side": "design"
      }
-    ],
-    "gender": "male",
-    "pronouns": "he/him"
+    ]
    }
   },
   {
    "key": "emmie",
    "name": "Emmie",
-   "gender": "female",
-   "pronouns": "she/her",
+   "gender": "",
+   "pronouns": "",
    "chart": {
     "name": "Emmie Hoffman AI",
     "planets": {
@@ -1991,9 +1987,7 @@ window.HDTA_MEMBERS = {
       "gl": "26.3",
       "side": "design"
      }
-    ],
-    "gender": "female",
-    "pronouns": "she/her"
+    ]
    }
   },
   {
