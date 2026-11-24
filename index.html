@@ -1314,7 +1314,7 @@
             </div>
 
             <div id="report-viewer" class="mt-2">
-                <iframe id="transit-app" src="https://new-experiment-one.vercel.app" title="Transit reports" allow="autoplay; web-share"></iframe>
+                <iframe id="transit-app" src="https://hdta-6-6.vercel.app/preview/" title="Transit reports" allow="autoplay; web-share"></iframe>
                 <script>
                     (function () {
                         var frame = document.getElementById("transit-app");
@@ -1328,7 +1328,7 @@
                         });
                         window.addEventListener("scroll", releaseFrame, { passive: true });
                         window.addEventListener("message", function (event) {
-                            if (event.origin !== "https://new-experiment-one.vercel.app") return;
+                            if (event.origin !== "https://hdta-6-6.vercel.app") return;
                             if (event.source !== frame.contentWindow) return;
                             var data = event.data || {};
                             if (data.type !== "transit-frame-height") return;
@@ -1337,7 +1337,7 @@
                             frame.style.height = Math.ceil(height) + "px";
                         });
                         // Messages from the transit app: open the reading form, or scroll to its question box.
-                        var APP_ORIGIN = "https://new-experiment-one.vercel.app";
+                        var APP_ORIGIN = "https://hdta-6-6.vercel.app";
                         var askWanted = false, askTimer = null, askFallback = null, followUntil = 0;
                         function stopFollow() { followUntil = 0; }
                         ["wheel", "touchstart", "keydown"].forEach(function (ev) {
