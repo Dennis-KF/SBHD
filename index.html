@@ -1314,81 +1314,8 @@
             </div>
 
             <div id="report-viewer" class="mt-2">
-                <iframe id="transit-app" src="https://hdta-6-6.vercel.app/preview/" title="Transit reports" allow="autoplay; web-share"></iframe>
-                <script>
-                    (function () {
-                        var frame = document.getElementById("transit-app");
-                        var viewer = document.getElementById("report-viewer");
-                        if (!frame || !viewer) return;
-                        function releaseFrame() {
-                            frame.classList.remove("transit-live");
-                        }
-                        viewer.addEventListener("click", function () {
-                            frame.classList.add("transit-live");
-                        });
-                        window.addEventListener("scroll", releaseFrame, { passive: true });
-                        window.addEventListener("message", function (event) {
-                            if (event.origin !== "https://hdta-6-6.vercel.app") return;
-                            if (event.source !== frame.contentWindow) return;
-                            var data = event.data || {};
-                            if (data.type !== "transit-frame-height") return;
-                            var height = Number(data.height);
-                            if (!height || height < 480 || height > 20000) return;
-                            frame.style.height = Math.ceil(height) + "px";
-                        });
-                        // Messages from the transit app: open the reading form, or scroll to its question box.
-                        var APP_ORIGIN = "https://hdta-6-6.vercel.app";
-                        var askWanted = false, askTimer = null, askFallback = null, followUntil = 0;
-                        function stopFollow() { followUntil = 0; }
-                        ["wheel", "touchstart", "keydown"].forEach(function (ev) {
-                            window.addEventListener(ev, stopFollow, { passive: true });
-                        });
-                        function makeLive() { frame.classList.add("transit-live"); }
-                        window.addEventListener("message", function (event) {
-                            if (event.origin !== APP_ORIGIN) return;
-                            if (event.source !== frame.contentWindow) return;
-                            var data = event.data || {};
-                            if (data.type === "showJoinModal") {
-                                if (typeof showJoinModal === "function") showJoinModal();
-                                event.source.postMessage({ type: "showJoinModal", ok: true }, APP_ORIGIN);
-                            } else if (data.type === "transit-ask-position" && (askWanted || Date.now() < followUntil)) {
-                                var top = Number(data.top);
-                                if (!isFinite(top) || top < 0 || top > 20000) return;
-                                if (askWanted) {
-                                    askWanted = false;
-                                    followUntil = Date.now() + 30000;
-                                    if (askTimer) { clearInterval(askTimer); askTimer = null; }
-                                    if (askFallback) { clearTimeout(askFallback); askFallback = null; }
-                                }
-                                // Jump straight to the question box, skipping the transit report above it.
-                                var nav = document.querySelector("nav");
-                                var navH = nav ? Math.ceil(nav.getBoundingClientRect().bottom) : 80;
-                                var y = frame.getBoundingClientRect().top + window.pageYOffset + top - navH - 16;
-                                window.scrollTo({ top: Math.max(0, y), behavior: "instant" });
-                                setTimeout(makeLive, 60);
-                            }
-                        });
-                        window.sbhdGoToAsk = function () {
-                            askWanted = true;
-                            var tries = 0;
-                            function ask() {
-                                tries += 1;
-                                if (!askWanted || tries > 40) { clearInterval(askTimer); askTimer = null; return; }
-                                try { frame.contentWindow.postMessage({ type: "sbhd-scroll-to-ask" }, APP_ORIGIN); } catch (err) {}
-                            }
-                            if (askTimer) clearInterval(askTimer);
-                            askTimer = setInterval(ask, 250);
-                            ask();
-                            // If the transit app does not answer, fall back to the top of the transit section.
-                            if (askFallback) clearTimeout(askFallback);
-                            askFallback = setTimeout(function () {
-                                if (askWanted) viewer.scrollIntoView({ behavior: "smooth", block: "start" });
-                            }, 4000);
-                            return false;
-                        };
-                        if (window.location.hash === "#ask") setTimeout(window.sbhdGoToAsk, 800);
-                    })();
-                </script>
+                <iframe id="transit-app" src="https://hdta-6-6.vercel.app/preview/" title="Transit reports" allow="autoplay; web-share" scrolling="no" loading="eager" width="100%" style="width:100%;border:0;display:block;min-height:640px;height:800px;overflow:hidden;"></iframe>
+                <script src="js/hdta-embed.js" defer></script>
             </div>
 
             <div class="mt-10 max-w-6xl mx-auto">
